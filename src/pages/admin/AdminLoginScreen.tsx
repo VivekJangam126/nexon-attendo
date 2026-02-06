@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Building2, Eye, EyeOff, AlertCircle, Shield } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 
-const LoginScreen = () => {
+const AdminLoginScreen = () => {
   const navigate = useNavigate();
-  const [employeeId, setEmployeeId] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,18 +16,17 @@ const LoginScreen = () => {
     setError(null);
     setIsLoading(true);
 
-    // Simulate login validation
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    if (!employeeId || !password) {
-      setError("Please enter your Employee ID and password");
+    if (!email || !password) {
+      setError("Please enter your email and password");
       setIsLoading(false);
       return;
     }
 
     // Demo: Accept any credentials for prototype
-    if (employeeId && password) {
-      navigate("/dashboard");
+    if (email && password) {
+      navigate("/admin/dashboard");
     } else {
       setError("Invalid credentials. Please try again.");
     }
@@ -37,8 +36,15 @@ const LoginScreen = () => {
   return (
     <MobileContainer>
       <div className="flex flex-col h-full min-h-[800px] px-6 py-8">
-        {/* Header */}
         <div className="flex-1 flex flex-col justify-center">
+          {/* Admin Badge */}
+          <div className="flex items-center justify-center mb-6 animate-fade-in-up">
+            <div className="flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full">
+              <Shield className="w-4 h-4" />
+              <span className="text-sm font-medium">Admin Portal</span>
+            </div>
+          </div>
+
           {/* Logo */}
           <div className="flex items-center justify-center mb-8 animate-fade-in-up">
             <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center shadow-md shadow-primary/20">
@@ -48,8 +54,8 @@ const LoginScreen = () => {
 
           {/* Title */}
           <div className="text-center mb-8 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-            <h1 className="text-title mb-1">Employee Login</h1>
-            <p className="text-caption">Sign in to mark your attendance</p>
+            <h1 className="text-title mb-1">Admin Login</h1>
+            <p className="text-caption">Manage employee attendance</p>
           </div>
 
           {/* Error Message */}
@@ -62,23 +68,21 @@ const LoginScreen = () => {
 
           {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-4 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-            {/* Employee ID */}
             <div>
-              <label htmlFor="employeeId" className="block text-sm font-medium text-foreground mb-2">
-                Employee ID
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+                Email Address
               </label>
               <input
-                id="employeeId"
-                type="text"
-                value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
-                placeholder="Enter your Employee ID"
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@nexon.com"
                 className="input-field"
-                autoComplete="username"
+                autoComplete="email"
               />
             </div>
 
-            {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
                 Password
@@ -103,7 +107,6 @@ const LoginScreen = () => {
               </div>
             </div>
 
-            {/* Login Button */}
             <button
               type="submit"
               disabled={isLoading}
@@ -120,18 +123,17 @@ const LoginScreen = () => {
             </button>
           </form>
 
-          {/* Switch to Admin */}
+          {/* Switch to Employee */}
           <div className="text-center mt-6">
             <button
-              onClick={() => navigate("/admin/login")}
+              onClick={() => navigate("/login")}
               className="text-sm text-muted-foreground hover:text-primary transition-colors"
             >
-              Admin Login →
+              Employee Login →
             </button>
           </div>
         </div>
 
-        {/* Footer */}
         <div className="text-center py-4">
           <p className="text-caption">Nexon Pvt Ltd</p>
         </div>
@@ -140,4 +142,4 @@ const LoginScreen = () => {
   );
 };
 
-export default LoginScreen;
+export default AdminLoginScreen;
