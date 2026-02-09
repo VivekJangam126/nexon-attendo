@@ -26,7 +26,7 @@ const ForgotPasswordScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col h-full min-h-[800px] px-6 py-8">
+      <div className="flex flex-col min-h-full px-6 py-8">
         <div className="flex-1 flex flex-col">
           {/* Back */}
           <button onClick={() => navigate("/login")} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8 self-start">

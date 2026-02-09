@@ -40,7 +40,7 @@ const ChangePasswordScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col h-full min-h-[800px]">
+      <div className="flex flex-col min-h-full">
         <div className="px-6 pt-8 pb-4 border-b border-border flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-muted rounded-lg transition-colors">
             <ArrowLeft className="w-5 h-5 text-foreground" />

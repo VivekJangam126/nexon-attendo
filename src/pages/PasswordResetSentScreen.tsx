@@ -9,7 +9,7 @@ const PasswordResetSentScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col items-center justify-center h-full min-h-[800px] px-8">
+      <div className="flex flex-col items-center justify-center min-h-full px-8">
         <div className="relative mb-8 animate-scale-in">
           <div className="w-28 h-28 bg-success-muted rounded-full flex items-center justify-center">
             <div className="w-20 h-20 bg-success rounded-full flex items-center justify-center">

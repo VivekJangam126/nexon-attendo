@@ -35,7 +35,7 @@ const AdminLoginScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col h-full min-h-[800px] px-6 py-8">
+      <div className="flex flex-col min-h-full px-6 py-8">
         <div className="flex-1 flex flex-col justify-center">
           {/* Admin Badge */}
           <div className="flex items-center justify-center mb-6 animate-fade-in-up">

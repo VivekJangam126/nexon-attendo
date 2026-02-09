@@ -9,7 +9,7 @@ const RegistrationPendingScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col items-center justify-center h-full min-h-[800px] px-8">
+      <div className="flex flex-col items-center justify-center min-h-full px-8">
         {/* Icon */}
         <div className="relative mb-8 animate-scale-in">
           <div className="w-28 h-28 bg-warning-muted rounded-full flex items-center justify-center">

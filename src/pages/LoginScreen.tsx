@@ -61,7 +61,7 @@ const LoginScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col h-full min-h-[800px] px-6 py-8">
+      <div className="flex flex-col min-h-full px-6 py-8">
         {/* Header */}
         <div className="flex-1 flex flex-col justify-center">
           {/* Logo */}

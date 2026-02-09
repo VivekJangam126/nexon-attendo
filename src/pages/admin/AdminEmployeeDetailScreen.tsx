@@ -102,7 +102,7 @@ const AdminEmployeeDetailScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col h-full min-h-[800px]">
+      <div className="flex flex-col min-h-full">
         {/* Header */}
         <div className="px-6 pt-8 pb-6 bg-primary text-primary-foreground rounded-b-3xl">
           <div className="flex items-center justify-between mb-6">

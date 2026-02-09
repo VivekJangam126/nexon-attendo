@@ -15,7 +15,7 @@ const SplashScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col items-center justify-center h-full min-h-[800px] px-8">
+      <div className="flex flex-col items-center justify-center min-h-full px-8">
         {/* Logo Area */}
         <div className="animate-scale-in">
           <div className="w-24 h-24 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30 mb-8">
