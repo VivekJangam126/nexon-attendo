@@ -9,7 +9,6 @@ import {
   Calendar,
   ChevronRight,
   AlertCircle,
-  Building2,
   LogOut
 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
@@ -53,8 +52,8 @@ const AdminDashboardScreen = () => {
   ];
 
   const pendingActions = [
-    { title: "3 employees pending approval", type: "approval" },
-    { title: "2 leave requests pending", type: "leave" },
+    { title: "3 employees pending approval", type: "approval", path: "/admin/pending-approvals" },
+    { title: "2 leave requests pending", type: "leave", path: "/admin/employees" },
   ];
 
   const handleLogout = () => {
@@ -160,13 +159,17 @@ const AdminDashboardScreen = () => {
               <h2 className="text-overline mb-3">Pending Actions</h2>
               <div className="space-y-2">
                 {pendingActions.map((action, index) => (
-                  <div key={index} className="card-elevated p-4 flex items-center gap-3">
+                  <button 
+                    key={index} 
+                    onClick={() => navigate(action.path)}
+                    className="card-elevated p-4 flex items-center gap-3 w-full text-left hover:bg-muted/50 transition-colors"
+                  >
                     <div className="w-8 h-8 bg-warning-muted rounded-full flex items-center justify-center">
                       <AlertCircle className="w-4 h-4 text-warning" />
                     </div>
                     <p className="flex-1 text-sm font-medium">{action.title}</p>
                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -176,7 +179,7 @@ const AdminDashboardScreen = () => {
           <div className="animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-overline">Recent Activity</h2>
-              <button className="text-xs text-primary font-medium">View All</button>
+              <button onClick={() => navigate("/admin/reports")} className="text-xs text-primary font-medium">View All</button>
             </div>
             <div className="card-elevated divide-y divide-border">
               {recentActivity.map((activity, index) => (

@@ -170,13 +170,16 @@ const AdminSettingsScreen = () => {
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />
               </button>
 
-              <button className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors">
+              <button 
+                onClick={() => navigate("/admin/pending-approvals")}
+                className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors"
+              >
                 <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-primary" />
+                  <Clock className="w-5 h-5 text-primary" />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="font-medium">Admin Users</p>
-                  <p className="text-xs text-muted-foreground">Manage admin access</p>
+                  <p className="font-medium">Pending Approvals</p>
+                  <p className="text-xs text-muted-foreground">Review registration requests</p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />
               </button>

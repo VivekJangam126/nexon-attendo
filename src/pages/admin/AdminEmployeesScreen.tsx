@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, ChevronRight, UserCheck, Clock, UserX, MoreVertical, Plus } from "lucide-react";
+import { Search, ChevronRight, UserCheck, Clock, UserX, Plus, ClipboardList } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import AdminBottomNavigation from "@/components/AdminBottomNavigation";
 
@@ -65,16 +65,27 @@ const AdminEmployeesScreen = () => {
       <div className="flex flex-col h-full min-h-[800px] pb-20">
         {/* Header */}
         <div className="px-6 pt-8 pb-4 border-b border-border">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <div>
               <h1 className="text-display mb-1">Employees</h1>
               <p className="text-caption">{mockEmployees.length} total employees</p>
             </div>
+          </div>
+          {/* Action buttons */}
+          <div className="flex gap-2">
             <button 
-              onClick={() => {/* Add employee modal */}}
-              className="p-2 bg-primary text-primary-foreground rounded-lg"
+              onClick={() => navigate("/admin/add-employee")}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
+              Add Employee
+            </button>
+            <button 
+              onClick={() => navigate("/admin/pending-approvals")}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 bg-warning-muted text-warning rounded-lg text-sm font-medium"
+            >
+              <ClipboardList className="w-4 h-4" />
+              Pending (3)
             </button>
           </div>
         </div>
@@ -92,14 +103,11 @@ const AdminEmployeesScreen = () => {
             />
           </div>
 
-          {/* Department Filter */}
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <button
               onClick={() => setFilterDepartment(null)}
               className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                !filterDepartment
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
+                !filterDepartment ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
               }`}
             >
               All
@@ -109,9 +117,7 @@ const AdminEmployeesScreen = () => {
                 key={dept}
                 onClick={() => setFilterDepartment(dept)}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                  filterDepartment === dept
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
+                  filterDepartment === dept ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 }`}
               >
                 {dept}
@@ -149,21 +155,11 @@ const AdminEmployeesScreen = () => {
                       <span className="text-xs text-muted-foreground">{employee.department}</span>
                     </div>
                     {employee.checkInTime && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Check-in: {employee.checkInTime}
-                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">Check-in: {employee.checkInTime}</p>
                     )}
                   </div>
 
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Open options menu
-                    }}
-                    className="p-2 hover:bg-muted rounded-lg transition-colors"
-                  >
-                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                  </button>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                 </div>
               </div>
             ))}

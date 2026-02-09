@@ -2,6 +2,16 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, Eye, EyeOff, AlertCircle } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const LoginScreen = () => {
   const navigate = useNavigate();
@@ -16,7 +26,6 @@ const LoginScreen = () => {
     setError(null);
     setIsLoading(true);
 
-    // Simulate login validation
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     if (!employeeId || !password) {
@@ -25,7 +34,23 @@ const LoginScreen = () => {
       return;
     }
 
-    // Demo: Accept any credentials for prototype
+    // Demo account state handling
+    if (employeeId === "pending") {
+      setIsLoading(false);
+      navigate("/account-blocked?reason=pending");
+      return;
+    }
+    if (employeeId === "rejected") {
+      setIsLoading(false);
+      navigate("/account-blocked?reason=rejected");
+      return;
+    }
+    if (employeeId === "deactivated") {
+      setIsLoading(false);
+      navigate("/account-blocked?reason=deactivated");
+      return;
+    }
+
     if (employeeId && password) {
       navigate("/dashboard");
     } else {
@@ -103,6 +128,17 @@ const LoginScreen = () => {
               </div>
             </div>
 
+            {/* Forgot Password */}
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => navigate("/forgot-password")}
+                className="text-sm text-primary hover:text-primary/80 transition-colors"
+              >
+                Forgot Password?
+              </button>
+            </div>
+
             {/* Login Button */}
             <button
               type="submit"
@@ -120,8 +156,18 @@ const LoginScreen = () => {
             </button>
           </form>
 
-          {/* Switch to Admin */}
+          {/* Register Link */}
           <div className="text-center mt-6">
+            <button
+              onClick={() => navigate("/register")}
+              className="text-sm text-primary hover:text-primary/80 transition-colors font-medium"
+            >
+              New Employee? Register →
+            </button>
+          </div>
+
+          {/* Switch to Admin */}
+          <div className="text-center mt-3">
             <button
               onClick={() => navigate("/admin/login")}
               className="text-sm text-muted-foreground hover:text-primary transition-colors"
