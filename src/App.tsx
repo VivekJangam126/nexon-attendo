@@ -14,8 +14,16 @@ import ProfileScreen from "./pages/ProfileScreen";
 import AdminLoginScreen from "./pages/admin/AdminLoginScreen";
 import AdminDashboardScreen from "./pages/admin/AdminDashboardScreen";
 import AdminEmployeesScreen from "./pages/admin/AdminEmployeesScreen";
+import AdminEmployeeDetailScreen from "./pages/admin/AdminEmployeeDetailScreen";
 import AdminReportsScreen from "./pages/admin/AdminReportsScreen";
 import AdminSettingsScreen from "./pages/admin/AdminSettingsScreen";
+import OfficeLocationsScreen from "./pages/admin/settings/OfficeLocationsScreen";
+import WifiNetworksScreen from "./pages/admin/settings/WifiNetworksScreen";
+import GeofencingScreen from "./pages/admin/settings/GeofencingScreen";
+import AttendanceWindowScreen from "./pages/admin/settings/AttendanceWindowScreen";
+import GracePeriodScreen from "./pages/admin/settings/GracePeriodScreen";
+import HelpCenterScreen from "./pages/admin/settings/HelpCenterScreen";
+import TermsPoliciesScreen from "./pages/admin/settings/TermsPoliciesScreen";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,8 +49,18 @@ const App = () => (
           <Route path="/admin/login" element={<AdminLoginScreen />} />
           <Route path="/admin/dashboard" element={<AdminDashboardScreen />} />
           <Route path="/admin/employees" element={<AdminEmployeesScreen />} />
+          <Route path="/admin/employee/:id" element={<AdminEmployeeDetailScreen />} />
           <Route path="/admin/reports" element={<AdminReportsScreen />} />
           <Route path="/admin/settings" element={<AdminSettingsScreen />} />
+          
+          {/* Admin Settings Sub-routes */}
+          <Route path="/admin/settings/locations" element={<OfficeLocationsScreen />} />
+          <Route path="/admin/settings/wifi" element={<WifiNetworksScreen />} />
+          <Route path="/admin/settings/geofencing" element={<GeofencingScreen />} />
+          <Route path="/admin/settings/window" element={<AttendanceWindowScreen />} />
+          <Route path="/admin/settings/grace" element={<GracePeriodScreen />} />
+          <Route path="/admin/settings/help" element={<HelpCenterScreen />} />
+          <Route path="/admin/settings/terms" element={<TermsPoliciesScreen />} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

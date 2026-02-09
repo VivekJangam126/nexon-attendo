@@ -9,15 +9,29 @@ import {
   UserCheck,
   Clock,
   UserX,
-  BarChart3
+  BarChart3,
+  FileText,
+  X,
+  Check
 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import AdminBottomNavigation from "@/components/AdminBottomNavigation";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { toast } from "@/hooks/use-toast";
 
 type TimeRange = "today" | "week" | "month";
 
 const AdminReportsScreen = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>("week");
+  const [showExportSheet, setShowExportSheet] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"csv" | "pdf">("csv");
+  const [isExporting, setIsExporting] = useState(false);
 
   const reportData = {
     today: {
@@ -49,12 +63,53 @@ const AdminReportsScreen = () => {
   const data = reportData[timeRange];
 
   const weeklyBreakdown = [
-    { day: "Mon", present: 148, late: 5, absent: 3 },
-    { day: "Tue", present: 145, late: 7, absent: 4 },
-    { day: "Wed", present: 150, late: 3, absent: 3 },
-    { day: "Thu", present: 142, late: 8, absent: 6 },
-    { day: "Fri", present: 140, late: 10, absent: 6 },
+    { day: "Mon", date: "2024-01-15", present: 148, late: 5, absent: 3 },
+    { day: "Tue", date: "2024-01-16", present: 145, late: 7, absent: 4 },
+    { day: "Wed", date: "2024-01-17", present: 150, late: 3, absent: 3 },
+    { day: "Thu", date: "2024-01-18", present: 142, late: 8, absent: 6 },
+    { day: "Fri", date: "2024-01-19", present: 140, late: 10, absent: 6 },
   ];
+
+  const generateCSV = () => {
+    const headers = ['Date', 'Day', 'Present', 'Late', 'Absent', 'Rate'];
+    const rows = weeklyBreakdown.map(row => [
+      row.date,
+      row.day,
+      row.present,
+      row.late,
+      row.absent,
+      `${Math.round((row.present / 156) * 100)}%`
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    return csv;
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    
+    // Simulate export process
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    if (exportFormat === "csv") {
+      const csv = generateCSV();
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `attendance-report-${timeRange}-${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    
+    setIsExporting(false);
+    setShowExportSheet(false);
+    toast({
+      title: "Report Downloaded",
+      description: `Attendance report exported as ${exportFormat.toUpperCase()} successfully.`,
+    });
+  };
 
   const departmentStats = [
     { name: "Engineering", employees: 45, rate: 96 },
@@ -75,7 +130,10 @@ const AdminReportsScreen = () => {
               <h1 className="text-display mb-1">Reports</h1>
               <p className="text-caption">Attendance analytics</p>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+            <button 
+              onClick={() => setShowExportSheet(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
+            >
               <Download className="w-4 h-4" />
               Export
             </button>
@@ -235,6 +293,75 @@ const AdminReportsScreen = () => {
         </div>
 
         <AdminBottomNavigation />
+
+        {/* Export Sheet */}
+        <Sheet open={showExportSheet} onOpenChange={setShowExportSheet}>
+          <SheetContent side="bottom" className="rounded-t-3xl">
+            <SheetHeader className="text-left">
+              <SheetTitle>Export Report</SheetTitle>
+              <SheetDescription>
+                Download attendance report for {timeRange === "today" ? "today" : timeRange === "week" ? "this week" : "this month"}
+              </SheetDescription>
+            </SheetHeader>
+            
+            <div className="py-6 space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-3">Select Format</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setExportFormat("csv")}
+                    className={`p-4 rounded-xl border-2 transition-colors ${
+                      exportFormat === "csv" 
+                        ? "border-primary bg-accent" 
+                        : "border-border"
+                    }`}
+                  >
+                    <FileText className={`w-6 h-6 mx-auto mb-2 ${exportFormat === "csv" ? "text-primary" : "text-muted-foreground"}`} />
+                    <p className="font-medium text-sm">CSV</p>
+                    <p className="text-xs text-muted-foreground">Spreadsheet</p>
+                  </button>
+                  <button
+                    onClick={() => setExportFormat("pdf")}
+                    className={`p-4 rounded-xl border-2 transition-colors ${
+                      exportFormat === "pdf" 
+                        ? "border-primary bg-accent" 
+                        : "border-border"
+                    }`}
+                  >
+                    <FileText className={`w-6 h-6 mx-auto mb-2 ${exportFormat === "pdf" ? "text-primary" : "text-muted-foreground"}`} />
+                    <p className="font-medium text-sm">PDF</p>
+                    <p className="text-xs text-muted-foreground">Document</p>
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 rounded-xl p-4">
+                <p className="text-sm font-medium mb-1">Report Summary</p>
+                <p className="text-xs text-muted-foreground">
+                  {timeRange === "today" ? "1 day" : timeRange === "week" ? "5 days" : "~30 days"} of attendance data • {data.totalEmployees} employees
+                </p>
+              </div>
+
+              <button
+                onClick={handleExport}
+                disabled={isExporting}
+                className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isExporting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5" />
+                    Download {exportFormat.toUpperCase()}
+                  </>
+                )}
+              </button>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </MobileContainer>
   );
