@@ -5,6 +5,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import SplashScreen from "./pages/SplashScreen";
 import LoginScreen from "./pages/LoginScreen";
+import RegisterScreen from "./pages/RegisterScreen";
+import RegistrationPendingScreen from "./pages/RegistrationPendingScreen";
+import AccountBlockedScreen from "./pages/AccountBlockedScreen";
+import ForgotPasswordScreen from "./pages/ForgotPasswordScreen";
+import PasswordResetSentScreen from "./pages/PasswordResetSentScreen";
+import ChangePasswordScreen from "./pages/ChangePasswordScreen";
+import HelpSupportScreen from "./pages/HelpSupportScreen";
+import AttendanceRulesScreen from "./pages/AttendanceRulesScreen";
 import DashboardScreen from "./pages/DashboardScreen";
 import AttendanceProcessingScreen from "./pages/AttendanceProcessingScreen";
 import AttendanceSuccessScreen from "./pages/AttendanceSuccessScreen";
@@ -15,6 +23,8 @@ import AdminLoginScreen from "./pages/admin/AdminLoginScreen";
 import AdminDashboardScreen from "./pages/admin/AdminDashboardScreen";
 import AdminEmployeesScreen from "./pages/admin/AdminEmployeesScreen";
 import AdminEmployeeDetailScreen from "./pages/admin/AdminEmployeeDetailScreen";
+import AdminAddEmployeeScreen from "./pages/admin/AdminAddEmployeeScreen";
+import AdminPendingApprovalsScreen from "./pages/admin/AdminPendingApprovalsScreen";
 import AdminReportsScreen from "./pages/admin/AdminReportsScreen";
 import AdminSettingsScreen from "./pages/admin/AdminSettingsScreen";
 import OfficeLocationsScreen from "./pages/admin/settings/OfficeLocationsScreen";
@@ -38,6 +48,14 @@ const App = () => (
           {/* Employee Routes */}
           <Route path="/" element={<SplashScreen />} />
           <Route path="/login" element={<LoginScreen />} />
+          <Route path="/register" element={<RegisterScreen />} />
+          <Route path="/registration-pending" element={<RegistrationPendingScreen />} />
+          <Route path="/account-blocked" element={<AccountBlockedScreen />} />
+          <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
+          <Route path="/password-reset-sent" element={<PasswordResetSentScreen />} />
+          <Route path="/change-password" element={<ChangePasswordScreen />} />
+          <Route path="/help-support" element={<HelpSupportScreen />} />
+          <Route path="/attendance-rules" element={<AttendanceRulesScreen />} />
           <Route path="/dashboard" element={<DashboardScreen />} />
           <Route path="/attendance-processing" element={<AttendanceProcessingScreen />} />
           <Route path="/attendance-success" element={<AttendanceSuccessScreen />} />
@@ -50,6 +68,8 @@ const App = () => (
           <Route path="/admin/dashboard" element={<AdminDashboardScreen />} />
           <Route path="/admin/employees" element={<AdminEmployeesScreen />} />
           <Route path="/admin/employee/:id" element={<AdminEmployeeDetailScreen />} />
+          <Route path="/admin/add-employee" element={<AdminAddEmployeeScreen />} />
+          <Route path="/admin/pending-approvals" element={<AdminPendingApprovalsScreen />} />
           <Route path="/admin/reports" element={<AdminReportsScreen />} />
           <Route path="/admin/settings" element={<AdminSettingsScreen />} />
           
