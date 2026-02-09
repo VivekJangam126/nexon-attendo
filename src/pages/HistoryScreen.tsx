@@ -101,7 +101,7 @@ const HistoryScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col h-full min-h-[800px] pb-20">
+      <div className="flex flex-col min-h-full pb-20">
         {/* Header */}
         <div className="px-6 pt-8 pb-4 border-b border-border">
           <h1 className="text-display mb-1">Attendance History</h1>

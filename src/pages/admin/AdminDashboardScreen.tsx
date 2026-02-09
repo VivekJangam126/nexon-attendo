@@ -63,7 +63,7 @@ const AdminDashboardScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col h-full min-h-[800px] pb-20">
+      <div className="flex flex-col min-h-full pb-20">
         {/* Header */}
         <div className="px-6 pt-8 pb-4 bg-primary text-primary-foreground rounded-b-3xl">
           <div className="flex items-center justify-between mb-4">

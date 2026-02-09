@@ -59,7 +59,7 @@ const AdminPendingApprovalsScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col h-full min-h-[800px]">
+      <div className="flex flex-col min-h-full">
         {/* Header */}
         <div className="px-6 pt-8 pb-4 border-b border-border flex items-center gap-3">
           <button onClick={() => navigate("/admin/employees")} className="p-2 -ml-2 hover:bg-muted rounded-lg transition-colors">

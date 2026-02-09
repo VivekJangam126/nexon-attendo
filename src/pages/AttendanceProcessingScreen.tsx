@@ -34,7 +34,7 @@ const AttendanceProcessingScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col items-center justify-center h-full min-h-[800px] px-8">
+      <div className="flex flex-col items-center justify-center min-h-full px-8">
         {/* Processing Animation */}
         <div className="relative mb-12">
           <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center animate-pulse-gentle">

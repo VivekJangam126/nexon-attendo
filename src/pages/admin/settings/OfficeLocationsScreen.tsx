@@ -41,7 +41,7 @@ const OfficeLocationsScreen = () => {
 
   return (
     <MobileContainer>
-      <div className="flex flex-col h-full min-h-[800px]">
+      <div className="flex flex-col min-h-full">
         {/* Header */}
         <div className="px-6 pt-8 pb-4 border-b border-border">
           <div className="flex items-center gap-4 mb-4">

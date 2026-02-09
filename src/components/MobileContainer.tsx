@@ -7,12 +7,14 @@ interface MobileContainerProps {
 
 const MobileContainer: React.FC<MobileContainerProps> = ({ children, className = "" }) => {
   return (
-    <div className="min-h-screen bg-muted flex items-center justify-center p-4">
+    <div className="min-h-screen bg-muted flex items-start md:items-center justify-center md:p-4">
       <div 
-        className={`mobile-container bg-background shadow-2xl rounded-3xl overflow-hidden relative ${className}`}
-        style={{ minHeight: "calc(100vh - 2rem)", maxHeight: "900px" }}
+        className={`mobile-container bg-background md:shadow-2xl md:rounded-3xl relative flex flex-col ${className}`}
+        style={{ height: "100vh", maxHeight: "100vh" }}
       >
-        {children}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0">
+          {children}
+        </div>
       </div>
     </div>
   );
