@@ -2,7 +2,7 @@
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+**URL**: https://preview--nexon-time-keeper.lovable.app/login
 
 ## How can I edit this code?
 
