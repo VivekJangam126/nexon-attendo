@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Building2, 
@@ -16,14 +17,25 @@ import {
 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import AdminBottomNavigation from "@/components/AdminBottomNavigation";
-import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const AdminSettingsScreen = () => {
   const navigate = useNavigate();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [strictMode, setStrictMode] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   const handleLogout = () => {
+    setShowLogoutDialog(false);
     navigate("/admin/login");
   };
 
@@ -42,7 +54,10 @@ const AdminSettingsScreen = () => {
           <div className="animate-fade-in-up">
             <h2 className="text-overline mb-3">Office Configuration</h2>
             <div className="card-elevated divide-y divide-border">
-              <button className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors">
+              <button 
+                onClick={() => navigate("/admin/settings/locations")}
+                className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors"
+              >
                 <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
                   <Building2 className="w-5 h-5 text-primary" />
                 </div>
@@ -53,7 +68,10 @@ const AdminSettingsScreen = () => {
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />
               </button>
 
-              <button className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors">
+              <button 
+                onClick={() => navigate("/admin/settings/wifi")}
+                className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors"
+              >
                 <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
                   <Wifi className="w-5 h-5 text-primary" />
                 </div>
@@ -64,7 +82,10 @@ const AdminSettingsScreen = () => {
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />
               </button>
 
-              <button className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors">
+              <button 
+                onClick={() => navigate("/admin/settings/geofencing")}
+                className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors"
+              >
                 <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
                   <MapPin className="w-5 h-5 text-primary" />
                 </div>
@@ -81,7 +102,10 @@ const AdminSettingsScreen = () => {
           <div className="animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
             <h2 className="text-overline mb-3">Attendance Rules</h2>
             <div className="card-elevated divide-y divide-border">
-              <button className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors">
+              <button 
+                onClick={() => navigate("/admin/settings/window")}
+                className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors"
+              >
                 <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
                   <Clock className="w-5 h-5 text-primary" />
                 </div>
@@ -92,7 +116,10 @@ const AdminSettingsScreen = () => {
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />
               </button>
 
-              <button className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors">
+              <button 
+                onClick={() => navigate("/admin/settings/grace")}
+                className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors"
+              >
                 <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
                   <Clock className="w-5 h-5 text-primary" />
                 </div>
@@ -129,7 +156,10 @@ const AdminSettingsScreen = () => {
           <div className="animate-fade-in-up" style={{ animationDelay: "0.15s" }}>
             <h2 className="text-overline mb-3">User Management</h2>
             <div className="card-elevated divide-y divide-border">
-              <button className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors">
+              <button 
+                onClick={() => navigate("/admin/employees")}
+                className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors"
+              >
                 <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
                   <Users className="w-5 h-5 text-primary" />
                 </div>
@@ -183,7 +213,10 @@ const AdminSettingsScreen = () => {
           <div className="animate-fade-in-up" style={{ animationDelay: "0.25s" }}>
             <h2 className="text-overline mb-3">Support</h2>
             <div className="card-elevated divide-y divide-border">
-              <button className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors">
+              <button 
+                onClick={() => navigate("/admin/settings/help")}
+                className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors"
+              >
                 <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
                   <HelpCircle className="w-5 h-5 text-primary" />
                 </div>
@@ -194,7 +227,10 @@ const AdminSettingsScreen = () => {
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />
               </button>
 
-              <button className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors">
+              <button 
+                onClick={() => navigate("/admin/settings/terms")}
+                className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors"
+              >
                 <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
                   <FileText className="w-5 h-5 text-primary" />
                 </div>
@@ -210,7 +246,7 @@ const AdminSettingsScreen = () => {
           {/* Logout */}
           <div className="animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
             <button
-              onClick={handleLogout}
+              onClick={() => setShowLogoutDialog(true)}
               className="w-full flex items-center justify-center gap-2 py-4 px-6 bg-destructive-muted text-destructive rounded-xl font-medium transition-colors hover:bg-destructive/20"
             >
               <LogOut className="w-5 h-5" />
@@ -226,6 +262,27 @@ const AdminSettingsScreen = () => {
         </div>
 
         <AdminBottomNavigation />
+
+        {/* Logout Confirmation Dialog */}
+        <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+          <AlertDialogContent className="max-w-[340px] rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Sign Out</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to sign out? You'll need to log in again to access the admin portal.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-row gap-3">
+              <AlertDialogCancel className="flex-1 mt-0">Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleLogout}
+                className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Sign Out
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </MobileContainer>
   );

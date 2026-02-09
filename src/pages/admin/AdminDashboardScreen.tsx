@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   Users, 
   UserCheck, 
@@ -7,12 +9,26 @@ import {
   Calendar,
   ChevronRight,
   AlertCircle,
-  Building2
+  Building2,
+  LogOut
 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import AdminBottomNavigation from "@/components/AdminBottomNavigation";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const AdminDashboardScreen = () => {
+  const navigate = useNavigate();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
     weekday: "long",
@@ -41,6 +57,11 @@ const AdminDashboardScreen = () => {
     { title: "2 leave requests pending", type: "leave" },
   ];
 
+  const handleLogout = () => {
+    setShowLogoutDialog(false);
+    navigate("/admin/login");
+  };
+
   return (
     <MobileContainer>
       <div className="flex flex-col h-full min-h-[800px] pb-20">
@@ -51,8 +72,13 @@ const AdminDashboardScreen = () => {
               <p className="text-primary-foreground/80 text-sm">Welcome back,</p>
               <h1 className="text-xl font-semibold">Admin</h1>
             </div>
-            <div className="w-10 h-10 bg-primary-foreground/20 rounded-full flex items-center justify-center">
-              <Building2 className="w-5 h-5" />
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowLogoutDialog(true)}
+                className="w-10 h-10 bg-primary-foreground/20 rounded-full flex items-center justify-center hover:bg-primary-foreground/30 transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
             </div>
           </div>
           <div className="flex items-center gap-2 text-primary-foreground/80 text-sm">
@@ -178,6 +204,27 @@ const AdminDashboardScreen = () => {
         </div>
 
         <AdminBottomNavigation />
+
+        {/* Logout Confirmation Dialog */}
+        <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+          <AlertDialogContent className="max-w-[340px] rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Sign Out</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to sign out? You'll need to log in again to access the admin portal.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-row gap-3">
+              <AlertDialogCancel className="flex-1 mt-0">Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleLogout}
+                className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Sign Out
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </MobileContainer>
   );
