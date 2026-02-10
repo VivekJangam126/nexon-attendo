@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, FileText, Shield, Database, ScrollText } from "lucide-react";
-import MobileContainer from "@/components/MobileContainer";
+import AdminLayout from "@/components/AdminLayout";
 import {
   Accordion,
   AccordionContent,
@@ -12,14 +12,14 @@ const TermsPoliciesScreen = () => {
   const navigate = useNavigate();
 
   return (
-    <MobileContainer>
-      <div className="flex flex-col min-h-full">
+    <AdminLayout>
+      <div className="flex flex-col min-h-full pb-20 md:pb-0">
         {/* Header */}
-        <div className="px-6 pt-8 pb-4 border-b border-border">
+        <div className="px-4 sm:px-6 lg:px-8 pt-6 lg:pt-8 pb-4 border-b border-border">
           <div className="flex items-center gap-4 mb-4">
             <button 
               onClick={() => navigate("/admin/settings")}
-              className="p-2 -ml-2 hover:bg-muted rounded-lg transition-colors"
+              className="p-2 -ml-2 hover:bg-muted rounded-lg transition-colors lg:hidden"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -31,7 +31,7 @@ const TermsPoliciesScreen = () => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 px-6 py-6 space-y-4 overflow-y-auto">
+        <div className="flex-1 px-4 sm:px-6 lg:px-8 py-6 space-y-4 overflow-y-auto max-w-3xl">
           <div className="card-elevated overflow-hidden animate-fade-in-up">
             <Accordion type="single" collapsible className="w-full">
               {/* Terms of Service */}
@@ -152,7 +152,7 @@ const TermsPoliciesScreen = () => {
           </div>
         </div>
       </div>
-    </MobileContainer>
+    </AdminLayout>
   );
 };
 

@@ -1,28 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock, CheckCircle2, XCircle, Eye, User, Mail, Building2, Calendar } from "lucide-react";
-import MobileContainer from "@/components/MobileContainer";
+import AdminLayout from "@/components/AdminLayout";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 
 interface PendingEmployee {
-  id: string;
-  name: string;
-  email: string;
-  department: string;
-  role: string;
-  officeLocation: string;
-  submittedDate: string;
-  status: "pending" | "approved" | "rejected";
+  id: string; name: string; email: string; department: string;
+  role: string; officeLocation: string; submittedDate: string; status: "pending" | "approved" | "rejected";
 }
 
 const mockPending: PendingEmployee[] = [
@@ -50,19 +38,17 @@ const AdminPendingApprovalsScreen = () => {
       setEmployees((prev) => prev.map((e) => (e.id === rejectTarget ? { ...e, status: "rejected" as const } : e)));
       toast({ title: "Registration Rejected", description: "The employee registration has been rejected." });
     }
-    setShowRejectDialog(false);
-    setRejectReason("");
-    setRejectTarget(null);
+    setShowRejectDialog(false); setRejectReason(""); setRejectTarget(null);
   };
 
   const pendingList = employees.filter((e) => e.status === "pending");
 
   return (
-    <MobileContainer>
-      <div className="flex flex-col min-h-full">
+    <AdminLayout>
+      <div className="flex flex-col min-h-full pb-20 md:pb-0">
         {/* Header */}
-        <div className="px-6 pt-8 pb-4 border-b border-border flex items-center gap-3">
-          <button onClick={() => navigate("/admin/employees")} className="p-2 -ml-2 hover:bg-muted rounded-lg transition-colors">
+        <div className="px-4 sm:px-6 lg:px-8 pt-6 lg:pt-8 pb-4 border-b border-border flex items-center gap-3">
+          <button onClick={() => navigate("/admin/employees")} className="p-2 -ml-2 hover:bg-muted rounded-lg transition-colors lg:hidden">
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <div>
@@ -72,7 +58,7 @@ const AdminPendingApprovalsScreen = () => {
         </div>
 
         {/* List */}
-        <div className="flex-1 px-6 py-4 overflow-y-auto">
+        <div className="flex-1 px-4 sm:px-6 lg:px-8 py-4 overflow-y-auto">
           {pendingList.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
               <div className="w-16 h-16 bg-success-muted rounded-full flex items-center justify-center mb-4">
@@ -82,7 +68,7 @@ const AdminPendingApprovalsScreen = () => {
               <p className="text-caption">No pending registrations to review.</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
               {pendingList.map((emp, index) => (
                 <div key={emp.id} className="card-elevated p-4 animate-fade-in-up" style={{ animationDelay: `${index * 0.05}s` }}>
                   <div className="flex items-start gap-3">
@@ -96,28 +82,15 @@ const AdminPendingApprovalsScreen = () => {
                       <p className="text-xs text-muted-foreground mt-0.5">Submitted: {new Date(emp.submittedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
                     </div>
                   </div>
-
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-                    <button
-                      onClick={() => { setSelectedEmployee(emp); setShowDetail(true); }}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View
+                    <button onClick={() => { setSelectedEmployee(emp); setShowDetail(true); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors">
+                      <Eye className="w-4 h-4" />View
                     </button>
-                    <button
-                      onClick={() => handleApprove(emp.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-success text-success-foreground rounded-lg text-sm font-medium hover:bg-success/90 transition-colors"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      Approve
+                    <button onClick={() => handleApprove(emp.id)} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-success text-success-foreground rounded-lg text-sm font-medium hover:bg-success/90 transition-colors">
+                      <CheckCircle2 className="w-4 h-4" />Approve
                     </button>
-                    <button
-                      onClick={() => { setRejectTarget(emp.id); setShowRejectDialog(true); }}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:bg-destructive/90 transition-colors"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      Reject
+                    <button onClick={() => { setRejectTarget(emp.id); setShowRejectDialog(true); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:bg-destructive/90 transition-colors">
+                      <XCircle className="w-4 h-4" />Reject
                     </button>
                   </div>
                 </div>
@@ -128,9 +101,9 @@ const AdminPendingApprovalsScreen = () => {
 
         {/* Detail Sheet */}
         {showDetail && selectedEmployee && (
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center" onClick={() => setShowDetail(false)}>
-            <div className="w-full max-w-[430px] bg-card rounded-t-3xl p-6 space-y-4 animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
-              <div className="w-10 h-1 bg-muted rounded-full mx-auto mb-2" />
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-end lg:items-center justify-center" onClick={() => setShowDetail(false)}>
+            <div className="w-full max-w-lg bg-card rounded-t-3xl lg:rounded-2xl p-6 space-y-4 animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
+              <div className="w-10 h-1 bg-muted rounded-full mx-auto mb-2 lg:hidden" />
               <h2 className="text-heading">Registration Details</h2>
               <div className="space-y-3">
                 {[
@@ -153,12 +126,8 @@ const AdminPendingApprovalsScreen = () => {
                 ))}
               </div>
               <div className="flex gap-3 pt-2">
-                <button onClick={() => { handleApprove(selectedEmployee.id); setShowDetail(false); }} className="flex-1 py-3 bg-success text-success-foreground rounded-xl font-medium">
-                  Approve
-                </button>
-                <button onClick={() => { setRejectTarget(selectedEmployee.id); setShowRejectDialog(true); setShowDetail(false); }} className="flex-1 py-3 bg-destructive text-destructive-foreground rounded-xl font-medium">
-                  Reject
-                </button>
+                <button onClick={() => { handleApprove(selectedEmployee.id); setShowDetail(false); }} className="flex-1 py-3 bg-success text-success-foreground rounded-xl font-medium">Approve</button>
+                <button onClick={() => { setRejectTarget(selectedEmployee.id); setShowRejectDialog(true); setShowDetail(false); }} className="flex-1 py-3 bg-destructive text-destructive-foreground rounded-xl font-medium">Reject</button>
               </div>
             </div>
           </div>
@@ -169,26 +138,17 @@ const AdminPendingApprovalsScreen = () => {
           <AlertDialogContent className="max-w-[340px] rounded-2xl">
             <AlertDialogHeader>
               <AlertDialogTitle>Reject Registration</AlertDialogTitle>
-              <AlertDialogDescription>
-                Please provide a reason for rejecting this registration.
-              </AlertDialogDescription>
+              <AlertDialogDescription>Please provide a reason for rejecting this registration.</AlertDialogDescription>
             </AlertDialogHeader>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Enter rejection reason..."
-              className="input-field min-h-[80px] resize-none"
-            />
+            <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Enter rejection reason..." className="input-field min-h-[80px] resize-none" />
             <AlertDialogFooter className="flex-row gap-3">
               <AlertDialogCancel className="flex-1 mt-0">Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleReject} className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Reject
-              </AlertDialogAction>
+              <AlertDialogAction onClick={handleReject} className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90">Reject</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </MobileContainer>
+    </AdminLayout>
   );
 };
 
