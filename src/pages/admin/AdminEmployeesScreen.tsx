@@ -1,19 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, ChevronRight, UserCheck, Clock, UserX, Plus, ClipboardList } from "lucide-react";
-import MobileContainer from "@/components/MobileContainer";
-import AdminBottomNavigation from "@/components/AdminBottomNavigation";
+import AdminLayout from "@/components/AdminLayout";
 
 type EmployeeStatus = "present" | "late" | "absent" | "not_marked";
 
 interface Employee {
-  id: string;
-  name: string;
-  employeeId: string;
-  department: string;
-  role: string;
-  todayStatus: EmployeeStatus;
-  checkInTime: string | null;
+  id: string; name: string; employeeId: string; department: string;
+  role: string; todayStatus: EmployeeStatus; checkInTime: string | null;
 }
 
 const mockEmployees: Employee[] = [
@@ -34,14 +28,11 @@ const StatusBadge = ({ status }: { status: EmployeeStatus }) => {
     absent: { label: "Absent", icon: UserX, className: "bg-destructive-muted text-destructive" },
     not_marked: { label: "Pending", icon: Clock, className: "bg-muted text-muted-foreground" },
   };
-
   const config = configs[status];
   const Icon = config.icon;
-
   return (
     <span className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.className}`}>
-      <Icon className="w-3 h-3" />
-      {config.label}
+      <Icon className="w-3 h-3" />{config.label}
     </span>
   );
 };
@@ -61,88 +52,90 @@ const AdminEmployeesScreen = () => {
   });
 
   return (
-    <MobileContainer>
-      <div className="flex flex-col min-h-full pb-20">
+    <AdminLayout>
+      <div className="flex flex-col min-h-full pb-20 md:pb-0">
         {/* Header */}
-        <div className="px-6 pt-8 pb-4 border-b border-border">
+        <div className="px-4 sm:px-6 lg:px-8 pt-6 lg:pt-8 pb-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h1 className="text-display mb-1">Employees</h1>
               <p className="text-caption">{mockEmployees.length} total employees</p>
             </div>
           </div>
-          {/* Action buttons */}
           <div className="flex gap-2">
-            <button 
-              onClick={() => navigate("/admin/add-employee")}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
-            >
-              <Plus className="w-4 h-4" />
-              Add Employee
+            <button onClick={() => navigate("/admin/add-employee")} className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-2.5 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+              <Plus className="w-4 h-4" />Add Employee
             </button>
-            <button 
-              onClick={() => navigate("/admin/pending-approvals")}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 bg-warning-muted text-warning rounded-lg text-sm font-medium"
-            >
-              <ClipboardList className="w-4 h-4" />
-              Pending (3)
+            <button onClick={() => navigate("/admin/pending-approvals")} className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-2.5 px-4 bg-warning-muted text-warning rounded-lg text-sm font-medium">
+              <ClipboardList className="w-4 h-4" />Pending (3)
             </button>
           </div>
         </div>
 
         {/* Search and Filter */}
-        <div className="px-6 py-4 space-y-3">
-          <div className="relative">
+        <div className="px-4 sm:px-6 lg:px-8 py-4 space-y-3">
+          <div className="relative max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name or ID..."
-              className="input-field pl-12"
-            />
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search by name or ID..." className="input-field pl-12" />
           </div>
-
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            <button
-              onClick={() => setFilterDepartment(null)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                !filterDepartment ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              }`}
-            >
-              All
-            </button>
+            <button onClick={() => setFilterDepartment(null)} className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${!filterDepartment ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>All</button>
             {departments.map(dept => (
-              <button
-                key={dept}
-                onClick={() => setFilterDepartment(dept)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                  filterDepartment === dept ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {dept}
-              </button>
+              <button key={dept} onClick={() => setFilterDepartment(dept)} className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${filterDepartment === dept ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{dept}</button>
             ))}
           </div>
         </div>
 
-        {/* Employee List */}
-        <div className="flex-1 px-6 overflow-y-auto">
-          <div className="space-y-3">
+        {/* Employee List - Card on mobile, Table on desktop */}
+        <div className="flex-1 px-4 sm:px-6 lg:px-8 overflow-y-auto">
+          {/* Desktop table */}
+          <div className="hidden lg:block">
+            <div className="card-elevated overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">Employee</th>
+                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">Department</th>
+                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">Role</th>
+                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">Check-in</th>
+                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wide px-4 py-3">Status</th>
+                    <th className="w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredEmployees.map((employee) => (
+                    <tr key={employee.id} onClick={() => navigate(`/admin/employee/${employee.id}`)} className="hover:bg-muted/30 cursor-pointer transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-semibold text-primary">{employee.name.split(" ").map(n => n[0]).join("")}</span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{employee.name}</p>
+                            <p className="text-xs text-muted-foreground">{employee.employeeId}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{employee.department}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{employee.role}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{employee.checkInTime || "—"}</td>
+                      <td className="px-4 py-3"><StatusBadge status={employee.todayStatus} /></td>
+                      <td className="px-4 py-3"><ChevronRight className="w-4 h-4 text-muted-foreground" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="lg:hidden space-y-3 pb-4">
             {filteredEmployees.map((employee, index) => (
-              <div
-                key={employee.id}
-                onClick={() => navigate(`/admin/employee/${employee.id}`)}
-                className="card-elevated p-4 animate-fade-in-up cursor-pointer hover:bg-muted/50 transition-colors"
-                style={{ animationDelay: `${index * 0.03}s` }}
-              >
+              <div key={employee.id} onClick={() => navigate(`/admin/employee/${employee.id}`)} className="card-elevated p-4 animate-fade-in-up cursor-pointer hover:bg-muted/50 transition-colors" style={{ animationDelay: `${index * 0.03}s` }}>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-semibold text-primary">
-                      {employee.name.split(" ").map(n => n[0]).join("")}
-                    </span>
+                    <span className="text-sm font-semibold text-primary">{employee.name.split(" ").map(n => n[0]).join("")}</span>
                   </div>
-
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <p className="font-medium truncate">{employee.name}</p>
@@ -154,11 +147,8 @@ const AdminEmployeesScreen = () => {
                       <span className="text-xs text-muted-foreground">•</span>
                       <span className="text-xs text-muted-foreground">{employee.department}</span>
                     </div>
-                    {employee.checkInTime && (
-                      <p className="text-xs text-muted-foreground mt-1">Check-in: {employee.checkInTime}</p>
-                    )}
+                    {employee.checkInTime && <p className="text-xs text-muted-foreground mt-1">Check-in: {employee.checkInTime}</p>}
                   </div>
-
                   <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                 </div>
               </div>
@@ -166,15 +156,11 @@ const AdminEmployeesScreen = () => {
           </div>
 
           {filteredEmployees.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No employees found</p>
-            </div>
+            <div className="text-center py-12"><p className="text-muted-foreground">No employees found</p></div>
           )}
         </div>
-
-        <AdminBottomNavigation />
       </div>
-    </MobileContainer>
+    </AdminLayout>
   );
 };
 

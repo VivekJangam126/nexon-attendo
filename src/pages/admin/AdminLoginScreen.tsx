@@ -34,8 +34,8 @@ const AdminLoginScreen = () => {
   };
 
   return (
-    <MobileContainer>
-      <div className="flex flex-col min-h-full px-6 py-8">
+    <div className="min-h-screen bg-muted flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-background rounded-2xl shadow-xl p-6 sm:p-8">
         <div className="flex-1 flex flex-col justify-center">
           {/* Admin Badge */}
           <div className="flex items-center justify-center mb-6 animate-fade-in-up">
@@ -134,11 +134,11 @@ const AdminLoginScreen = () => {
           </div>
         </div>
 
-        <div className="text-center py-4">
+        <div className="text-center pt-4">
           <p className="text-caption">Nexon Pvt Ltd</p>
         </div>
       </div>
-    </MobileContainer>
+    </div>
   );
 };
 
