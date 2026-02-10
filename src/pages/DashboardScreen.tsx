@@ -1,29 +1,47 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Wifi, Clock, CheckCircle2, Building2, Calendar } from "lucide-react";
+import { MapPin, Wifi, Clock, CheckCircle2, Building2, Calendar, AlertCircle } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import BottomNavigation from "@/components/BottomNavigation";
-
-type AttendanceStatus = "not_marked" | "present" | "present_early" | "present_grace" | "late";
-
-interface StatusConfig {
-  label: string;
-  color: string;
-  bgColor: string;
-}
-
-const statusConfigs: Record<AttendanceStatus, StatusConfig> = {
-  not_marked: { label: "Not Marked", color: "text-muted-foreground", bgColor: "bg-muted" },
-  present: { label: "Present", color: "text-success", bgColor: "bg-success-muted" },
-  present_early: { label: "Present (Early)", color: "text-success", bgColor: "bg-success-muted" },
-  present_grace: { label: "Present (Grace)", color: "text-warning", bgColor: "bg-warning-muted" },
-  late: { label: "Late", color: "text-warning", bgColor: "bg-warning-muted" },
-};
+import { useAuth } from "@/hooks/useAuth";
+import { attendanceService, isWithinAttendanceWindow, getAttendanceWindowString } from "@server";
+import type { Attendance } from "@server";
 
 const DashboardScreen = () => {
   const navigate = useNavigate();
-  const [attendanceStatus] = useState<AttendanceStatus>("not_marked");
-  const [attendanceTime] = useState<string | null>(null);
+  const { profile, user } = useAuth();
+  const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [marking, setMarking] = useState(false);
+
+  // Fetch today's attendance on mount
+  useEffect(() => {
+    const fetchTodayAttendance = async () => {
+      if (!profile) {
+        setLoading(false);
+        return;
+      }
+
+      const { attendance } = await attendanceService.getTodayAttendance(profile);
+      setTodayAttendance(attendance);
+      setLoading(false);
+    };
+
+    fetchTodayAttendance();
+  }, [profile]);
+
+  // Redirect if not authenticated or not active
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/login");
+    } else if (!loading && profile) {
+      if (profile.status === "pending") {
+        navigate("/registration-pending");
+      } else if (profile.status === "rejected" || profile.status === "blocked") {
+        navigate("/account-blocked");
+      }
+    }
+  }, [loading, user, profile, navigate]);
 
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
@@ -40,18 +58,49 @@ const DashboardScreen = () => {
     return "Good Evening";
   };
 
-  const isAttendanceWindowOpen = () => {
-    const hour = currentDate.getHours();
-    return hour >= 9 && hour < 18;
+  const windowOpen = isWithinAttendanceWindow();
+  const canMarkAttendance = !todayAttendance && windowOpen;
+
+  const handleMarkAttendance = async () => {
+    if (!profile || marking) return;
+
+    setMarking(true);
+
+    // Navigate to processing screen
+    navigate("/attendance-processing", { 
+      state: { 
+        profile,
+        onComplete: async () => {
+          // This will be called from the processing screen
+          const result = await attendanceService.markAttendance(profile);
+          return result;
+        }
+      } 
+    });
   };
 
-  const canMarkAttendance = attendanceStatus === "not_marked" && isAttendanceWindowOpen();
-
-  const handleMarkAttendance = () => {
-    navigate("/attendance-processing");
+  const formatTime = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
   };
 
-  const statusConfig = statusConfigs[attendanceStatus];
+  if (loading) {
+    return (
+      <MobileContainer>
+        <div className="flex items-center justify-center min-h-full">
+          <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        </div>
+      </MobileContainer>
+    );
+  }
+
+  if (!profile) {
+    return null;
+  }
 
   return (
     <MobileContainer>
@@ -60,11 +109,13 @@ const DashboardScreen = () => {
         <div className="px-6 pt-8 pb-4 bg-primary text-primary-foreground rounded-b-3xl">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 bg-primary-foreground/20 rounded-full flex items-center justify-center">
-              <span className="text-xl font-semibold">R</span>
+              <span className="text-xl font-semibold">
+                {profile.full_name.charAt(0).toUpperCase()}
+              </span>
             </div>
             <div>
               <p className="text-primary-foreground/80 text-sm">{getGreeting()},</p>
-              <h1 className="text-xl font-semibold">Rahul Kumar</h1>
+              <h1 className="text-xl font-semibold">{profile.full_name}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2 text-primary-foreground/80 text-sm">
@@ -76,82 +127,99 @@ const DashboardScreen = () => {
         {/* Content */}
         <div className="flex-1 px-6 py-6 space-y-5">
           {/* Office Info */}
-          <div className="card-elevated p-4 animate-fade-in-up">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-caption">Current Office</p>
-                <p className="font-medium text-foreground">Nexon Pvt Ltd – Head Office</p>
+          {profile.office_location && (
+            <div className="card-elevated p-4 animate-fade-in-up">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-caption">Current Office</p>
+                  <p className="font-medium text-foreground">Assigned Office</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Attendance Status Card */}
           <div className="card-elevated p-5 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-heading">Today's Attendance</h2>
-              <span className={`status-badge ${statusConfig.bgColor} ${statusConfig.color}`}>
-                {attendanceStatus !== "not_marked" && <CheckCircle2 className="w-4 h-4" />}
-                {statusConfig.label}
+              <span className={`status-badge ${
+                todayAttendance 
+                  ? "bg-success-muted text-success" 
+                  : "bg-muted text-muted-foreground"
+              }`}>
+                {todayAttendance && <CheckCircle2 className="w-4 h-4" />}
+                {todayAttendance ? "Present" : "Not Marked"}
               </span>
             </div>
 
-            {attendanceTime && (
+            {todayAttendance && (
               <div className="flex items-center gap-2 text-muted-foreground mb-4">
                 <Clock className="w-4 h-4" />
-                <span className="text-sm">Marked at {attendanceTime}</span>
+                <span className="text-sm">
+                  Marked at {formatTime(todayAttendance.check_in_time)}
+                </span>
               </div>
             )}
 
-            {/* Verification Status */}
+            {/* Verification Status - Placeholder for Phase 4 */}
             <div className="space-y-3 pt-3 border-t border-border">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-success-muted rounded-full flex items-center justify-center">
-                  <MapPin className="w-4 h-4 text-success" />
+                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                  <MapPin className="w-4 h-4 text-muted-foreground" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Location</p>
-                  <p className="text-xs text-muted-foreground">Office premises</p>
+                  <p className="text-xs text-muted-foreground">GPS validation (Phase 4)</p>
                 </div>
-                <CheckCircle2 className="w-5 h-5 text-success" />
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-success-muted rounded-full flex items-center justify-center">
-                  <Wifi className="w-4 h-4 text-success" />
+                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+                  <Wifi className="w-4 h-4 text-muted-foreground" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Office Wi-Fi</p>
-                  <p className="text-xs text-muted-foreground">Connected</p>
+                  <p className="text-xs text-muted-foreground">WiFi validation (Phase 4)</p>
                 </div>
-                <CheckCircle2 className="w-5 h-5 text-success" />
               </div>
             </div>
           </div>
 
           {/* Info Message */}
-          <div className="bg-accent rounded-xl p-4 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-            <p className="text-sm text-accent-foreground">
-              {attendanceStatus === "not_marked" ? (
-                isAttendanceWindowOpen() ? (
-                  <>
-                    <span className="font-medium">Ready to mark attendance.</span>
-                    <br />
-                    <span className="text-muted-foreground">Attendance window closes at 6:00 PM</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="font-medium">Attendance window is closed.</span>
-                    <br />
-                    <span className="text-muted-foreground">Opens at 9:00 AM</span>
-                  </>
-                )
-              ) : (
+          <div className={`rounded-xl p-4 animate-fade-in-up ${
+            todayAttendance 
+              ? "bg-success-muted" 
+              : windowOpen 
+                ? "bg-accent" 
+                : "bg-warning-muted"
+          }`} style={{ animationDelay: "0.2s" }}>
+            <p className="text-sm">
+              {todayAttendance ? (
                 <>
                   <span className="font-medium">Attendance recorded successfully.</span>
                   <br />
                   <span className="text-muted-foreground">Your attendance for today has been marked.</span>
+                </>
+              ) : windowOpen ? (
+                <>
+                  <span className="font-medium">Ready to mark attendance.</span>
+                  <br />
+                  <span className="text-muted-foreground">
+                    Attendance window: {getAttendanceWindowString()}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="font-medium flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    Attendance window is closed.
+                  </span>
+                  <br />
+                  <span className="text-muted-foreground">
+                    Window: {getAttendanceWindowString()}
+                  </span>
                 </>
               )}
             </p>
@@ -161,10 +229,15 @@ const DashboardScreen = () => {
           <div className="pt-2 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
             <button
               onClick={handleMarkAttendance}
-              disabled={!canMarkAttendance}
+              disabled={!canMarkAttendance || marking}
               className="btn-primary-large"
             >
-              {attendanceStatus !== "not_marked" ? (
+              {marking ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  Processing...
+                </span>
+              ) : todayAttendance ? (
                 <span className="flex items-center justify-center gap-2">
                   <CheckCircle2 className="w-5 h-5" />
                   Attendance Marked
@@ -174,9 +247,12 @@ const DashboardScreen = () => {
               )}
             </button>
 
-            {!canMarkAttendance && attendanceStatus === "not_marked" && (
+            {!canMarkAttendance && !todayAttendance && (
               <p className="text-center text-xs text-muted-foreground mt-3">
-                Attendance window is currently closed
+                {windowOpen 
+                  ? "Attendance already marked for today" 
+                  : `Attendance window: ${getAttendanceWindowString()}`
+                }
               </p>
             )}
           </div>

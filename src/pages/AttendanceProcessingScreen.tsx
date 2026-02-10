@@ -1,36 +1,70 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { MapPin, Wifi, ShieldCheck, Loader2 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
+import { useAuth } from "@/hooks/useAuth";
+import { attendanceService } from "@server";
 
 type ProcessingStep = "location" | "wifi" | "verifying" | "complete";
 
 const steps: { key: ProcessingStep; icon: typeof MapPin; label: string; description: string }[] = [
-  { key: "location", icon: MapPin, label: "Checking your location", description: "Verifying you're at the office" },
-  { key: "wifi", icon: Wifi, label: "Verifying office Wi-Fi", description: "Confirming network connection" },
+  { key: "location", icon: MapPin, label: "Checking your location", description: "Phase 4: GPS validation" },
+  { key: "wifi", icon: Wifi, label: "Verifying office Wi-Fi", description: "Phase 4: WiFi validation" },
   { key: "verifying", icon: ShieldCheck, label: "Recording attendance", description: "Saving your attendance record" },
 ];
 
 const AttendanceProcessingScreen = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { profile } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
   useEffect(() => {
-    const processSteps = async () => {
-      for (let i = 0; i < steps.length; i++) {
-        setCurrentStep(i);
-        await new Promise((resolve) => setTimeout(resolve, 1200));
-        setCompletedSteps((prev) => [...prev, i]);
+    const processAttendance = async () => {
+      if (!profile) {
+        navigate("/login");
+        return;
       }
-      // Navigate to success after all steps complete
+
+      // Simulate location check (Phase 4 will add real GPS)
+      setCurrentStep(0);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      setCompletedSteps((prev) => [...prev, 0]);
+
+      // Simulate WiFi check (Phase 4 will add real WiFi)
+      setCurrentStep(1);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      setCompletedSteps((prev) => [...prev, 1]);
+
+      // Actually mark attendance
+      setCurrentStep(2);
+      const result = await attendanceService.markAttendance(profile);
+      
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setCompletedSteps((prev) => [...prev, 2]);
+
+      // Navigate based on result
       setTimeout(() => {
-        navigate("/attendance-success");
+        if (result.success) {
+          navigate("/attendance-success", { 
+            state: { 
+              attendance: result.attendance 
+            } 
+          });
+        } else {
+          navigate("/attendance-error", { 
+            state: { 
+              error: result.error,
+              errorCode: result.errorCode 
+            } 
+          });
+        }
       }, 500);
     };
 
-    processSteps();
-  }, [navigate]);
+    processAttendance();
+  }, [navigate, profile]);
 
   return (
     <MobileContainer>

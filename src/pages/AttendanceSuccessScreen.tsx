@@ -1,38 +1,40 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { CheckCircle2, Calendar, Clock, MapPin } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
+import type { Attendance } from "@server";
 
 const AttendanceSuccessScreen = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const attendance = location.state?.attendance as Attendance | undefined;
 
-  const currentDate = new Date();
-  const formattedDate = currentDate.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  const formattedTime = currentDate.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
-  // Determine status based on time (demo logic)
-  const hour = currentDate.getHours();
-  const minute = currentDate.getMinutes();
-  const isLate = hour > 10 || (hour === 10 && minute > 15);
-  const isEarly = hour < 9 || (hour === 9 && minute < 45);
+  const formatTime = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
 
   const getStatusLabel = () => {
-    if (isEarly) return "Present (Early)";
-    if (isLate) return "Late";
-    return "Present";
+    if (!attendance) return "Present";
+    return attendance.status === "present" ? "Present" : attendance.status === "late" ? "Late" : "Absent";
   };
 
   const getStatusColor = () => {
-    if (isLate) return "text-warning bg-warning-muted";
-    return "text-success bg-success-muted";
+    if (!attendance) return "text-success bg-success-muted";
+    return attendance.status === "late" ? "text-warning bg-warning-muted" : "text-success bg-success-muted";
   };
 
   return (
@@ -68,7 +70,9 @@ const AttendanceSuccessScreen = () => {
             </div>
             <div>
               <p className="text-caption">Date</p>
-              <p className="font-medium">{formattedDate}</p>
+              <p className="font-medium">
+                {attendance ? formatDate(attendance.date) : new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              </p>
             </div>
           </div>
 
@@ -78,7 +82,9 @@ const AttendanceSuccessScreen = () => {
             </div>
             <div>
               <p className="text-caption">Time</p>
-              <p className="font-medium">{formattedTime}</p>
+              <p className="font-medium">
+                {attendance ? formatTime(attendance.check_in_time) : new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}
+              </p>
             </div>
           </div>
 
@@ -88,7 +94,7 @@ const AttendanceSuccessScreen = () => {
             </div>
             <div>
               <p className="text-caption">Location</p>
-              <p className="font-medium">Nexon Pvt Ltd – Head Office</p>
+              <p className="font-medium">Office Location</p>
             </div>
           </div>
         </div>

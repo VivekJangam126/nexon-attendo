@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { 
   MapPinOff, 
   WifiOff, 
@@ -7,64 +7,84 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowLeft,
-  RotateCcw
+  RotateCcw,
+  XCircle,
+  UserX,
+  Building2
 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
-
-type ErrorType = "location_denied" | "no_wifi" | "outside_office" | "window_closed" | "already_marked";
-
-interface ErrorConfig {
-  icon: typeof MapPinOff;
-  title: string;
-  description: string;
-  action: string;
-  actionButton: "retry" | "back" | "none";
-}
-
-const errorConfigs: Record<ErrorType, ErrorConfig> = {
-  location_denied: {
-    icon: MapPinOff,
-    title: "Location Access Required",
-    description: "We need access to your location to verify you're at the office. Please enable location permission in your device settings and try again.",
-    action: "Go to Settings → Apps → Nexon Attendance → Permissions → Location → Allow",
-    actionButton: "retry",
-  },
-  no_wifi: {
-    icon: WifiOff,
-    title: "Office Wi-Fi Not Detected",
-    description: "You need to be connected to the office Wi-Fi network to mark attendance. Please connect to the office network and try again.",
-    action: "Connect to 'Nexon-Office' Wi-Fi network",
-    actionButton: "retry",
-  },
-  outside_office: {
-    icon: MapPin,
-    title: "Outside Office Premises",
-    description: "You appear to be outside the office location. Attendance can only be marked when you're within the office premises.",
-    action: "Please go to the office and try again",
-    actionButton: "back",
-  },
-  window_closed: {
-    icon: Clock,
-    title: "Attendance Window Closed",
-    description: "The attendance window for today is now closed. You can mark attendance between 9:00 AM and 6:00 PM.",
-    action: "Try again during the attendance window",
-    actionButton: "back",
-  },
-  already_marked: {
-    icon: CheckCircle2,
-    title: "Already Marked",
-    description: "Your attendance for today has already been recorded. You can view your attendance history for more details.",
-    action: "Check your attendance history",
-    actionButton: "back",
-  },
-};
+import { getAttendanceWindowString } from "@server";
+import type { AttendanceErrorCode } from "@server";
 
 const AttendanceErrorScreen = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const errorType = (searchParams.get("type") as ErrorType) || "location_denied";
+  const location = useLocation();
+  const error = location.state?.error as string | undefined;
+  const errorCode = location.state?.errorCode as AttendanceErrorCode | undefined;
 
-  const config = errorConfigs[errorType];
+  const getErrorConfig = () => {
+    switch (errorCode) {
+      case "UNAUTHORIZED":
+        return {
+          icon: UserX,
+          title: "Not Authenticated",
+          description: "You need to be logged in to mark attendance.",
+          action: "Please log in and try again",
+          actionButton: "back" as const,
+        };
+      case "NOT_EMPLOYEE":
+        return {
+          icon: UserX,
+          title: "Admin Account",
+          description: "Admins cannot mark attendance. Only employees can mark their attendance.",
+          action: "This feature is for employees only",
+          actionButton: "back" as const,
+        };
+      case "ACCOUNT_NOT_ACTIVE":
+        return {
+          icon: XCircle,
+          title: "Account Not Active",
+          description: error || "Your account is not active. Please contact admin for approval.",
+          action: "Wait for admin approval or contact HR",
+          actionButton: "back" as const,
+        };
+      case "NO_OFFICE_ASSIGNED":
+        return {
+          icon: Building2,
+          title: "No Office Assigned",
+          description: "You don't have an office location assigned. Please contact admin.",
+          action: "Contact HR to assign your office location",
+          actionButton: "back" as const,
+        };
+      case "OUTSIDE_TIME_WINDOW":
+        return {
+          icon: Clock,
+          title: "Attendance Window Closed",
+          description: `Attendance can only be marked between ${getAttendanceWindowString()}.`,
+          action: `Try again during the attendance window (${getAttendanceWindowString()})`,
+          actionButton: "back" as const,
+        };
+      case "ATTENDANCE_ALREADY_MARKED":
+        return {
+          icon: CheckCircle2,
+          title: "Already Marked",
+          description: "Your attendance for today has already been recorded.",
+          action: "Check your attendance history for details",
+          actionButton: "back" as const,
+        };
+      case "VALIDATION_FAILED":
+      default:
+        return {
+          icon: AlertTriangle,
+          title: "Attendance Failed",
+          description: error || "Failed to mark attendance. Please try again.",
+          action: "If the problem persists, contact support",
+          actionButton: "retry" as const,
+        };
+    }
+  };
+
+  const config = getErrorConfig();
   const Icon = config.icon;
 
   const handleRetry = () => {
@@ -81,12 +101,12 @@ const AttendanceErrorScreen = () => {
         {/* Error Icon */}
         <div className="relative mb-8 animate-scale-in">
           <div className={`w-28 h-28 rounded-full flex items-center justify-center ${
-            errorType === "already_marked" 
+            errorCode === "ATTENDANCE_ALREADY_MARKED" 
               ? "bg-success-muted" 
               : "bg-warning-muted"
           }`}>
             <div className={`w-20 h-20 rounded-full flex items-center justify-center ${
-              errorType === "already_marked" 
+              errorCode === "ATTENDANCE_ALREADY_MARKED" 
                 ? "bg-success" 
                 : "bg-warning"
             }`}>

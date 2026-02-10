@@ -1,73 +1,144 @@
-# Welcome to your Lovable project
+# Nexon Attendance System
 
-## Project info
+A corporate attendance tracking system built for Nexon Pvt Ltd using React, TypeScript, and Supabase.
 
-**URL**: https://preview--nexon-time-keeper.lovable.app/login
+## 🏗️ Architecture
 
-## How can I edit this code?
+This project follows a **strict separation** between frontend and backend:
 
-There are several ways of editing your application.
+```
+├── src/          # Frontend (React, UI, pages)
+├── server/       # Backend (Supabase, services, business logic)
+└── .env          # Configuration
+```
 
-**Use Lovable**
+**Key Principle**: Backend code lives in `server/`, frontend in `src/`. No mixing.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for complete details.
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🚀 Quick Start
 
-**Use your preferred IDE**
+### 1. Install Dependencies
+```bash
+npm install
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 2. Configure Environment
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Create a `.env` file:
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
+```
 
-Follow these steps:
+### 3. Setup Database
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Run `COMPLETE_DATABASE_SETUP.sql` in Supabase SQL Editor.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### 4. Start Development
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## 📚 Documentation
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Project structure and design
+- **[BACKEND_SETUP.md](BACKEND_SETUP.md)** - Complete backend setup guide
+- **[server/README.md](server/README.md)** - Backend documentation
 
-**Use GitHub Codespaces**
+## ✅ Implemented Features
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Phase 1: Backend Foundation
+- ✅ Supabase integration
+- ✅ Authentication service layer
+- ✅ Profile management
+- ✅ Account status awareness (pending/active/rejected/blocked)
+- ✅ Type-safe database operations
 
-## What technologies are used for this project?
+### Phase 2: Registration & Approval
+- ✅ Employee registration service (creates pending users)
+- ✅ Login restriction enforcement (pending/rejected users blocked)
+- ✅ Admin approval service (approve/reject requests)
+- ✅ Multi-office awareness (office selection and assignment)
+- ✅ RLS policies (employee/admin access control)
 
-This project is built with:
+## 🛠️ Technologies
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **Frontend**: React 18, TypeScript, Vite
+- **UI**: shadcn/ui, Tailwind CSS, Radix UI
+- **Backend**: Supabase (PostgreSQL + Auth)
+- **State**: React Context, TanStack Query
+- **Routing**: React Router v6
 
-## How can I deploy this project?
+## 🎯 Project Structure
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+```
+nexon-attendance/
+├── src/                          # FRONTEND
+│   ├── components/               # React components
+│   ├── pages/                    # Route pages
+│   ├── hooks/                    # React hooks
+│   └── main.tsx                  # Entry point
+│
+├── server/                       # BACKEND
+│   ├── supabase/                 # Supabase client
+│   ├── services/                 # Auth & profile services
+│   ├── types/                    # Type definitions
+│   ├── utils/                    # Utilities
+│   └── index.ts                  # Exports
+│
+├── .env                          # Configuration
+└── package.json                  # Dependencies
+```
 
-## Can I connect a custom domain to my Lovable project?
+## 🔐 Authentication
 
-Yes, you can!
+```tsx
+import { useAuth } from '@/hooks/useAuth';
+import { authService, profileService } from '@server';
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+function MyComponent() {
+  const { user, profile, login, logout } = useAuth();
+  
+  // Or use services directly
+  const handleLogin = async () => {
+    const { user, error } = await authService.login(email, password);
+    if (!error) {
+      const { profile } = await profileService.getProfile(user.id);
+      console.log(profile?.role);      // 'employee' | 'admin'
+      console.log(profile?.status);    // 'pending' | 'active' | 'rejected' | 'blocked'
+    }
+  };
+}
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 📝 Available Scripts
+
+```bash
+npm run dev              # Start development server
+npm run build            # Build for production
+npm run preview          # Preview production build
+npm run lint             # Run ESLint
+npm run test             # Run tests
+```
+
+## 🚦 User Status Types
+
+| Status | Login | App Access | Description |
+|--------|-------|------------|-------------|
+| `pending` | ❌ | ❌ | Awaiting admin approval |
+| `active` | ✅ | ✅ | Full access granted |
+| `rejected` | ❌ | ❌ | Registration rejected |
+| `blocked` | ❌ | ❌ | Account blocked |
+
+## 🔜 Coming Next
+
+- Attendance marking with validation
+- Geofencing validation
+- WiFi network detection
+- Attendance history
+- Report generation
+
+## 📖 Original Lovable Project Info
+
+**URL**: https://preview--nexon-time-keeper.lovable.app/login

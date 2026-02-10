@@ -1,43 +1,10 @@
+import { useState, useEffect } from "react";
 import { Calendar, Clock, CheckCircle2, AlertCircle, XCircle } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import BottomNavigation from "@/components/BottomNavigation";
-
-type AttendanceRecord = {
-  id: string;
-  date: Date;
-  time: string | null;
-  status: "present" | "late" | "absent";
-};
-
-// Demo data for the past week
-const generateDemoData = (): AttendanceRecord[] => {
-  const records: AttendanceRecord[] = [];
-  const today = new Date();
-
-  for (let i = 0; i < 10; i++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-
-    // Skip weekends
-    if (date.getDay() === 0 || date.getDay() === 6) continue;
-
-    // Generate realistic demo data
-    const statuses: ("present" | "late" | "absent")[] = ["present", "present", "present", "late", "present"];
-    const status = i === 0 ? "present" : statuses[Math.floor(Math.random() * statuses.length)];
-
-    const times = ["09:15 AM", "09:45 AM", "10:02 AM", "09:30 AM", "09:58 AM"];
-    const time = status === "absent" ? null : times[Math.floor(Math.random() * times.length)];
-
-    records.push({
-      id: `record-${i}`,
-      date,
-      time,
-      status,
-    });
-  }
-
-  return records;
-};
+import { useAuth } from "@/hooks/useAuth";
+import { attendanceService } from "@server";
+import type { Attendance } from "@server";
 
 const StatusIcon = ({ status }: { status: "present" | "late" | "absent" }) => {
   switch (status) {
@@ -79,9 +46,33 @@ const StatusBadge = ({ status }: { status: "present" | "late" | "absent" }) => {
 };
 
 const HistoryScreen = () => {
-  const records = generateDemoData();
+  const { profile } = useAuth();
+  const [records, setRecords] = useState<Attendance[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const formatDate = (date: Date) => {
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!profile) {
+        setLoading(false);
+        return;
+      }
+
+      const { attendance, error: fetchError } = await attendanceService.getAttendanceHistory(profile, 30);
+      
+      if (fetchError) {
+        setError(fetchError.message);
+      } else {
+        setRecords(attendance);
+      }
+      setLoading(false);
+    };
+
+    fetchHistory();
+  }, [profile]);
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
@@ -99,6 +90,20 @@ const HistoryScreen = () => {
     }
   };
 
+  const formatTime = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  // Calculate stats
+  const presentCount = records.filter(r => r.status === "present").length;
+  const lateCount = records.filter(r => r.status === "late").length;
+  const absentCount = records.filter(r => r.status === "absent").length;
+
   return (
     <MobileContainer>
       <div className="flex flex-col min-h-full pb-20">
@@ -112,15 +117,15 @@ const HistoryScreen = () => {
         <div className="px-6 py-4">
           <div className="grid grid-cols-3 gap-3">
             <div className="card-elevated p-3 text-center">
-              <p className="text-2xl font-semibold text-success">8</p>
+              <p className="text-2xl font-semibold text-success">{presentCount}</p>
               <p className="text-xs text-muted-foreground">Present</p>
             </div>
             <div className="card-elevated p-3 text-center">
-              <p className="text-2xl font-semibold text-warning">1</p>
+              <p className="text-2xl font-semibold text-warning">{lateCount}</p>
               <p className="text-xs text-muted-foreground">Late</p>
             </div>
             <div className="card-elevated p-3 text-center">
-              <p className="text-2xl font-semibold text-destructive">0</p>
+              <p className="text-2xl font-semibold text-destructive">{absentCount}</p>
               <p className="text-xs text-muted-foreground">Absent</p>
             </div>
           </div>
@@ -128,34 +133,56 @@ const HistoryScreen = () => {
 
         {/* Records List */}
         <div className="flex-1 px-6 py-2 overflow-y-auto">
-          <div className="space-y-3">
-            {records.map((record, index) => (
-              <div
-                key={record.id}
-                className="card-elevated p-4 animate-fade-in-up"
-                style={{ animationDelay: `${index * 0.05}s` }}
-              >
-                <div className="flex items-center gap-4">
-                  <StatusIcon status={record.status} />
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                      <p className="font-medium text-sm">{formatDate(record.date)}</p>
-                    </div>
-                    {record.time && (
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                        <p className="text-xs text-muted-foreground">{record.time}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <StatusBadge status={record.status} />
-                </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="w-16 h-16 bg-destructive-muted rounded-full flex items-center justify-center mb-4">
+                <XCircle className="w-8 h-8 text-destructive" />
               </div>
-            ))}
-          </div>
+              <p className="text-heading mb-1">Error Loading History</p>
+              <p className="text-caption">{error}</p>
+            </div>
+          ) : records.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                <Calendar className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <p className="text-heading mb-1">No Records Yet</p>
+              <p className="text-caption">Your attendance history will appear here</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {records.map((record, index) => (
+                <div
+                  key={record.id}
+                  className="card-elevated p-4 animate-fade-in-up"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
+                  <div className="flex items-center gap-4">
+                    <StatusIcon status={record.status} />
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                        <p className="font-medium text-sm">{formatDate(record.date)}</p>
+                      </div>
+                      {record.check_in_time && (
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                          <p className="text-xs text-muted-foreground">{formatTime(record.check_in_time)}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <StatusBadge status={record.status} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <BottomNavigation />
