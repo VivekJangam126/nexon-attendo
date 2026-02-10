@@ -1,7 +1,8 @@
 /**
  * Attendance Service
  * Handles attendance marking and validation
- * Phase 3: Attendance marking with strict validation rules
+ * Phase 3: Attendance marking with strict validation
+ * CRITICAL: Attendance window is fetched from database, NOT hardcoded
  */
 
 import { supabase } from '../supabase/client';
@@ -11,13 +12,25 @@ import type {
   AttendanceResult,
   TodayAttendanceResponse,
 } from '../types/attendance';
-import {
-  getCurrentISTTime,
-  getTodayDateIST,
-  isWithinAttendanceWindow,
-  getAttendanceWindowString,
-  ATTENDANCE_CONFIG,
-} from '../config/attendance.config';
+import { attendanceSettingsService } from './attendance-settings.service';
+
+/**
+ * Get current IST time
+ */
+function getCurrentISTTime(): Date {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+}
+
+/**
+ * Get today's date in YYYY-MM-DD format (IST)
+ */
+function getTodayDateIST(): string {
+  const now = getCurrentISTTime();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 export const attendanceService = {
   /**
@@ -29,7 +42,7 @@ export const attendanceService = {
    * 2. User role = employee
    * 3. User status = active
    * 4. User has office_id
-   * 5. Current time is within window
+   * 5. Current time is within window (FROM DATABASE)
    * 6. Attendance not already marked today
    * 
    * @param userProfile - User profile (must be authenticated)
@@ -73,12 +86,23 @@ export const attendanceService = {
         };
       }
 
-      // Validation 5: Current time is within window
-      if (!isWithinAttendanceWindow()) {
+      // Validation 5: Current time is within window (FROM DATABASE)
+      const { isOpen, window, error: windowError } = await attendanceSettingsService.isAttendanceWindowOpen();
+      
+      if (windowError || !window) {
         return {
           success: false,
-          error: `Attendance can only be marked between ${getAttendanceWindowString()}`,
-          errorCode: 'OUTSIDE_TIME_WINDOW',
+          error: 'Unable to verify attendance window. Please contact admin.',
+          errorCode: 'VALIDATION_FAILED',
+        };
+      }
+
+      if (!isOpen) {
+        const windowDisplay = attendanceSettingsService.formatWindowTime(window);
+        return {
+          success: false,
+          error: `Attendance is currently closed. Attendance window: ${windowDisplay}`,
+          errorCode: 'ATTENDANCE_CLOSED',
         };
       }
 
@@ -89,7 +113,7 @@ export const attendanceService = {
         .select('*')
         .eq('user_id', userProfile.id)
         .eq('date', todayDate)
-        .single();
+        .maybeSingle();
 
       if (existingAttendance) {
         return {
@@ -101,7 +125,7 @@ export const attendanceService = {
 
       // All validations passed - Mark attendance
       const checkInTime = getCurrentISTTime().toISOString();
-      const status = ATTENDANCE_CONFIG.STATUS_RULES.ON_TIME; // present
+      const status = 'present'; // Simple status for now
 
       const { data: attendance, error: insertError } = await supabase
         .from('attendance')
@@ -159,13 +183,9 @@ export const attendanceService = {
         .select('*')
         .eq('user_id', userProfile.id)
         .eq('date', todayDate)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        // PGRST116 = no rows (attendance not marked yet)
-        if (error.code === 'PGRST116') {
-          return { attendance: null, error: null };
-        }
         return {
           attendance: null,
           error: new Error(error.message),
@@ -173,7 +193,7 @@ export const attendanceService = {
       }
 
       return {
-        attendance: data as Attendance,
+        attendance: data as Attendance | null,
         error: null,
       };
     } catch (err) {
@@ -228,5 +248,31 @@ export const attendanceService = {
         error: err instanceof Error ? err : new Error('Failed to fetch history'),
       };
     }
+  },
+
+  /**
+   * Check if attendance window is currently open
+   * Uses database settings, NOT hardcoded values
+   */
+  async isWindowOpen(): Promise<{
+    isOpen: boolean;
+    windowDisplay: string;
+    error: Error | null;
+  }> {
+    const { isOpen, window, error } = await attendanceSettingsService.isAttendanceWindowOpen();
+    
+    if (error || !window) {
+      return {
+        isOpen: false,
+        windowDisplay: 'Unknown',
+        error: error || new Error('No attendance window configured'),
+      };
+    }
+
+    return {
+      isOpen,
+      windowDisplay: attendanceSettingsService.formatWindowTime(window),
+      error: null,
+    };
   },
 };

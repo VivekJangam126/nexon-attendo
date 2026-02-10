@@ -2,6 +2,7 @@
  * Server Module Exports
  * Central export point for all backend services and utilities
  * Phase 3: Added attendance marking service
+ * CRITICAL: Attendance window now comes from database, not hardcoded
  */
 
 // Supabase Client
@@ -14,6 +15,7 @@ export { registrationService } from './services/registration.service';
 export { officeService } from './services/office.service';
 export { adminApprovalService } from './services/admin-approval.service';
 export { attendanceService } from './services/attendance.service';
+export { attendanceSettingsService } from './services/attendance-settings.service';
 
 // Types
 export type { Database } from './types/database';
@@ -37,15 +39,12 @@ export type {
   TodayAttendanceResponse,
   AttendanceErrorCode,
 } from './types/attendance';
-
-// Configuration
-export {
-  ATTENDANCE_CONFIG,
-  getCurrentISTTime,
-  getTodayDateIST,
-  isWithinAttendanceWindow,
-  getAttendanceWindowString,
-} from './config/attendance.config';
+export type {
+  AttendanceWindow,
+  AttendanceWindowResponse,
+  UpdateWindowResponse,
+  WindowCheckResponse,
+} from './types/attendance-settings';
 
 // Utilities
 export {

@@ -13,7 +13,6 @@ import {
   Building2
 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
-import { getAttendanceWindowString } from "@server";
 import type { AttendanceErrorCode } from "@server";
 
 const AttendanceErrorScreen = () => {
@@ -56,12 +55,12 @@ const AttendanceErrorScreen = () => {
           action: "Contact HR to assign your office location",
           actionButton: "back" as const,
         };
-      case "OUTSIDE_TIME_WINDOW":
+      case "ATTENDANCE_CLOSED":
         return {
           icon: Clock,
           title: "Attendance Window Closed",
-          description: `Attendance can only be marked between ${getAttendanceWindowString()}.`,
-          action: `Try again during the attendance window (${getAttendanceWindowString()})`,
+          description: error || "Attendance is currently closed. Please check attendance timings.",
+          action: "Try again during the attendance window",
           actionButton: "back" as const,
         };
       case "ATTENDANCE_ALREADY_MARKED":

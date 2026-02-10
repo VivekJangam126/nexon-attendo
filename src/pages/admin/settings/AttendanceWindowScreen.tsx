@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { attendanceSettingsService } from "@server";
 import {
   Select,
   SelectContent,
@@ -13,8 +15,11 @@ import {
 
 const AttendanceWindowScreen = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [activeDays, setActiveDays] = useState({
     mon: true,
     tue: true,
@@ -24,6 +29,35 @@ const AttendanceWindowScreen = () => {
     sat: false,
     sun: false,
   });
+
+  // Fetch current attendance window from database
+  useEffect(() => {
+    const fetchWindow = async () => {
+      const { window, error } = await attendanceSettingsService.getActiveWindow();
+      
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load attendance settings",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (window) {
+        // Parse HH:MM:SS to HH:MM
+        const startParts = window.start_time.split(':');
+        const endParts = window.end_time.split(':');
+        setStartTime(`${startParts[0]}:${startParts[1]}`);
+        setEndTime(`${endParts[0]}:${endParts[1]}`);
+      }
+
+      setLoading(false);
+    };
+
+    fetchWindow();
+  }, []);
 
   const timeOptions = [
     "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
@@ -44,16 +78,56 @@ const AttendanceWindowScreen = () => {
     setActiveDays(prev => ({ ...prev, [day]: !prev[day] }));
   };
 
-  const handleSave = () => {
-    const activeDayNames = Object.entries(activeDays)
-      .filter(([_, active]) => active)
-      .map(([day]) => day.charAt(0).toUpperCase() + day.slice(1))
-      .join(", ");
+  const handleSave = async () => {
+    if (!profile) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to update settings",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    toast({
-      title: "Settings Saved",
-      description: `Attendance window: ${formatTime(startTime)} - ${formatTime(endTime)} on ${activeDayNames}`,
-    });
+    setSaving(true);
+
+    try {
+      // Convert HH:MM to HH:MM:SS format for database
+      const startTimeWithSeconds = `${startTime}:00`;
+      const endTimeWithSeconds = `${endTime}:00`;
+
+      const { error } = await attendanceSettingsService.updateWindow(
+        startTimeWithSeconds,
+        endTimeWithSeconds,
+        profile.id
+      );
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const activeDayNames = Object.entries(activeDays)
+        .filter(([_, active]) => active)
+        .map(([day]) => day.charAt(0).toUpperCase() + day.slice(1, 3))
+        .join(", ");
+
+      toast({
+        title: "Settings Saved",
+        description: `Attendance window: ${formatTime(startTime)} - ${formatTime(endTime)} on ${activeDayNames}`,
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to save settings",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const days = [
@@ -87,6 +161,18 @@ const AttendanceWindowScreen = () => {
 
         {/* Content */}
         <div className="flex-1 px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-y-auto max-w-3xl">
+          {loading ? (
+            <div className="space-y-6">
+              <div className="animate-pulse">
+                <div className="h-4 bg-muted rounded w-32 mb-3"></div>
+                <div className="card-elevated p-4 space-y-4">
+                  <div className="h-10 bg-muted rounded"></div>
+                  <div className="h-10 bg-muted rounded"></div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Time Selection */}
           <div className="animate-fade-in-up">
             <h2 className="text-overline mb-3">Working Hours</h2>
@@ -185,11 +271,14 @@ const AttendanceWindowScreen = () => {
           <div className="animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
             <button
               onClick={handleSave}
-              className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-medium"
+              disabled={saving || loading}
+              className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Changes
+              {saving ? "Saving..." : "Save Changes"}
             </button>
           </div>
+            </>
+          )}
         </div>
       </div>
     </AdminLayout>

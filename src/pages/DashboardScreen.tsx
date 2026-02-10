@@ -4,7 +4,7 @@ import { MapPin, Wifi, Clock, CheckCircle2, Building2, Calendar, AlertCircle } f
 import MobileContainer from "@/components/MobileContainer";
 import BottomNavigation from "@/components/BottomNavigation";
 import { useAuth } from "@/hooks/useAuth";
-import { attendanceService, isWithinAttendanceWindow, getAttendanceWindowString } from "@server";
+import { attendanceService } from "@server";
 import type { Attendance } from "@server";
 
 const DashboardScreen = () => {
@@ -13,21 +13,30 @@ const DashboardScreen = () => {
   const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(null);
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState(false);
+  const [windowOpen, setWindowOpen] = useState(false);
+  const [windowDisplay, setWindowDisplay] = useState<string>('Loading...');
 
-  // Fetch today's attendance on mount
+  // Fetch today's attendance and window status on mount
   useEffect(() => {
-    const fetchTodayAttendance = async () => {
+    const fetchData = async () => {
       if (!profile) {
         setLoading(false);
         return;
       }
 
+      // Fetch today's attendance
       const { attendance } = await attendanceService.getTodayAttendance(profile);
       setTodayAttendance(attendance);
+
+      // Fetch window status from database
+      const { isOpen, windowDisplay: display } = await attendanceService.isWindowOpen();
+      setWindowOpen(isOpen);
+      setWindowDisplay(display);
+
       setLoading(false);
     };
 
-    fetchTodayAttendance();
+    fetchData();
   }, [profile]);
 
   // Redirect if not authenticated or not active
@@ -58,7 +67,6 @@ const DashboardScreen = () => {
     return "Good Evening";
   };
 
-  const windowOpen = isWithinAttendanceWindow();
   const canMarkAttendance = !todayAttendance && windowOpen;
 
   const handleMarkAttendance = async () => {
@@ -67,16 +75,8 @@ const DashboardScreen = () => {
     setMarking(true);
 
     // Navigate to processing screen
-    navigate("/attendance-processing", { 
-      state: { 
-        profile,
-        onComplete: async () => {
-          // This will be called from the processing screen
-          const result = await attendanceService.markAttendance(profile);
-          return result;
-        }
-      } 
-    });
+    // The processing screen will handle the actual attendance marking
+    navigate("/attendance-processing");
   };
 
   const formatTime = (isoString: string) => {
@@ -207,7 +207,7 @@ const DashboardScreen = () => {
                   <span className="font-medium">Ready to mark attendance.</span>
                   <br />
                   <span className="text-muted-foreground">
-                    Attendance window: {getAttendanceWindowString()}
+                    Attendance window: {windowDisplay}
                   </span>
                 </>
               ) : (
@@ -218,7 +218,7 @@ const DashboardScreen = () => {
                   </span>
                   <br />
                   <span className="text-muted-foreground">
-                    Window: {getAttendanceWindowString()}
+                    Window: {windowDisplay}
                   </span>
                 </>
               )}
@@ -251,7 +251,7 @@ const DashboardScreen = () => {
               <p className="text-center text-xs text-muted-foreground mt-3">
                 {windowOpen 
                   ? "Attendance already marked for today" 
-                  : `Attendance window: ${getAttendanceWindowString()}`
+                  : `Attendance window: ${windowDisplay}`
                 }
               </p>
             )}
