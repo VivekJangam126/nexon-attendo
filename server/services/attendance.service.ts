@@ -13,6 +13,8 @@ import type {
   TodayAttendanceResponse,
 } from '../types/attendance';
 import { attendanceSettingsService } from './attendance-settings.service';
+import { officeService } from './office.service';
+import { officeNetworkService } from './office-network.service';
 
 /**
  * Get current IST time
@@ -32,24 +34,64 @@ function getTodayDateIST(): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Calculate distance between two GPS coordinates using Haversine formula
+ * Returns distance in meters
+ */
+function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // Distance in meters
+}
+
 export const attendanceService = {
   /**
    * Mark attendance for a user
    * Validates all rules before marking attendance
    * 
-   * Validation Order:
+   * Validation Order (STRICT):
    * 1. User is authenticated
    * 2. User role = employee
    * 3. User status = active
    * 4. User has office_id
    * 5. Current time is within window (FROM DATABASE)
-   * 6. Attendance not already marked today
+   * 6. GPS coordinates provided
+   * 7. GPS within office radius (Haversine formula)
+   * 8. IP address on office network (prefix match)
+   * 9. Attendance not already marked today
    * 
    * @param userProfile - User profile (must be authenticated)
+   * @param latitude - GPS latitude
+   * @param longitude - GPS longitude
+   * @param ipAddress - Client IP address
    * @returns AttendanceResult with success/error
    */
-  async markAttendance(userProfile: UserProfile): Promise<AttendanceResult> {
+  async markAttendance(
+    userProfile: UserProfile,
+    latitude?: number,
+    longitude?: number,
+    ipAddress?: string
+  ): Promise<AttendanceResult> {
     try {
+      console.log('🔍 [MARK ATTENDANCE] Starting validation...');
+      console.log('  User:', userProfile.email);
+      console.log('  GPS:', latitude, longitude);
+      console.log('  IP:', ipAddress);
+
       // Validation 1: User is authenticated (profile exists)
       if (!userProfile || !userProfile.id) {
         return {
@@ -106,7 +148,101 @@ export const attendanceService = {
         };
       }
 
-      // Validation 6: Attendance not already marked today
+      // Validation 6: GPS coordinates provided
+      if (latitude === undefined || longitude === undefined) {
+        console.log('  ❌ GPS coordinates not provided');
+        return {
+          success: false,
+          error: 'Location permission is required to mark attendance',
+          errorCode: 'GPS_REQUIRED',
+        };
+      }
+
+      // Validation 7: GPS within office radius
+      // SINGLE OFFICE MODE: Always fetch the active office
+      const { data: activeOffice, error: officeError } = await supabase
+        .from('offices')
+        .select('*')
+        .eq('is_active', true)
+        .single();
+      
+      if (officeError || !activeOffice) {
+        console.log('  ❌ No active office configured');
+        return {
+          success: false,
+          error: 'Office not configured. Please contact admin.',
+          errorCode: 'VALIDATION_FAILED',
+        };
+      }
+
+      const office = activeOffice as any; // Type assertion for single office mode
+      console.log('  🏢 Using office:', office.name);
+
+      if (office.latitude === null || office.longitude === null) {
+        return {
+          success: false,
+          error: 'Office location not configured. Please contact admin.',
+          errorCode: 'VALIDATION_FAILED',
+        };
+      }
+
+      const distance = calculateDistance(
+        latitude,
+        longitude,
+        office.latitude,
+        office.longitude
+      );
+
+      console.log('  📍 GPS Verification:');
+      console.log('    User location:', latitude, longitude);
+      console.log('    Office location:', office.latitude, office.longitude);
+      console.log('    Distance:', Math.round(distance), 'meters');
+      console.log('    Allowed radius:', office.radius_meters, 'meters');
+
+      if (distance > office.radius_meters) {
+        console.log('  ❌ User is outside office radius');
+        return {
+          success: false,
+          error: `You are not inside office premises. Distance: ${Math.round(distance)}m (allowed: ${office.radius_meters}m)`,
+          errorCode: 'OUTSIDE_OFFICE_LOCATION',
+        };
+      }
+
+      console.log('  ✅ GPS verification passed');
+
+      // Validation 8: IP address on office network (MANDATORY)
+      if (!ipAddress) {
+        console.log('  ❌ IP address not provided');
+        return {
+          success: false,
+          error: 'Please connect to office Wi-Fi to mark attendance',
+          errorCode: 'OFFICE_WIFI_REQUIRED',
+        };
+      }
+
+      console.log('  🔍 Verifying Wi-Fi connection...');
+      console.log('    Request IP:', ipAddress);
+
+      // Use the single active office for Wi-Fi verification
+      const { isValid, matchedNetwork } = await officeNetworkService.verifyIPAddress(
+        office.id,
+        ipAddress
+      );
+
+      if (!isValid) {
+        console.log('  ❌ IP address not on office network');
+        return {
+          success: false,
+          error: 'Please connect to office Wi-Fi to mark attendance',
+          errorCode: 'OFFICE_WIFI_REQUIRED',
+        };
+      }
+
+      console.log('  ✅ Wi-Fi verification passed');
+      console.log('    Network:', matchedNetwork?.network_name);
+      console.log('    IP Prefix:', matchedNetwork?.ip_range);
+
+      // Validation 9: Attendance not already marked today
       const todayDate = getTodayDateIST();
       const { data: existingAttendance } = await supabase
         .from('attendance')
@@ -127,6 +263,8 @@ export const attendanceService = {
       const checkInTime = getCurrentISTTime().toISOString();
       const status = 'present'; // Simple status for now
 
+      console.log('  ✅ All validations passed - marking attendance');
+
       const { data: attendance, error: insertError } = await supabase
         .from('attendance')
         .insert({
@@ -134,12 +272,16 @@ export const attendanceService = {
           date: todayDate,
           check_in_time: checkInTime,
           status: status,
-          office_id: userProfile.office_location,
+          office_id: office.id, // Use the active office ID
+          latitude: latitude,
+          longitude: longitude,
+          ip_address: ipAddress,
         })
         .select()
         .single();
 
       if (insertError) {
+        console.log('  ❌ Failed to insert attendance:', insertError);
         return {
           success: false,
           error: `Failed to mark attendance: ${insertError.message}`,
@@ -147,11 +289,14 @@ export const attendanceService = {
         };
       }
 
+      console.log('  ✅ Attendance marked successfully');
+
       return {
         success: true,
         attendance: attendance as Attendance,
       };
     } catch (err) {
+      console.log('  ❌ Exception in markAttendance:', err);
       return {
         success: false,
         error: err instanceof Error ? err.message : 'Failed to mark attendance',

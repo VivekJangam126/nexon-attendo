@@ -135,7 +135,7 @@ const DashboardScreen = () => {
                 </div>
                 <div>
                   <p className="text-caption">Current Office</p>
-                  <p className="font-medium text-foreground">Assigned Office</p>
+                  <p className="font-medium text-foreground">{profile.office_name || 'Assigned Office'}</p>
                 </div>
               </div>
             </div>
@@ -164,7 +164,7 @@ const DashboardScreen = () => {
               </div>
             )}
 
-            {/* Verification Status - Placeholder for Phase 4 */}
+            {/* Verification Status */}
             <div className="space-y-3 pt-3 border-t border-border">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
@@ -172,7 +172,7 @@ const DashboardScreen = () => {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Location</p>
-                  <p className="text-xs text-muted-foreground">GPS validation (Phase 4)</p>
+                  <p className="text-xs text-muted-foreground">GPS validation</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -181,7 +181,7 @@ const DashboardScreen = () => {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Office Wi-Fi</p>
-                  <p className="text-xs text-muted-foreground">WiFi validation (Phase 4)</p>
+                  <p className="text-xs text-muted-foreground">WiFi validation</p>
                 </div>
               </div>
             </div>

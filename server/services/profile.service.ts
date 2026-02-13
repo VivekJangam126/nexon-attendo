@@ -30,7 +30,26 @@ export const profileService = {
         throw error;
       }
 
-      return { profile: data as UserProfile, error: null };
+      // Fetch office name if office_location exists
+      let officeName: string | null = null;
+      if (data.office_location) {
+        const { data: officeData, error: officeError } = await supabase
+          .from('offices')
+          .select('name')
+          .eq('id', data.office_location)
+          .single();
+        
+        if (officeData && !officeError) {
+          officeName = officeData.name;
+        }
+      }
+
+      const profile: UserProfile = {
+        ...data,
+        office_name: officeName,
+      };
+
+      return { profile, error: null };
     } catch (err) {
       return {
         profile: null,

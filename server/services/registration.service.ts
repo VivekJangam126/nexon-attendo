@@ -12,13 +12,36 @@ export const registrationService = {
    * Register a new employee
    * Creates auth user, profile (status=pending), and employee_request
    * User CANNOT login until admin approves
+   * SINGLE OFFICE MODE: Auto-assigns to SmartMatrix Pvt Ltd
    * 
-   * @param data - Registration data (email, password, full_name, office_id)
+   * @param data - Registration data (email, password, full_name, office_id - ignored in single office mode)
    * @returns RegistrationResponse with success status
    */
   async registerEmployee(data: RegistrationData): Promise<RegistrationResponse> {
     try {
-      const { email, password, full_name, office_id } = data;
+      const { email, password, full_name } = data;
+
+      console.log('🔍 [REGISTRATION] Starting employee registration...');
+      console.log('  Email:', email);
+
+      // SINGLE OFFICE MODE: Get the active office (SmartMatrix Pvt Ltd)
+      const { data: activeOffice, error: officeError } = await supabase
+        .from('offices')
+        .select('id, name')
+        .eq('is_active', true)
+        .single();
+
+      if (officeError || !activeOffice) {
+        console.log('  ❌ No active office found');
+        return {
+          success: false,
+          userId: null,
+          error: new Error('Office not configured. Please contact admin.'),
+        };
+      }
+
+      console.log('  🏢 Auto-assigning to office:', activeOffice.name);
+      const office_id = activeOffice.id;
 
       // Step 1: Create auth user using Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -58,7 +81,7 @@ export const registrationService = {
           full_name,
           role: 'employee',
           status: 'pending', // ⚠️ User is pending approval
-          office_location: office_id,
+          office_location: office_id, // Auto-assigned to SmartMatrix
         });
 
       if (profileError) {
@@ -91,6 +114,8 @@ export const registrationService = {
       // Step 4: Immediately sign out the user (they cannot login until approved)
       await supabase.auth.signOut();
 
+      console.log('  ✅ Registration successful, assigned to:', activeOffice.name);
+
       return {
         success: true,
         userId,
@@ -98,6 +123,7 @@ export const registrationService = {
         message: 'Registration successful. Awaiting admin approval.',
       };
     } catch (err) {
+      console.log('  ❌ Registration failed:', err);
       return {
         success: false,
         userId: null,

@@ -57,6 +57,7 @@ export interface Database {
           country: string
           latitude: number | null
           longitude: number | null
+          radius_meters: number
           wifi_ssids: string[] | null
           is_active: boolean
           created_at: string
@@ -71,6 +72,7 @@ export interface Database {
           country: string
           latitude?: number | null
           longitude?: number | null
+          radius_meters?: number
           wifi_ssids?: string[] | null
           is_active?: boolean
           created_at?: string
@@ -85,6 +87,7 @@ export interface Database {
           country?: string
           latitude?: number | null
           longitude?: number | null
+          radius_meters?: number
           wifi_ssids?: string[] | null
           is_active?: boolean
           created_at?: string
@@ -141,6 +144,9 @@ export interface Database {
           check_out_time: string | null
           status: 'present' | 'late' | 'absent'
           office_id: string
+          latitude: number | null
+          longitude: number | null
+          ip_address: string | null
           created_at: string
           updated_at: string
         }
@@ -152,6 +158,9 @@ export interface Database {
           check_out_time?: string | null
           status: 'present' | 'late' | 'absent'
           office_id: string
+          latitude?: number | null
+          longitude?: number | null
+          ip_address?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -163,6 +172,70 @@ export interface Database {
           check_out_time?: string | null
           status?: 'present' | 'late' | 'absent'
           office_id?: string
+          latitude?: number | null
+          longitude?: number | null
+          ip_address?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      office_networks: {
+        Row: {
+          id: string
+          office_id: string
+          network_name: string
+          ip_range: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          office_id: string
+          network_name: string
+          ip_range: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          office_id?: string
+          network_name?: string
+          ip_range?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      attendance_settings: {
+        Row: {
+          id: string
+          setting_name: string
+          start_time: string
+          end_time: string
+          is_active: boolean
+          updated_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          setting_name: string
+          start_time: string
+          end_time: string
+          is_active?: boolean
+          updated_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          setting_name?: string
+          start_time?: string
+          end_time?: string
+          is_active?: boolean
+          updated_by?: string | null
           created_at?: string
           updated_at?: string
         }

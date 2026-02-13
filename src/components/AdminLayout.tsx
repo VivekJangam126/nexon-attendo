@@ -21,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -41,14 +42,23 @@ const navItems = [
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setShowLogoutDialog(false);
-    navigate("/admin/login");
+    try {
+      await logout();
+      // Force navigation after logout
+      window.location.href = '/admin/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still navigate even if there's an error
+      window.location.href = '/admin/login';
+    }
   };
 
   return (

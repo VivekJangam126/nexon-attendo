@@ -63,9 +63,9 @@ export const attendanceSettingsService = {
       }
 
       console.log('  ✅ Window fetched successfully:', {
-        start: data.start_time,
-        end: data.end_time,
-        active: data.is_active
+        start: (data as any).start_time,
+        end: (data as any).end_time,
+        active: (data as any).is_active
       });
 
       return {
@@ -152,8 +152,8 @@ export const attendanceSettingsService = {
   /**
    * Update attendance window (admin only)
    * 
-   * @param startTime - Start time in HH:MM format
-   * @param endTime - End time in HH:MM format
+   * @param startTime - Start time in HH:MM:SS format
+   * @param endTime - End time in HH:MM:SS format
    * @param adminId - Admin user ID
    */
   async updateWindow(
@@ -162,35 +162,74 @@ export const attendanceSettingsService = {
     adminId: string
   ): Promise<UpdateWindowResponse> {
     try {
-      // Convert HH:MM to HH:MM:SS for database
-      const startTimeWithSeconds = `${startTime}:00`;
-      const endTimeWithSeconds = `${endTime}:00`;
+      console.log('🔄 [UPDATE WINDOW] Updating attendance window...');
+      console.log('  Start time:', startTime);
+      console.log('  End time:', endTime);
+      console.log('  Admin ID:', adminId);
 
+      const updateData: Partial<AttendanceWindow> = {
+        start_time: startTime,
+        end_time: endTime,
+        updated_by: adminId,
+        updated_at: new Date().toISOString(),
+      };
+
+      // @ts-ignore - Database types not fully generated
       const { error } = await supabase
         .from('attendance_settings')
-        .update({
-          start_time: startTimeWithSeconds,
-          end_time: endTimeWithSeconds,
-          updated_by: adminId,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('setting_name', 'default_attendance_window');
 
       if (error) {
+        console.log('  ❌ Update failed:', error.message);
         return {
           success: false,
           error: new Error(error.message),
         };
       }
 
+      console.log('  ✅ Window updated successfully');
       return {
         success: true,
         error: null,
       };
     } catch (err) {
+      console.log('  ❌ Exception in updateWindow:', err);
       return {
         success: false,
         error: err instanceof Error ? err : new Error('Failed to update attendance window'),
+      };
+    }
+  },
+
+  /**
+   * Get attendance window for display (used by settings page)
+   */
+  async getAttendanceWindow(): Promise<{
+    window: { start_time: string; end_time: string } | null;
+    error: Error | null;
+  }> {
+    try {
+      const { window, error } = await this.getActiveWindow();
+      
+      if (error || !window) {
+        return {
+          window: null,
+          error: error || new Error('No active window found'),
+        };
+      }
+
+      return {
+        window: {
+          start_time: this.formatWindowTime(window).split(' - ')[0],
+          end_time: this.formatWindowTime(window).split(' - ')[1],
+        },
+        error: null,
+      };
+    } catch (err) {
+      return {
+        window: null,
+        error: err instanceof Error ? err : new Error('Failed to get window'),
       };
     }
   },

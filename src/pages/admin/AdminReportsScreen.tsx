@@ -1,38 +1,66 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Download, TrendingUp, TrendingDown,
-  UserCheck, Clock, UserX, FileText
+  UserCheck, Clock, UserX, FileText, Send
 } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { reportsService, notificationTriggerService } from "@server";
+import type { ReportStats, DailyBreakdown } from "@server";
 
 type TimeRange = "today" | "week" | "month";
 
 const AdminReportsScreen = () => {
+  const { user } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>("week");
   const [showExportSheet, setShowExportSheet] = useState(false);
+  const [showNotificationSheet, setShowNotificationSheet] = useState(false);
   const [exportFormat, setExportFormat] = useState<"csv" | "pdf">("csv");
   const [isExporting, setIsExporting] = useState(false);
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<ReportStats>({
+    totalEmployees: 0,
+    present: 0,
+    late: 0,
+    absent: 0,
+    attendanceRate: 0,
+    comparedToPrevious: 0,
+  });
+  const [weeklyBreakdown, setWeeklyBreakdown] = useState<DailyBreakdown[]>([]);
 
-  const reportData = {
-    today: { totalEmployees: 156, present: 142, late: 8, absent: 6, attendanceRate: 91.0, comparedToPrevious: 2.3 },
-    week: { totalEmployees: 156, present: 145, late: 6, absent: 5, attendanceRate: 93.0, comparedToPrevious: 1.5 },
-    month: { totalEmployees: 156, present: 148, late: 4, absent: 4, attendanceRate: 95.0, comparedToPrevious: -0.8 },
-  };
-  const data = reportData[timeRange];
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      
+      // Fetch stats for selected time range
+      const { stats } = await reportsService.getAttendanceStats(timeRange);
+      setData(stats);
+      
+      // Fetch weekly breakdown if week is selected
+      if (timeRange === 'week') {
+        const { breakdown } = await reportsService.getWeeklyBreakdown();
+        setWeeklyBreakdown(breakdown);
+      }
+      
+      setLoading(false);
+    };
 
-  const weeklyBreakdown = [
-    { day: "Mon", date: "2024-01-15", present: 148, late: 5, absent: 3 },
-    { day: "Tue", date: "2024-01-16", present: 145, late: 7, absent: 4 },
-    { day: "Wed", date: "2024-01-17", present: 150, late: 3, absent: 3 },
-    { day: "Thu", date: "2024-01-18", present: 142, late: 8, absent: 6 },
-    { day: "Fri", date: "2024-01-19", present: 140, late: 10, absent: 6 },
-  ];
+    fetchData();
+  }, [timeRange]);
 
   const generateCSV = () => {
     const headers = ['Date', 'Day', 'Present', 'Late', 'Absent', 'Rate'];
-    const rows = weeklyBreakdown.map(row => [row.date, row.day, row.present, row.late, row.absent, `${Math.round((row.present / 156) * 100)}%`]);
+    const rows = weeklyBreakdown.map(row => [
+      row.date, 
+      row.day, 
+      row.present, 
+      row.late, 
+      row.absent, 
+      `${Math.round(((row.present + row.late) / (row.present + row.late + row.absent || 1)) * 100)}%`
+    ]);
     return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
   };
 
@@ -52,14 +80,75 @@ const AdminReportsScreen = () => {
     toast({ title: "Report Downloaded", description: `Attendance report exported as ${exportFormat.toUpperCase()} successfully.` });
   };
 
+  const handleSendNotification = async () => {
+    if (!user) {
+      toast({ title: "Error", description: "User not authenticated", variant: "destructive" });
+      return;
+    }
+
+    setIsSendingNotification(true);
+
+    // Get current attendance data
+    const attendanceData = await notificationTriggerService.getCurrentAttendanceData();
+    
+    if (attendanceData.error) {
+      toast({ title: "Error", description: attendanceData.error.message, variant: "destructive" });
+      setIsSendingNotification(false);
+      return;
+    }
+
+    // Use current time as slot time
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+    const currentTime = `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
+
+    // Trigger notification
+    const result = await notificationTriggerService.triggerNotification({
+      slotNumber: 1, // Default to slot 1 for manual triggers
+      slotTime: currentTime,
+      presentCount: attendanceData.presentCount,
+      lateCount: attendanceData.lateCount,
+      totalCount: attendanceData.totalCount,
+      attendanceRate: attendanceData.attendanceRate,
+      triggeredBy: user.id,
+    });
+
+    setIsSendingNotification(false);
+    setShowNotificationSheet(false);
+
+    if (result.success) {
+      const totalSent = result.emailsSent + result.smsSent;
+      const totalFailed = result.emailsFailed + result.smsFailed;
+      
+      toast({
+        title: "Notifications Sent!",
+        description: `Successfully sent ${totalSent} notification(s). ${totalFailed > 0 ? `${totalFailed} failed.` : ''}`,
+      });
+    } else {
+      toast({
+        title: "Failed to Send",
+        description: result.message || "Failed to send notifications",
+        variant: "destructive",
+      });
+    }
+  };
+
   const departmentStats = [
-    { name: "Engineering", employees: 45, rate: 96 },
-    { name: "Design", employees: 12, rate: 92 },
-    { name: "Marketing", employees: 18, rate: 89 },
-    { name: "HR", employees: 8, rate: 100 },
-    { name: "Finance", employees: 15, rate: 93 },
-    { name: "Operations", employees: 22, rate: 91 },
+    { name: "Coming Soon", employees: 0, rate: 0 },
   ];
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-full">
+          <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -71,9 +160,14 @@ const AdminReportsScreen = () => {
               <h1 className="text-display mb-1">Reports</h1>
               <p className="text-caption">Attendance analytics</p>
             </div>
-            <button onClick={() => setShowExportSheet(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
-              <Download className="w-4 h-4" />Export
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setShowNotificationSheet(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+                <Send className="w-4 h-4" />Send Alert
+              </button>
+              <button onClick={() => setShowExportSheet(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
+                <Download className="w-4 h-4" />Export
+              </button>
+            </div>
           </div>
         </div>
 
@@ -135,17 +229,20 @@ const AdminReportsScreen = () => {
                 <h2 className="text-overline mb-3">Daily Breakdown</h2>
                 <div className="card-elevated p-4">
                   <div className="space-y-3">
-                    {weeklyBreakdown.map((day) => (
-                      <div key={day.day} className="flex items-center gap-3">
-                        <span className="w-8 text-sm font-medium text-muted-foreground">{day.day}</span>
-                        <div className="flex-1 flex items-center gap-1 h-6">
-                          <div className="bg-success h-full rounded-l" style={{ width: `${(day.present / 156) * 100}%` }} />
-                          <div className="bg-warning h-full" style={{ width: `${(day.late / 156) * 100}%` }} />
-                          <div className="bg-destructive h-full rounded-r" style={{ width: `${(day.absent / 156) * 100}%` }} />
+                    {weeklyBreakdown.map((day) => {
+                      const total = day.present + day.late + day.absent || 1;
+                      return (
+                        <div key={day.day + day.date} className="flex items-center gap-3">
+                          <span className="w-8 text-sm font-medium text-muted-foreground">{day.day}</span>
+                          <div className="flex-1 flex items-center gap-1 h-6">
+                            <div className="bg-success h-full rounded-l" style={{ width: `${(day.present / total) * 100}%` }} />
+                            <div className="bg-warning h-full" style={{ width: `${(day.late / total) * 100}%` }} />
+                            <div className="bg-destructive h-full rounded-r" style={{ width: `${(day.absent / total) * 100}%` }} />
+                          </div>
+                          <span className="text-xs text-muted-foreground w-10 text-right">{Math.round(((day.present + day.late) / total) * 100)}%</span>
                         </div>
-                        <span className="text-xs text-muted-foreground w-10 text-right">{Math.round((day.present / 156) * 100)}%</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-border">
                     <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-success rounded" /><span className="text-xs text-muted-foreground">Present</span></div>
@@ -206,6 +303,46 @@ const AdminReportsScreen = () => {
               <button onClick={handleExport} disabled={isExporting} className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50">
                 {isExporting ? (<><div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />Exporting...</>) : (<><Download className="w-5 h-5" />Download {exportFormat.toUpperCase()}</>)}
               </button>
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Notification Sheet */}
+        <Sheet open={showNotificationSheet} onOpenChange={setShowNotificationSheet}>
+          <SheetContent side="bottom" className="rounded-t-3xl">
+            <SheetHeader className="text-left">
+              <SheetTitle>Send Attendance Alert</SheetTitle>
+              <SheetDescription>Send SMS & Email notification to HR contacts</SheetDescription>
+            </SheetHeader>
+            <div className="py-6 space-y-4">
+              <div className="bg-muted/50 rounded-xl p-4">
+                <p className="text-sm font-medium mb-2">Current Attendance</p>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <p className="text-2xl font-bold text-success">{data.present}</p>
+                    <p className="text-xs text-muted-foreground">Present</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-warning">{data.late}</p>
+                    <p className="text-xs text-muted-foreground">Late</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{data.present + data.late}</p>
+                    <p className="text-xs text-muted-foreground">Total</p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-xs text-muted-foreground text-center">
+                    Attendance Rate: <span className="font-semibold text-foreground">{data.attendanceRate}%</span>
+                  </p>
+                </div>
+              </div>
+              <button onClick={handleSendNotification} disabled={isSendingNotification} className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50">
+                {isSendingNotification ? (<><div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />Sending...</>) : (<><Send className="w-5 h-5" />Send Now</>)}
+              </button>
+              <p className="text-xs text-muted-foreground text-center">
+                SMS & Email will be sent to all enabled HR contacts immediately
+              </p>
             </div>
           </SheetContent>
         </Sheet>

@@ -191,7 +191,14 @@
   /* Mobile app container styling */
   .mobile-container {
     @apply mx-auto min-h-screen bg-background relative;
-    max-width: 430px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  @media (min-width: 640px) {
+    .mobile-container {
+      max-width: 430px;
+    }
   }
 
   @media (min-width: 768px) {

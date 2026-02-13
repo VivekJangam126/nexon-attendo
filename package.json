@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:phase3": "tsx test-phase3-attendance.ts"
+    "test:phase3": "tsx test-phase3-attendance.ts",
+    "test:notification": "tsx test-notification.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -60,9 +61,11 @@
     "react-resizable-panels": "^2.1.9",
     "react-router-dom": "^6.30.1",
     "recharts": "^2.15.4",
+    "resend": "^6.9.2",
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "twilio": "^5.12.1",
     "vaul": "^0.9.9",
     "zod": "^3.25.76"
   },

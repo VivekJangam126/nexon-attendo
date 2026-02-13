@@ -1,44 +1,69 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Building2, Clock, MapPin, Wifi, Bell, Shield, Users,
-  ChevronRight, HelpCircle, FileText, ToggleLeft, ToggleRight
+  ChevronRight, HelpCircle, FileText, ToggleLeft, ToggleRight, Lock
 } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
+import { attendanceSettingsService } from "@server";
+import { toast } from "@/hooks/use-toast";
 
 const AdminSettingsScreen = () => {
   const navigate = useNavigate();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [strictMode, setStrictMode] = useState(false);
+  const [attendanceWindow, setAttendanceWindow] = useState("Loading...");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      setLoading(true);
+      const { window } = await attendanceSettingsService.getAttendanceWindow();
+      if (window) {
+        setAttendanceWindow(`${window.start_time} - ${window.end_time}`);
+      }
+      setLoading(false);
+    };
+
+    fetchSettings();
+  }, []);
+
+  const handleComingSoon = () => {
+    toast({
+      title: "Coming Soon",
+      description: "This feature is under development and will be available soon.",
+    });
+  };
 
   const sections = [
     {
       title: "Office Configuration",
       items: [
-        { icon: Building2, label: "Office Locations", desc: "Manage office premises", path: "/admin/settings/locations" },
-        { icon: Wifi, label: "Wi-Fi Networks", desc: "Configure allowed networks", path: "/admin/settings/wifi" },
-        { icon: MapPin, label: "Geofencing", desc: "Set location boundaries", path: "/admin/settings/geofencing" },
+        { icon: Building2, label: "Office Locations", desc: "Coming Soon", path: null, disabled: true },
+        { icon: Wifi, label: "Wi-Fi Networks", desc: "Coming Soon", path: null, disabled: true },
+        { icon: MapPin, label: "Geofencing", desc: "Coming Soon", path: null, disabled: true },
       ],
     },
     {
       title: "Attendance Rules",
       items: [
-        { icon: Clock, label: "Attendance Window", desc: "9:00 AM - 6:00 PM", path: "/admin/settings/window" },
-        { icon: Clock, label: "Grace Period", desc: "15 minutes after start time", path: "/admin/settings/grace" },
+        { icon: Clock, label: "Attendance Window", desc: attendanceWindow, path: "/admin/settings/window", disabled: false },
+        { icon: Clock, label: "Grace Period", desc: "Coming Soon", path: null, disabled: true },
+        { icon: Bell, label: "Notifications", desc: "SMS & Email alerts", path: "/admin/settings/notifications", disabled: false },
       ],
     },
     {
       title: "User Management",
       items: [
-        { icon: Users, label: "Employee Management", desc: "Add, edit, or remove employees", path: "/admin/employees" },
-        { icon: Clock, label: "Pending Approvals", desc: "Review registration requests", path: "/admin/pending-approvals" },
+        { icon: Users, label: "Employee Management", desc: "Add, edit, or remove employees", path: "/admin/employees", disabled: false },
+        { icon: Clock, label: "Pending Approvals", desc: "Review registration requests", path: "/admin/pending-approvals", disabled: false },
       ],
     },
     {
       title: "Support",
       items: [
-        { icon: HelpCircle, label: "Help Center", desc: "FAQs and documentation", path: "/admin/settings/help" },
-        { icon: FileText, label: "Terms & Policies", desc: "Legal information", path: "/admin/settings/terms" },
+        { icon: HelpCircle, label: "Help Center", desc: "Coming Soon", path: null, disabled: true },
+        { icon: FileText, label: "Terms & Policies", desc: "Coming Soon", path: null, disabled: true },
       ],
     },
   ];
@@ -58,15 +83,29 @@ const AdminSettingsScreen = () => {
                 <h2 className="text-overline mb-3">{section.title}</h2>
                 <div className="card-elevated divide-y divide-border">
                   {section.items.map((item, ii) => (
-                    <button key={ii} onClick={() => navigate(item.path)} className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors">
-                      <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-                        <item.icon className="w-5 h-5 text-primary" />
+                    <button 
+                      key={ii} 
+                      onClick={() => item.disabled ? handleComingSoon() : navigate(item.path!)} 
+                      className={`flex items-center gap-4 p-4 w-full transition-colors ${
+                        item.disabled 
+                          ? 'opacity-60 cursor-not-allowed' 
+                          : 'hover:bg-muted/50'
+                      }`}
+                      disabled={item.disabled}
+                    >
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        item.disabled ? 'bg-muted' : 'bg-accent'
+                      }`}>
+                        <item.icon className={`w-5 h-5 ${item.disabled ? 'text-muted-foreground' : 'text-primary'}`} />
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="font-medium">{item.label}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{item.label}</p>
+                          {item.disabled && <Lock className="w-3 h-3 text-muted-foreground" />}
+                        </div>
                         <p className="text-xs text-muted-foreground">{item.desc}</p>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                      {!item.disabled && <ChevronRight className="w-5 h-5 text-muted-foreground" />}
                     </button>
                   ))}
                 </div>
@@ -77,29 +116,31 @@ const AdminSettingsScreen = () => {
             <div className="animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
               <h2 className="text-overline mb-3">System</h2>
               <div className="card-elevated divide-y divide-border">
-                <div className="flex items-center gap-4 p-4">
-                  <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-primary" />
+                <div className="flex items-center gap-4 p-4 opacity-60">
+                  <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium">Strict Mode</p>
-                    <p className="text-xs text-muted-foreground">Require both location & Wi-Fi</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">Strict Mode</p>
+                      <Lock className="w-3 h-3 text-muted-foreground" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Coming Soon</p>
                   </div>
-                  <button onClick={() => setStrictMode(!strictMode)} className="text-primary">
-                    {strictMode ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
-                  </button>
+                  <ToggleLeft className="w-8 h-8 text-muted-foreground" />
                 </div>
-                <div className="flex items-center gap-4 p-4">
-                  <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-                    <Bell className="w-5 h-5 text-primary" />
+                <div className="flex items-center gap-4 p-4 opacity-60">
+                  <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                    <Bell className="w-5 h-5 text-muted-foreground" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium">Push Notifications</p>
-                    <p className="text-xs text-muted-foreground">Daily attendance alerts</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">Push Notifications</p>
+                      <Lock className="w-3 h-3 text-muted-foreground" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Coming Soon</p>
                   </div>
-                  <button onClick={() => setNotificationsEnabled(!notificationsEnabled)} className="text-primary">
-                    {notificationsEnabled ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
-                  </button>
+                  <ToggleLeft className="w-8 h-8 text-muted-foreground" />
                 </div>
               </div>
             </div>

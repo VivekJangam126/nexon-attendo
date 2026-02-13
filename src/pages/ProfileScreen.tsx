@@ -1,36 +1,86 @@
 import { useNavigate } from "react-router-dom";
 import { 
-  User, Briefcase, Building2, Mail, Phone, 
-  LogOut, ChevronRight, Lock, HelpCircle, FileText, Info
+  User, Briefcase, Building2, Mail, Calendar, 
+  LogOut, ChevronRight, Lock, HelpCircle, FileText, Info, Shield
 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import BottomNavigation from "@/components/BottomNavigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/hooks/useAuth";
 
 const ProfileScreen = () => {
   const navigate = useNavigate();
+  const { profile, logout: authLogout } = useAuth();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
-  const employeeInfo = {
-    name: "Rahul Kumar",
-    employeeId: "NXN-2024-0142",
-    email: "rahul.kumar@nexon.com",
-    phone: "+91 98765 43210",
-    role: "Software Developer",
-    department: "Engineering",
-    office: "Nexon Pvt Ltd – Head Office",
-    joinDate: "March 15, 2024",
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!profile) {
+      navigate("/login");
+    }
+  }, [profile, navigate]);
+
+  const handleLogout = async () => {
+    setShowLogoutDialog(false);
+    try {
+      await authLogout();
+      // Force navigation after logout
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still navigate even if there's an error
+      window.location.href = '/login';
+    }
   };
 
-  const handleLogout = () => {
-    setShowLogoutDialog(false);
-    navigate("/login");
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
   };
+
+  // Get initials from name
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Format status for display
+  const getStatusDisplay = (status: string) => {
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  };
+
+  // Get status color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'text-success';
+      case 'pending':
+        return 'text-warning';
+      case 'rejected':
+      case 'blocked':
+        return 'text-destructive';
+      default:
+        return 'text-muted-foreground';
+    }
+  };
+
+  if (!profile) {
+    return null;
+  }
 
   return (
     <MobileContainer>
@@ -39,12 +89,16 @@ const ProfileScreen = () => {
         <div className="px-6 pt-8 pb-6 bg-primary text-primary-foreground rounded-b-3xl">
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 bg-primary-foreground/20 rounded-full flex items-center justify-center">
-              <span className="text-3xl font-semibold">RK</span>
+              <span className="text-3xl font-semibold">{getInitials(profile.full_name)}</span>
             </div>
-            <div>
-              <h1 className="text-xl font-semibold">{employeeInfo.name}</h1>
-              <p className="text-primary-foreground/80 text-sm">{employeeInfo.role}</p>
-              <p className="text-primary-foreground/60 text-xs mt-1">ID: {employeeInfo.employeeId}</p>
+            <div className="flex-1">
+              <h1 className="text-xl font-semibold">{profile.full_name}</h1>
+              <p className="text-primary-foreground/80 text-sm capitalize">{profile.role}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`text-xs font-medium ${getStatusColor(profile.status)}`}>
+                  {getStatusDisplay(profile.status)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -53,27 +107,71 @@ const ProfileScreen = () => {
         <div className="flex-1 px-6 py-6 space-y-6 overflow-y-auto">
           {/* Employee Details */}
           <div className="animate-fade-in-up">
-            <h2 className="text-overline mb-3">Employee Details</h2>
+            <h2 className="text-overline mb-3">Profile Information</h2>
             <div className="card-elevated divide-y divide-border">
-              {[
-                { icon: User, label: "Full Name", value: employeeInfo.name },
-                { icon: Briefcase, label: "Department", value: employeeInfo.department },
-                { icon: Building2, label: "Office Location", value: employeeInfo.office },
-                { icon: Mail, label: "Email", value: employeeInfo.email },
-                { icon: Phone, label: "Phone", value: employeeInfo.phone },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-4 p-4">
+              <div className="flex items-center gap-4 p-4">
                   <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-                    <item.icon className="w-5 h-5 text-primary" />
+                    <User className="w-5 h-5 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-caption">{item.label}</p>
-                    <p className="font-medium">{item.value}</p>
+                    <p className="text-caption">Full Name</p>
+                    <p className="font-medium">{profile.full_name}</p>
                   </div>
                 </div>
-              ))}
+
+                <div className="flex items-center gap-4 p-4">
+                  <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-caption">Email</p>
+                    <p className="font-medium break-all">{profile.email}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 p-4">
+                  <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
+                    <Briefcase className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-caption">Role</p>
+                    <p className="font-medium capitalize">{profile.role}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 p-4">
+                  <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-caption">Account Status</p>
+                    <p className={`font-medium capitalize ${getStatusColor(profile.status)}`}>
+                      {getStatusDisplay(profile.status)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 p-4">
+                  <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-caption">Office Location</p>
+                    <p className="font-medium">{profile.office_name || 'Not Assigned'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 p-4">
+                  <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-caption">Member Since</p>
+                    <p className="font-medium">{formatDate(profile.created_at)}</p>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
 
           {/* Account Options */}
           <div className="animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
@@ -139,7 +237,7 @@ const ProfileScreen = () => {
           {/* App Version */}
           <div className="text-center pt-2">
             <p className="text-xs text-muted-foreground">Nexon Attendance v1.0.0</p>
-            <p className="text-xs text-muted-foreground">© 2024 Nexon Pvt Ltd</p>
+            <p className="text-xs text-muted-foreground">© 2026 SmartMatrix Pvt Ltd</p>
           </div>
         </div>
 

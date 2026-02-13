@@ -1,35 +1,63 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Users, UserCheck, Clock, UserX, TrendingUp,
   Calendar, ChevronRight, AlertCircle
 } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
+import { dashboardService } from "@server";
+import type { DashboardStats, RecentActivity, PendingAction } from "@server";
 
 const AdminDashboardScreen = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalEmployees: 0,
+    presentToday: 0,
+    lateToday: 0,
+    absentToday: 0,
+    notMarkedToday: 0,
+    attendanceRate: 0,
+  });
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
 
-  const stats = {
-    totalEmployees: 156, presentToday: 142, lateToday: 8,
-    absentToday: 6, attendanceRate: 91.0,
-  };
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
 
-  const recentActivity = [
-    { name: "Rahul Kumar", action: "Marked Present", time: "09:15 AM", status: "present" },
-    { name: "Priya Sharma", action: "Marked Late", time: "10:32 AM", status: "late" },
-    { name: "Amit Singh", action: "Marked Present", time: "09:28 AM", status: "present" },
-    { name: "Neha Patel", action: "Marked Present", time: "09:05 AM", status: "present" },
-  ];
+      // Fetch stats
+      const { stats: dashboardStats } = await dashboardService.getDashboardStats();
+      setStats(dashboardStats);
 
-  const pendingActions = [
-    { title: "3 employees pending approval", type: "approval", path: "/admin/pending-approvals" },
-    { title: "2 leave requests pending", type: "leave", path: "/admin/employees" },
-  ];
+      // Fetch recent activity
+      const { activities } = await dashboardService.getRecentActivity(4);
+      setRecentActivity(activities);
+
+      // Fetch pending actions
+      const { actions } = await dashboardService.getPendingActions();
+      setPendingActions(actions);
+
+      setLoading(false);
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-full">
+          <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>

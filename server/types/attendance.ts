@@ -13,6 +13,9 @@ export interface Attendance {
   check_out_time: string | null;
   status: AttendanceStatus;
   office_id: string;
+  latitude: number | null;
+  longitude: number | null;
+  ip_address: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +39,9 @@ export type AttendanceErrorCode =
   | 'NO_OFFICE_ASSIGNED'
   | 'ATTENDANCE_CLOSED'
   | 'ATTENDANCE_ALREADY_MARKED'
+  | 'GPS_REQUIRED'
+  | 'OUTSIDE_OFFICE_LOCATION'
+  | 'OFFICE_WIFI_REQUIRED'
   | 'VALIDATION_FAILED';
 
 export interface AttendanceValidationError {

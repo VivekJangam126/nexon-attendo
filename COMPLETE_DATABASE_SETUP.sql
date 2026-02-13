@@ -302,8 +302,20 @@ CREATE TRIGGER update_attendance_settings_updated_at
 -- ============================================
 
 -- Insert sample offices
-INSERT INTO offices (name, address, city, state, country, latitude, longitude, wifi_ssids, is_active)
+INSERT INTO offices (name, address, city, state, country, latitude, longitude, radius_meters, wifi_ssids, is_active)
 VALUES
+  (
+    'Nexon Office - Pune',
+    'Office Address, Pune',
+    'Pune',
+    'Maharashtra',
+    'India',
+    18.5976337,
+    73.8056611,
+    100,
+    ARRAY['Nexon-Office-5G', 'Nexon-Office-Guest'],
+    true
+  ),
   (
     'Nexon HQ - Bangalore',
     '123 Tech Park, Sector 5, Electronic City',
@@ -312,8 +324,9 @@ VALUES
     'India',
     12.9716,
     77.5946,
+    100,
     ARRAY['Nexon-HQ-5G', 'Nexon-HQ-Guest'],
-    true
+    false
   ),
   (
     'Nexon Mumbai Office',
@@ -323,8 +336,9 @@ VALUES
     'India',
     19.0760,
     72.8777,
+    100,
     ARRAY['Nexon-Mumbai-5G', 'Nexon-Mumbai-Guest'],
-    true
+    false
   ),
   (
     'Nexon Delhi Office',
@@ -334,19 +348,21 @@ VALUES
     'India',
     28.6139,
     77.2090,
+    100,
     ARRAY['Nexon-Delhi-5G', 'Nexon-Delhi-Guest'],
-    true
+    false
   ),
   (
-    'Nexon Pune Office',
+    'Nexon Pune Office (Old)',
     '321 IT Park, Hinjewadi Phase 2',
     'Pune',
     'Maharashtra',
     'India',
     18.5204,
     73.8567,
+    100,
     ARRAY['Nexon-Pune-5G', 'Nexon-Pune-Guest'],
-    true
+    false
   ),
   (
     'Nexon Hyderabad Office',
@@ -356,8 +372,9 @@ VALUES
     'India',
     17.3850,
     78.4867,
+    100,
     ARRAY['Nexon-Hyderabad-5G', 'Nexon-Hyderabad-Guest'],
-    true
+    false
   )
 ON CONFLICT DO NOTHING;
 

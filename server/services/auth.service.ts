@@ -12,6 +12,7 @@ export const authService = {
   /**
    * Login with email and password
    * Phase 2: Enforces login restrictions based on user status
+   * SINGLE OFFICE MODE: Auto-assigns office if missing
    * - pending → login blocked
    * - rejected → login blocked
    * - active → login allowed
@@ -60,6 +61,35 @@ export const authService = {
           message: 'User profile not found',
         } as any,
       };
+    }
+
+    // SINGLE OFFICE MODE: Auto-assign office if missing (safety net)
+    if (profile.role === 'employee' && !profile.office_location) {
+      console.log('🔍 [LOGIN SAFETY NET] Employee has no office, auto-assigning...');
+      
+      const { data: activeOffice } = await supabase
+        .from('offices')
+        .select('id, name')
+        .eq('is_active', true)
+        .single();
+
+      if (activeOffice) {
+        const officeData = activeOffice as any;
+        await supabase
+          .from('profiles')
+          .update({ office_location: officeData.id } as any)
+          .eq('id', data.user.id);
+        
+        console.log('  ✅ Auto-assigned to:', officeData.name);
+        
+        // Refresh profile
+        const { profile: updatedProfile } = await profileService.getProfile(data.user.id);
+        if (updatedProfile) {
+          Object.assign(profile, updatedProfile);
+        }
+      } else {
+        console.log('  ⚠️  No active office found for auto-assignment');
+      }
     }
 
     // Step 3: Enforce status-based login restrictions
