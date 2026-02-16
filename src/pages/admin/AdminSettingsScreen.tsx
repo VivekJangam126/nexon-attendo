@@ -90,14 +90,14 @@ const AdminSettingsScreen = () => {
       title: "Attendance Rules",
       items: [
         { icon: Clock, label: "Attendance Window", desc: attendanceWindow, path: "/admin/settings/window", disabled: false },
-        { icon: Clock, label: "Grace Period", desc: "Coming Soon", path: null, disabled: true },
+        { icon: Clock, label: "Grace Period", desc: "Late arrival tolerance", path: "/admin/settings/grace", disabled: false },
         { icon: Bell, label: "Notifications", desc: "SMS & Email alerts", path: "/admin/settings/notifications", disabled: false },
       ],
     },
     {
       title: "User Management",
       items: [
-        { icon: Users, label: "Employee Management", desc: "Add, edit, or remove employees", path: "/admin/employees", disabled: false },
+        { icon: Users, label: "Employee Management", desc: "Activate, deactivate, or delete", path: "/admin/settings/employee-management", disabled: false },
         { icon: Clock, label: "Pending Approvals", desc: "Review registration requests", path: "/admin/pending-approvals", disabled: false },
       ],
     },

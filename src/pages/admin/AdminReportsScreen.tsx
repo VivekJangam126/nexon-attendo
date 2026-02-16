@@ -31,7 +31,6 @@ const AdminReportsScreen = () => {
     attendanceRate: 0,
     comparedToPrevious: 0,
   });
-  const [weeklyBreakdown, setWeeklyBreakdown] = useState<DailyBreakdown[]>([]);
   const [detailedBreakdown, setDetailedBreakdown] = useState<DailyBreakdown[]>([]);
   const [employeeRecords, setEmployeeRecords] = useState<EmployeeAttendanceRecord[]>([]);
 
@@ -42,12 +41,6 @@ const AdminReportsScreen = () => {
       // Fetch stats for selected time range
       const { stats } = await reportsService.getAttendanceStats(timeRange);
       setData(stats);
-      
-      // Fetch weekly breakdown if week is selected (for display)
-      if (timeRange === 'week') {
-        const { breakdown } = await reportsService.getWeeklyBreakdown();
-        setWeeklyBreakdown(breakdown);
-      }
       
       // Fetch detailed breakdown for CSV export
       const { breakdown: detailed } = await reportsService.getDetailedBreakdown(timeRange);
@@ -78,55 +71,172 @@ const AdminReportsScreen = () => {
       hour12: true
     });
     
-    // Header
-    lines.push(`Attendance Report - ${timeRange.charAt(0).toUpperCase() + timeRange.slice(1)}`);
+    // Header with company info
+    lines.push('NEXUS ATTENDO - ATTENDANCE REPORT');
+    lines.push(`Report Type: ${timeRange.charAt(0).toUpperCase() + timeRange.slice(1)}`);
     lines.push(`Generated: ${reportDate} at ${reportTime}`);
+    lines.push(`Total Employees: ${data.totalEmployees}`);
+    lines.push('');
+    lines.push('='.repeat(80));
     lines.push('');
     
-    // Summary Section
-    lines.push('=== SUMMARY ===');
-    lines.push(`Total Employees,${data.totalEmployees}`);
-    lines.push(`Present,${data.present}`);
-    lines.push(`Late,${data.late}`);
-    lines.push(`Absent,${data.absent}`);
-    lines.push(`Attendance Rate,${data.attendanceRate}%`);
-    lines.push(`Compared to Previous Period,${data.comparedToPrevious > 0 ? '+' : ''}${data.comparedToPrevious}%`);
-    lines.push('');
+    // Calculate summary from actual employee records (not from backend stats which may be cached)
+    const actualPresent = employeeRecords.filter(r => r.status === 'present').length;
+    const actualLate = employeeRecords.filter(r => r.status === 'late').length;
+    const actualAbsent = employeeRecords.filter(r => r.status === 'absent').length;
+    const actualTotalRecords = employeeRecords.length; // Total attendance records (employees × days)
+    const actualTotalEmployees = data.totalEmployees; // Total number of employees
     
-    // Daily Breakdown Section
-    lines.push('=== DAILY BREAKDOWN ===');
-    lines.push('Date,Day,Present,Late,Absent,Total,Rate');
-    detailedBreakdown.forEach(row => {
-      const total = row.present + row.late + row.absent;
-      const rate = total > 0 ? Math.round(((row.present + row.late) / total) * 100) : 0;
-      // Format as text to prevent Excel date interpretation - add apostrophe prefix
-      const dateObj = new Date(row.date + 'T00:00:00');
-      const day = dateObj.getDate().toString().padStart(2, '0');
-      const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-      const year = dateObj.getFullYear();
-      const formattedDate = `'${day}/${month}/${year}`;
+    // Summary Section with better formatting
+    lines.push('ATTENDANCE SUMMARY');
+    lines.push('-'.repeat(80));
+    
+    // For multi-day reports, show both per-record and per-employee percentages
+    if (timeRange === 'today') {
+      // For today, calculate based on total employees
+      const presentPercent = actualTotalEmployees > 0 ? Math.round((actualPresent / actualTotalEmployees) * 100) : 0;
+      const latePercent = actualTotalEmployees > 0 ? Math.round((actualLate / actualTotalEmployees) * 100) : 0;
+      const absentPercent = actualTotalEmployees > 0 ? Math.round((actualAbsent / actualTotalEmployees) * 100) : 0;
       
-      lines.push(`${formattedDate},${row.day},${row.present},${row.late},${row.absent},${total},${rate}%`);
-    });
+      lines.push(`Present:,${actualPresent},employees,(${presentPercent}%)`);
+      lines.push(`Late:,${actualLate},employees,(${latePercent}%)`);
+      lines.push(`Absent:,${actualAbsent},employees,(${absentPercent}%)`);
+    } else {
+      // For week/month, calculate based on total records
+      const presentPercent = actualTotalRecords > 0 ? Math.round((actualPresent / actualTotalRecords) * 100) : 0;
+      const latePercent = actualTotalRecords > 0 ? Math.round((actualLate / actualTotalRecords) * 100) : 0;
+      const absentPercent = actualTotalRecords > 0 ? Math.round((actualAbsent / actualTotalRecords) * 100) : 0;
+      
+      const numDays = timeRange === 'week' ? 7 : 30;
+      lines.push(`Total Records:,${actualTotalRecords},(${actualTotalEmployees} employees × ${numDays} days)`);
+      lines.push(`Present:,${actualPresent},records,(${presentPercent}%)`);
+      lines.push(`Late:,${actualLate},records,(${latePercent}%)`);
+      lines.push(`Absent:,${actualAbsent},records,(${absentPercent}%)`);
+    }
+    
+    lines.push(`Overall Attendance Rate:,${data.attendanceRate}%`);
+    lines.push(`Trend vs Previous Period:,${data.comparedToPrevious > 0 ? '+' : ''}${data.comparedToPrevious}%`);
+    lines.push('');
+    lines.push('='.repeat(80));
     lines.push('');
     
-    // Employee Attendance Records Section (without Check-Out column)
-    lines.push('=== EMPLOYEE ATTENDANCE RECORDS ===');
-    lines.push('Employee Name,Email,Date,Check-In Time,Status');
+    // Daily Breakdown Section - Calculate from actual employee records
+    lines.push('DAILY BREAKDOWN');
+    lines.push('-'.repeat(80));
+    lines.push('Date,Day,Present,Late,Absent,Total Employees,Attendance Rate');
+    
+    // Group employee records by date to get accurate counts
+    const recordsByDateForBreakdown = new Map<string, typeof employeeRecords>();
     employeeRecords.forEach(record => {
-      // Format as text to prevent Excel date interpretation - add apostrophe prefix
-      const dateObj = new Date(record.date + 'T00:00:00');
-      const day = dateObj.getDate().toString().padStart(2, '0');
-      const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-      const year = dateObj.getFullYear();
-      const formattedDate = `'${day}/${month}/${year}`;
-      
-      // Escape commas in names and emails by wrapping in quotes
-      const escapedName = record.employeeName.includes(',') ? `"${record.employeeName}"` : record.employeeName;
-      const escapedEmail = record.email.includes(',') ? `"${record.email}"` : record.email;
-      
-      lines.push(`${escapedName},${escapedEmail},${formattedDate},${record.checkInTime},${record.status.toUpperCase()}`);
+      if (!recordsByDateForBreakdown.has(record.date)) {
+        recordsByDateForBreakdown.set(record.date, []);
+      }
+      recordsByDateForBreakdown.get(record.date)!.push(record);
     });
+    
+    // Sort dates and generate breakdown
+    const sortedDatesForBreakdown = Array.from(recordsByDateForBreakdown.keys()).sort((a, b) => a.localeCompare(b));
+    
+    sortedDatesForBreakdown.forEach(date => {
+      const records = recordsByDateForBreakdown.get(date)!;
+      const present = records.filter(r => r.status === 'present').length;
+      const late = records.filter(r => r.status === 'late').length;
+      const absent = records.filter(r => r.status === 'absent').length;
+      const total = records.length;
+      const rate = total > 0 ? Math.round(((present + late) / total) * 100) : 0;
+      
+      const dateObj = new Date(date + 'T00:00:00');
+      const day = dateObj.getDate().toString().padStart(2, '0');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[dateObj.getMonth()];
+      const year = dateObj.getFullYear();
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const dayName = dayNames[dateObj.getDay()];
+      // Use text format with leading apostrophe to prevent Excel interpretation
+      const formattedDate = `'${day}-${month}-${year}`;
+      
+      lines.push(`${formattedDate},${dayName},${present},${late},${absent},${total},${rate}%`);
+    });
+    lines.push('');
+    lines.push('='.repeat(80));
+    lines.push('');
+    
+    // Employee Attendance Records Section - Grouped by Date
+    lines.push('DETAILED EMPLOYEE ATTENDANCE RECORDS');
+    lines.push('-'.repeat(80));
+    
+    // Group records by date
+    const recordsByDate = new Map<string, typeof employeeRecords>();
+    employeeRecords.forEach(record => {
+      if (!recordsByDate.has(record.date)) {
+        recordsByDate.set(record.date, []);
+      }
+      recordsByDate.get(record.date)!.push(record);
+    });
+    
+    // Sort dates in descending order (most recent first)
+    const sortedDates = Array.from(recordsByDate.keys()).sort((a, b) => b.localeCompare(a));
+    
+    sortedDates.forEach((date, dateIndex) => {
+      const records = recordsByDate.get(date)!;
+      
+      // Date header
+      const dateObj = new Date(date + 'T00:00:00');
+      const formattedDate = dateObj.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        weekday: 'long'
+      });
+      
+      lines.push('');
+      lines.push(`DATE: ${formattedDate}`);
+      lines.push('-'.repeat(80));
+      
+      // Count status for this date
+      const datePresent = records.filter(r => r.status === 'present').length;
+      const dateLate = records.filter(r => r.status === 'late').length;
+      const dateAbsent = records.filter(r => r.status === 'absent').length;
+      const dateRate = records.length > 0 ? Math.round(((datePresent + dateLate) / records.length) * 100) : 0;
+      
+      lines.push(`Summary: ${datePresent} Present | ${dateLate} Late | ${dateAbsent} Absent | ${dateRate}% Attendance`);
+      lines.push('');
+      lines.push('Employee Name,Email,Date,Check-In Time,Status');
+      
+      // Sort records by status (Present, Late, Absent) then by name
+      const sortedRecords = records.sort((a, b) => {
+        const statusOrder = { present: 1, late: 2, absent: 3 };
+        const statusCompare = statusOrder[a.status] - statusOrder[b.status];
+        if (statusCompare !== 0) return statusCompare;
+        return a.employeeName.localeCompare(b.employeeName);
+      });
+      
+      sortedRecords.forEach(record => {
+        const escapedName = record.employeeName.includes(',') ? `"${record.employeeName}"` : record.employeeName;
+        const escapedEmail = record.email.includes(',') ? `"${record.email}"` : record.email;
+        
+        // Format date for each record
+        const recordDateObj = new Date(record.date + 'T00:00:00');
+        const recordDay = recordDateObj.getDate().toString().padStart(2, '0');
+        const recordMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const recordMonth = recordMonthNames[recordDateObj.getMonth()];
+        const recordYear = recordDateObj.getFullYear();
+        const recordFormattedDate = `'${recordDay}-${recordMonth}-${recordYear}`;
+        
+        lines.push(`${escapedName},${escapedEmail},${recordFormattedDate},${record.checkInTime},${record.status.toUpperCase()}`);
+      });
+      
+      // Add spacing between dates (except for last date)
+      if (dateIndex < sortedDates.length - 1) {
+        lines.push('');
+      }
+    });
+    
+    lines.push('');
+    lines.push('='.repeat(80));
+    lines.push('');
+    lines.push('END OF REPORT');
+    lines.push(`Generated by Nexus Attendo | ${reportDate} ${reportTime}`);
     
     return lines.join('\n');
   };
@@ -265,7 +375,10 @@ const AdminReportsScreen = () => {
     try {
       if (exportFormat === "csv") {
         const csv = generateCSV();
-        const blob = new Blob([csv], { type: 'text/csv' });
+        // Add UTF-8 BOM for Excel compatibility
+        const BOM = '\uFEFF';
+        const csvWithBOM = BOM + csv;
+        const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;

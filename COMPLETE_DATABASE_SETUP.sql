@@ -199,6 +199,8 @@ CREATE TABLE IF NOT EXISTS attendance_settings (
   setting_name TEXT NOT NULL UNIQUE,
   start_time TIME NOT NULL,
   end_time TIME NOT NULL,
+  grace_period_minutes INTEGER DEFAULT 15 CHECK (grace_period_minutes >= 0 AND grace_period_minutes <= 60),
+  strict_mode BOOLEAN DEFAULT true,
   is_active BOOLEAN DEFAULT true,
   updated_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -218,9 +220,9 @@ CREATE POLICY "enable_read_settings"
   TO authenticated
   USING (is_active = true);
 
--- Insert default attendance window (09:30 AM to 6:00 PM)
-INSERT INTO attendance_settings (setting_name, start_time, end_time, is_active)
-VALUES ('default_attendance_window', '09:30:00', '18:00:00', true)
+-- Insert default attendance window (09:30 AM to 6:00 PM with 15 min grace period)
+INSERT INTO attendance_settings (setting_name, start_time, end_time, grace_period_minutes, strict_mode, is_active)
+VALUES ('default_attendance_window', '09:30:00', '18:00:00', 15, true, true)
 ON CONFLICT (setting_name) DO NOTHING;
 
 -- ============================================

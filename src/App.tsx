@@ -36,6 +36,7 @@ import GracePeriodScreen from "./pages/admin/settings/GracePeriodScreen";
 import HelpCenterScreen from "./pages/admin/settings/HelpCenterScreen";
 import TermsPoliciesScreen from "./pages/admin/settings/TermsPoliciesScreen";
 import NotificationSettingsScreen from "./pages/admin/settings/NotificationSettingsScreen";
+import EmployeeManagementScreen from "./pages/admin/settings/EmployeeManagementScreen";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -85,6 +86,7 @@ const App = () => (
           <Route path="/admin/settings/help" element={<HelpCenterScreen />} />
           <Route path="/admin/settings/terms" element={<TermsPoliciesScreen />} />
           <Route path="/admin/settings/notifications" element={<NotificationSettingsScreen />} />
+          <Route path="/admin/settings/employee-management" element={<EmployeeManagementScreen />} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

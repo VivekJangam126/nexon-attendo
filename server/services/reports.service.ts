@@ -94,30 +94,87 @@ export const reportsService = {
         .eq('status', 'active')
         .eq('role', 'employee');
 
-      // Get current period attendance with proper date range
+      // Get attendance window settings for status recalculation
+      const { data: windowData } = await supabase
+        .from('attendance_settings')
+        .select('start_time, grace_period_minutes')
+        .eq('setting_name', 'default_attendance_window')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      // Get current period attendance with check_in_time for recalculation
       const { data: currentData } = await supabase
         .from('attendance')
-        .select('status')
+        .select('status, check_in_time')
         .gte('date', startDate)
         .lte('date', endDate);
 
       // Get previous period attendance
       const { data: previousData } = await supabase
         .from('attendance')
-        .select('status')
+        .select('status, check_in_time')
         .gte('date', previousStartDate)
         .lte('date', previousEndDate);
 
-      // Count present and late from attendance records
-      const present = currentData?.filter((a: any) => a.status === 'present').length || 0;
-      const late = currentData?.filter((a: any) => a.status === 'late').length || 0;
+      // RECALCULATE status for current period to fix incorrect database records
+      let present = 0;
+      let late = 0;
+      
+      currentData?.forEach((record: any) => {
+        if (record.check_in_time && windowData) {
+          const checkInDate = new Date(record.check_in_time);
+          const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+          
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
+          const windowStartMinutes = startHour * 60 + startMinute;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
+          const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+          
+          // Recalculate correct status
+          if (checkInMinutes <= gracePeriodEndMinutes) {
+            present++;
+          } else {
+            late++;
+          }
+        } else {
+          // If no check-in time or window data, use database status
+          if (record.status === 'present') present++;
+          else if (record.status === 'late') late++;
+        }
+      });
+
+      // RECALCULATE status for previous period
+      let previousPresent = 0;
+      let previousLate = 0;
+      
+      previousData?.forEach((record: any) => {
+        if (record.check_in_time && windowData) {
+          const checkInDate = new Date(record.check_in_time);
+          const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+          
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
+          const windowStartMinutes = startHour * 60 + startMinute;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
+          const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+          
+          // Recalculate correct status
+          if (checkInMinutes <= gracePeriodEndMinutes) {
+            previousPresent++;
+          } else {
+            previousLate++;
+          }
+        } else {
+          // If no check-in time or window data, use database status
+          if (record.status === 'present') previousPresent++;
+          else if (record.status === 'late') previousLate++;
+        }
+      });
       
       // Calculate absent as: total employees - (present + late)
       // This accounts for employees who didn't check in at all
       const absent = (totalEmployees || 0) - (present + late);
-
-      const previousPresent = previousData?.filter((a: any) => a.status === 'present').length || 0;
-      const previousLate = previousData?.filter((a: any) => a.status === 'late').length || 0;
 
       // Calculate attendance rate based on total employees, not attendance records
       // Rate = (present + late) / totalEmployees * 100
@@ -179,15 +236,23 @@ export const reportsService = {
 
       const totalEmp = totalEmployees || 0;
 
-      // Get attendance data for the week
+      // Get attendance window settings for status recalculation
+      const { data: windowData } = await supabase
+        .from('attendance_settings')
+        .select('start_time, grace_period_minutes')
+        .eq('setting_name', 'default_attendance_window')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      // Get attendance data with check_in_time for recalculation
       const { data: attendanceData } = await supabase
         .from('attendance')
-        .select('date, status')
+        .select('date, status, check_in_time')
         .gte('date', startDate)
         .lte('date', todayStr)
         .order('date', { ascending: true });
 
-      // Group by date
+      // Group by date with recalculated status
       const dateMap = new Map<string, { present: number; late: number }>();
       
       attendanceData?.forEach((record: any) => {
@@ -195,8 +260,29 @@ export const reportsService = {
           dateMap.set(record.date, { present: 0, late: 0 });
         }
         const stats = dateMap.get(record.date)!;
-        if (record.status === 'present') stats.present++;
-        else if (record.status === 'late') stats.late++;
+        
+        // RECALCULATE status based on check-in time
+        if (record.check_in_time && windowData) {
+          const checkInDate = new Date(record.check_in_time);
+          const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+          
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
+          const windowStartMinutes = startHour * 60 + startMinute;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
+          const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+          
+          // Recalculate correct status
+          if (checkInMinutes <= gracePeriodEndMinutes) {
+            stats.present++;
+          } else {
+            stats.late++;
+          }
+        } else {
+          // If no check-in time or window data, use database status
+          if (record.status === 'present') stats.present++;
+          else if (record.status === 'late') stats.late++;
+        }
       });
 
       // Generate all 7 days (even if no attendance records)
@@ -270,15 +356,23 @@ export const reportsService = {
 
       const totalEmp = totalEmployees || 0;
 
-      // Get attendance data
+      // Get attendance window settings for status recalculation
+      const { data: windowData } = await supabase
+        .from('attendance_settings')
+        .select('start_time, grace_period_minutes')
+        .eq('setting_name', 'default_attendance_window')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      // Get attendance data with check_in_time for recalculation
       const { data: attendanceData } = await supabase
         .from('attendance')
-        .select('date, status')
+        .select('date, status, check_in_time')
         .gte('date', startDate)
         .lte('date', todayStr)
         .order('date', { ascending: true });
 
-      // Group by date
+      // Group by date with recalculated status
       const dateMap = new Map<string, { present: number; late: number }>();
       
       attendanceData?.forEach((record: any) => {
@@ -286,8 +380,29 @@ export const reportsService = {
           dateMap.set(record.date, { present: 0, late: 0 });
         }
         const stats = dateMap.get(record.date)!;
-        if (record.status === 'present') stats.present++;
-        else if (record.status === 'late') stats.late++;
+        
+        // RECALCULATE status based on check-in time
+        if (record.check_in_time && windowData) {
+          const checkInDate = new Date(record.check_in_time);
+          const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+          
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
+          const windowStartMinutes = startHour * 60 + startMinute;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
+          const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+          
+          // Recalculate correct status
+          if (checkInMinutes <= gracePeriodEndMinutes) {
+            stats.present++;
+          } else {
+            stats.late++;
+          }
+        } else {
+          // If no check-in time or window data, use database status
+          if (record.status === 'present') stats.present++;
+          else if (record.status === 'late') stats.late++;
+        }
       });
 
       // Generate all days in range
@@ -326,6 +441,7 @@ export const reportsService = {
 
   /**
    * Get employee attendance records with timestamps for export
+   * Includes ALL employees with their status (Present, Late, Absent, Not Marked)
    */
   async getEmployeeAttendanceRecords(
     timeRange: 'today' | 'week' | 'month'
@@ -347,7 +463,17 @@ export const reportsService = {
         startDate = monthStart.toISOString().split('T')[0];
       }
 
-      // Get attendance records with employee details
+      // Get ALL active employees
+      const { data: employees, error: employeesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('status', 'active')
+        .eq('role', 'employee')
+        .order('full_name', { ascending: true });
+
+      if (employeesError) throw employeesError;
+
+      // Get attendance records for the date range
       const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance')
         .select(`
@@ -358,53 +484,107 @@ export const reportsService = {
           user_id
         `)
         .gte('date', startDate)
-        .lte('date', todayStr)
-        .order('date', { ascending: true })
-        .order('check_in_time', { ascending: true });
+        .lte('date', todayStr);
 
       if (attendanceError) throw attendanceError;
 
-      // Get all employee profiles
-      const userIds = attendanceData?.map((a: any) => a.user_id) || [];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', userIds);
+      // Get attendance window settings for status recalculation
+      const { data: windowData } = await supabase
+        .from('attendance_settings')
+        .select('start_time, grace_period_minutes')
+        .eq('setting_name', 'default_attendance_window')
+        .eq('is_active', true)
+        .maybeSingle();
 
-      const profileMap = new Map(profiles?.map((p: any) => [p.id, { name: p.full_name, email: p.email }]) || []);
-
-      // Format records
-      const records: EmployeeAttendanceRecord[] = attendanceData?.map((record: any) => {
-        const profile = profileMap.get(record.user_id);
+      // Create a map of attendance records by user_id and date
+      const attendanceMap = new Map<string, any>();
+      attendanceData?.forEach((record: any) => {
+        const key = `${record.user_id}_${record.date}`;
         
-        // Format check-in time (without seconds for shorter display)
-        const checkInDate = new Date(record.check_in_time);
-        const checkInFormatted = checkInDate.toLocaleString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        });
-
-        // Format check-out time if exists
-        let checkOutFormatted = null;
-        if (record.check_out_time) {
-          const checkOutDate = new Date(record.check_out_time);
-          checkOutFormatted = checkOutDate.toLocaleString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-          });
+        // RECALCULATE status based on check-in time to fix any incorrect database records
+        let correctedStatus = record.status;
+        if (record.check_in_time && windowData) {
+          const checkInDate = new Date(record.check_in_time);
+          const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+          
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
+          const windowStartMinutes = startHour * 60 + startMinute;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
+          const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+          
+          // Recalculate correct status
+          correctedStatus = checkInMinutes <= gracePeriodEndMinutes ? 'present' : 'late';
         }
+        
+        attendanceMap.set(key, { ...record, status: correctedStatus });
+      });
 
-        return {
-          employeeName: profile?.name || 'Unknown',
-          email: profile?.email || 'N/A',
-          date: record.date,
-          checkInTime: checkInFormatted,
-          checkOutTime: checkOutFormatted,
-          status: record.status,
-        };
-      }) || [];
+      // Generate all dates in the range
+      const numDays = timeRange === 'today' ? 1 : timeRange === 'week' ? 7 : 30;
+      const allDates = Array.from({ length: numDays }, (_, i) => {
+        const date = new Date(today);
+        date.setDate(date.getDate() - (numDays - 1 - i));
+        return date.toISOString().split('T')[0];
+      });
+
+      // Create records for ALL employees for ALL dates
+      const records: EmployeeAttendanceRecord[] = [];
+      
+      employees?.forEach((employee: any) => {
+        allDates.forEach((date) => {
+          const key = `${employee.id}_${date}`;
+          const attendance = attendanceMap.get(key);
+
+          if (attendance) {
+            // Employee has attendance record
+            const checkInDate = new Date(attendance.check_in_time);
+            const checkInFormatted = checkInDate.toLocaleString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+              timeZone: 'Asia/Kolkata'
+            });
+
+            let checkOutFormatted = null;
+            if (attendance.check_out_time) {
+              const checkOutDate = new Date(attendance.check_out_time);
+              checkOutFormatted = checkOutDate.toLocaleString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: 'Asia/Kolkata'
+              });
+            }
+
+            records.push({
+              employeeName: employee.full_name,
+              email: employee.email,
+              date: date,
+              checkInTime: checkInFormatted,
+              checkOutTime: checkOutFormatted,
+              status: attendance.status,
+            });
+          } else {
+            // Employee has no attendance record - mark as absent
+            records.push({
+              employeeName: employee.full_name,
+              email: employee.email,
+              date: date,
+              checkInTime: '-',
+              checkOutTime: null,
+              status: 'absent',
+            });
+          }
+        });
+      });
+
+      // Sort by date (descending) then by name
+      records.sort((a, b) => {
+        const dateCompare = b.date.localeCompare(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.employeeName.localeCompare(b.employeeName);
+      });
 
       return { records, error: null };
     } catch (err) {

@@ -11,6 +11,7 @@ export interface AttendanceWindow {
   setting_name: string;
   start_time: string; // HH:MM:SS format
   end_time: string;   // HH:MM:SS format
+  grace_period_minutes: number; // Minutes after start_time to mark as 'present'
   is_active: boolean;
   strict_mode: boolean; // If true, GPS/WiFi verification required
   updated_by: string | null;
@@ -199,6 +200,78 @@ export const attendanceSettingsService = {
       return {
         success: false,
         error: err instanceof Error ? err : new Error('Failed to update attendance window'),
+      };
+    }
+  },
+
+  /**
+   * Get grace period setting
+   */
+  async getGracePeriod(): Promise<{ gracePeriodMinutes: number; error: Error | null }> {
+    try {
+      const { window, error } = await this.getActiveWindow();
+      
+      if (error || !window) {
+        return { gracePeriodMinutes: 15, error }; // Default to 15 minutes if error
+      }
+
+      return {
+        gracePeriodMinutes: window.grace_period_minutes ?? 15, // Default to 15 if not set
+        error: null,
+      };
+    } catch (err) {
+      return {
+        gracePeriodMinutes: 15,
+        error: err instanceof Error ? err : new Error('Failed to get grace period'),
+      };
+    }
+  },
+
+  /**
+   * Update grace period setting (admin only)
+   */
+  async updateGracePeriod(
+    gracePeriodMinutes: number,
+    adminId: string
+  ): Promise<UpdateWindowResponse> {
+    try {
+      console.log('🔄 [UPDATE GRACE PERIOD]', gracePeriodMinutes);
+
+      // Validate grace period (0-60 minutes)
+      if (gracePeriodMinutes < 0 || gracePeriodMinutes > 60) {
+        return {
+          success: false,
+          error: new Error('Grace period must be between 0 and 60 minutes'),
+        };
+      }
+
+      const { error } = await supabase
+        .from('attendance_settings')
+        .update({
+          grace_period_minutes: gracePeriodMinutes,
+          updated_by: adminId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('setting_name', 'default_attendance_window');
+
+      if (error) {
+        console.log('  ❌ Update failed:', error.message);
+        return {
+          success: false,
+          error: new Error(error.message),
+        };
+      }
+
+      console.log('  ✅ Grace period updated successfully');
+      return {
+        success: true,
+        error: null,
+      };
+    } catch (err) {
+      console.log('  ❌ Exception in updateGracePeriod:', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err : new Error('Failed to update grace period'),
       };
     }
   },

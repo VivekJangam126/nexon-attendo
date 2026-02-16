@@ -188,24 +188,57 @@ export const attendanceService = {
           };
         }
 
-        // Mark attendance without GPS/WiFi validation
-        const checkInTime = getCurrentISTTime().toISOString();
-        const status = 'present';
+        // Mark attendance without GPS/WiFi validation but with late detection
+        const checkInTime = getCurrentISTTime();
+        const checkInHour = checkInTime.getHours();
+        const checkInMinute = checkInTime.getMinutes();
+        const checkInTimeInMinutes = checkInHour * 60 + checkInMinute;
+
+        console.log('  ⏰ Late detection calculation (IST):');
+        console.log('    Check-in time (IST):', `${checkInHour}:${checkInMinute.toString().padStart(2, '0')}`);
+        console.log('    Check-in minutes:', checkInTimeInMinutes);
+
+        // Parse window start time (already in IST format in database)
+        const [startHour, startMinute] = window.start_time.split(':').map(Number);
+        const windowStartMinutes = startHour * 60 + startMinute;
+        
+        console.log('    Window start (IST):', `${startHour}:${startMinute.toString().padStart(2, '0')}`);
+        console.log('    Window start minutes:', windowStartMinutes);
+        
+        // Get grace period from settings (default 15 minutes)
+        const gracePeriodMinutes = window.grace_period_minutes || 15;
+        const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+
+        console.log('    Grace period:', gracePeriodMinutes, 'minutes');
+        console.log('    Grace period ends at (IST):', `${Math.floor(gracePeriodEndMinutes / 60)}:${(gracePeriodEndMinutes % 60).toString().padStart(2, '0')}`);
+        console.log('    Grace period end minutes:', gracePeriodEndMinutes);
+
+        // Determine status based on check-in time (both in IST)
+        let status: 'present' | 'late';
+        console.log(`  🔍 COMPARISON: ${checkInTimeInMinutes} <= ${gracePeriodEndMinutes}?`);
+        if (checkInTimeInMinutes <= gracePeriodEndMinutes) {
+          status = 'present';
+          console.log(`  ✅ Status: PRESENT (${checkInTimeInMinutes} <= ${gracePeriodEndMinutes})`);
+        } else {
+          status = 'late';
+          console.log(`  ⚠️  Status: LATE (${checkInTimeInMinutes} > ${gracePeriodEndMinutes})`);
+        }
 
         console.log('  ✅ Marking attendance without location verification');
 
+        // Store in UTC (toISOString() converts IST to UTC automatically)
         const { data: attendance, error: insertError } = await supabase
           .from('attendance')
           .insert({
             user_id: userProfile.id,
             date: todayDate,
-            check_in_time: checkInTime,
+            check_in_time: checkInTime.toISOString(), // Stores in UTC
             status: status,
-            office_id: activeOffice.id,
+            office_id: (activeOffice as any).id,
             latitude: latitude || null,
             longitude: longitude || null,
             ip_address: ipAddress || null,
-          })
+          } as any)
           .select()
           .single();
 
@@ -340,24 +373,63 @@ export const attendanceService = {
         };
       }
 
-      // All validations passed - Mark attendance
-      const checkInTime = getCurrentISTTime().toISOString();
-      const status = 'present'; // Simple status for now
+      // All validations passed - Mark attendance with late detection
+      const checkInTime = getCurrentISTTime();
+      const checkInHour = checkInTime.getHours();
+      const checkInMinute = checkInTime.getMinutes();
+      const checkInTimeInMinutes = checkInHour * 60 + checkInMinute;
+
+      console.log('  ⏰ Late detection calculation (IST):');
+      console.log('    Check-in time (IST):', `${checkInHour}:${checkInMinute.toString().padStart(2, '0')}`);
+      console.log('    Check-in minutes:', checkInTimeInMinutes);
+
+      // Parse window start time (already in IST format in database)
+      const [startHour, startMinute] = window.start_time.split(':').map(Number);
+      const windowStartMinutes = startHour * 60 + startMinute;
+      
+      console.log('    Window start (IST):', `${startHour}:${startMinute.toString().padStart(2, '0')}`);
+      console.log('    Window start minutes:', windowStartMinutes);
+      
+      // Get grace period from settings (default 15 minutes)
+      const gracePeriodMinutes = window.grace_period_minutes || 15;
+      const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+
+      console.log('    Grace period:', gracePeriodMinutes, 'minutes');
+      console.log('    Grace period ends at (IST):', `${Math.floor(gracePeriodEndMinutes / 60)}:${(gracePeriodEndMinutes % 60).toString().padStart(2, '0')}`);
+      console.log('    Grace period end minutes:', gracePeriodEndMinutes);
+
+      // Determine status based on check-in time (both in IST)
+      let status: 'present' | 'late';
+      console.log(`  🔍 COMPARISON: ${checkInTimeInMinutes} <= ${gracePeriodEndMinutes}?`);
+      if (checkInTimeInMinutes <= gracePeriodEndMinutes) {
+        status = 'present';
+        console.log(`  ✅ Status: PRESENT (${checkInTimeInMinutes} <= ${gracePeriodEndMinutes})`);
+      } else {
+        status = 'late';
+        console.log(`  ⚠️  Status: LATE (${checkInTimeInMinutes} > ${gracePeriodEndMinutes})`);
+      }
+
+      console.log('  ⏰ Check-in time analysis:');
+      console.log(`    Window starts: ${startHour}:${startMinute.toString().padStart(2, '0')}`);
+      console.log(`    Grace period ends: ${Math.floor(gracePeriodEndMinutes / 60)}:${(gracePeriodEndMinutes % 60).toString().padStart(2, '0')}`);
+      console.log(`    Check-in time: ${checkInHour}:${checkInMinute.toString().padStart(2, '0')}`);
+      console.log(`    Status: ${status.toUpperCase()}`);
 
       console.log('  ✅ All validations passed - marking attendance');
 
+      // Store in UTC (toISOString() converts IST to UTC automatically)
       const { data: attendance, error: insertError } = await supabase
         .from('attendance')
         .insert({
           user_id: userProfile.id,
           date: todayDate,
-          check_in_time: checkInTime,
+          check_in_time: checkInTime.toISOString(), // Stores in UTC
           status: status,
-          office_id: office.id, // Use the active office ID
+          office_id: (office as any).id, // Use the active office ID
           latitude: latitude,
           longitude: longitude,
           ip_address: ipAddress,
-        })
+        } as any)
         .select()
         .single();
 

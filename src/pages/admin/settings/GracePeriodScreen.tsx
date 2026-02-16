@@ -1,12 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock, Check } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { attendanceSettingsService } from "@server";
 
 const GracePeriodScreen = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState(15);
+  const [windowStartTime, setWindowStartTime] = useState("10:00 AM");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Fetch current grace period and window start time from database
+  useEffect(() => {
+    const fetchSettings = async () => {
+      // Fetch grace period
+      const { gracePeriodMinutes, error: gracePeriodError } = await attendanceSettingsService.getGracePeriod();
+      
+      if (gracePeriodError) {
+        toast({
+          title: "Error",
+          description: "Failed to load grace period settings",
+          variant: "destructive",
+        });
+      } else {
+        setSelectedPeriod(gracePeriodMinutes);
+      }
+      
+      // Fetch window settings to get start time
+      const { window, error: windowError } = await attendanceSettingsService.getActiveWindow();
+      
+      if (!windowError && window) {
+        // Format start time for display
+        const [hour, minute] = window.start_time.split(':').map(Number);
+        const period = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+        setWindowStartTime(`${displayHour}:${minute.toString().padStart(2, '0')} ${period}`);
+      }
+      
+      setLoading(false);
+    };
+
+    fetchSettings();
+  }, []);
 
   const periods = [
     { value: 5, label: "5 minutes", description: "Very strict" },
@@ -16,11 +55,45 @@ const GracePeriodScreen = () => {
     { value: 30, label: "30 minutes", description: "Very flexible" },
   ];
 
-  const handleSave = () => {
-    toast({
-      title: "Settings Saved",
-      description: `Grace period set to ${selectedPeriod} minutes.`,
-    });
+  const handleSave = async () => {
+    if (!profile) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to update settings",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const { error } = await attendanceSettingsService.updateGracePeriod(
+        selectedPeriod,
+        profile.id
+      );
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Settings Saved",
+          description: `Grace period set to ${selectedPeriod} minutes.`,
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to save settings",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -44,6 +117,19 @@ const GracePeriodScreen = () => {
 
         {/* Content */}
         <div className="flex-1 px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-y-auto max-w-3xl">
+          {loading ? (
+            <div className="space-y-6">
+              <div className="animate-pulse">
+                <div className="h-4 bg-muted rounded w-32 mb-3"></div>
+                <div className="card-elevated p-4 space-y-3">
+                  <div className="h-16 bg-muted rounded"></div>
+                  <div className="h-16 bg-muted rounded"></div>
+                  <div className="h-16 bg-muted rounded"></div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Explanation */}
           <div className="animate-fade-in-up">
             <div className="card-elevated p-4 bg-accent/50">
@@ -70,7 +156,8 @@ const GracePeriodScreen = () => {
                 <button
                   key={period.value}
                   onClick={() => setSelectedPeriod(period.value)}
-                  className={`w-full card-elevated p-4 flex items-center gap-4 transition-colors ${
+                  disabled={saving}
+                  className={`w-full card-elevated p-4 flex items-center gap-4 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     selectedPeriod === period.value ? "ring-2 ring-primary" : ""
                   }`}
                 >
@@ -98,16 +185,16 @@ const GracePeriodScreen = () => {
             <h2 className="text-overline mb-3">Example</h2>
             <div className="card-elevated p-4">
               <p className="text-sm text-muted-foreground">
-                If the attendance window starts at <span className="font-medium text-foreground">9:00 AM</span> and 
+                If the attendance window starts at <span className="font-medium text-foreground">{windowStartTime}</span> and 
                 the grace period is <span className="font-medium text-foreground">{selectedPeriod} minutes</span>:
               </p>
               <div className="mt-3 space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Check-in before 9:{selectedPeriod.toString().padStart(2, '0')} AM</span>
+                  <span className="text-muted-foreground">Check-in within {selectedPeriod} min of start</span>
                   <span className="px-2 py-0.5 bg-success-muted text-success rounded-full text-xs font-medium">Present</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Check-in after 9:{selectedPeriod.toString().padStart(2, '0')} AM</span>
+                  <span className="text-muted-foreground">Check-in after {selectedPeriod} min grace period</span>
                   <span className="px-2 py-0.5 bg-warning-muted text-warning rounded-full text-xs font-medium">Late</span>
                 </div>
               </div>
@@ -118,11 +205,14 @@ const GracePeriodScreen = () => {
           <div className="animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
             <button
               onClick={handleSave}
-              className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-medium"
+              disabled={saving || loading}
+              className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Changes
+              {saving ? "Saving..." : "Save Changes"}
             </button>
           </div>
+            </>
+          )}
         </div>
       </div>
     </AdminLayout>

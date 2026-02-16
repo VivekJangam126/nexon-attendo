@@ -13,6 +13,10 @@
     "test:watch": "vitest",
     "test:phase3": "tsx test-phase3-attendance.ts",
     "test:notification": "tsx test-notification.ts",
+    "test:grace-period": "node test-grace-period.js",
+    "diagnose": "node diagnose-database.js",
+    "insert-settings": "node insert-default-settings.js",
+    "validate": "node validate-attendance-system.js",
     "pre-deploy": "node scripts/pre-deploy.js",
     "deploy:preview": "npm run pre-deploy && vercel",
     "deploy:prod": "npm run pre-deploy && vercel --prod"

@@ -32,6 +32,7 @@ export interface PendingAction {
 export const dashboardService = {
   /**
    * Get dashboard statistics for admin
+   * Includes logic to mark employees as absent after grace period
    */
   async getDashboardStats(): Promise<{ stats: DashboardStats; error: Error | null }> {
     try {
@@ -58,8 +59,40 @@ export const dashboardService = {
       const lateToday = attendanceData?.filter((a: any) => a.status === 'late').length || 0;
       const absentToday = attendanceData?.filter((a: any) => a.status === 'absent').length || 0;
       const markedToday = presentToday + lateToday + absentToday;
-      const notMarkedToday = (totalEmployees || 0) - markedToday;
+      
+      // Check if grace period has ended
+      // Get attendance window settings
+      const { data: windowData } = await supabase
+        .from('attendance_settings')
+        .select('start_time, grace_period_minutes')
+        .eq('setting_name', 'default_attendance_window')
+        .eq('is_active', true)
+        .single();
 
+      let notMarkedToday = (totalEmployees || 0) - markedToday;
+      let adjustedAbsentToday = absentToday;
+
+      if (windowData) {
+        // Get current IST time
+        const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+        // Parse window start time and grace period
+        const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
+        const windowStartMinutes = startHour * 60 + startMinute;
+        const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
+        const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+
+        // If current time is after grace period, unmarked employees are considered absent
+        if (currentTimeInMinutes > gracePeriodEndMinutes) {
+          adjustedAbsentToday = absentToday + notMarkedToday;
+          notMarkedToday = 0;
+        }
+      }
+
+      // Calculate attendance rate (present + late / total employees)
       const attendanceRate = totalEmployees && totalEmployees > 0
         ? Math.round(((presentToday + lateToday) / totalEmployees) * 100)
         : 0;
@@ -69,7 +102,7 @@ export const dashboardService = {
           totalEmployees: totalEmployees || 0,
           presentToday,
           lateToday,
-          absentToday,
+          absentToday: adjustedAbsentToday,
           notMarkedToday,
           attendanceRate,
         },
@@ -143,7 +176,11 @@ export const dashboardService = {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending');
 
-      if (pendingError) throw pendingError;
+      // If table doesn't exist or error, return empty array instead of failing
+      if (pendingError) {
+        console.warn('Warning: Could not fetch pending requests:', pendingError.message);
+        return { actions: [], error: null }; // Return empty instead of error
+      }
 
       const actions: PendingAction[] = [];
 
@@ -158,9 +195,10 @@ export const dashboardService = {
 
       return { actions, error: null };
     } catch (err) {
+      console.warn('Warning: Exception in getPendingActions:', err);
       return {
         actions: [],
-        error: err instanceof Error ? err : new Error('Failed to fetch pending actions'),
+        error: null, // Return null error to prevent dashboard from breaking
       };
     }
   },
