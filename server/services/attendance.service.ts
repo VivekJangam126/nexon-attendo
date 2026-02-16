@@ -148,6 +148,87 @@ export const attendanceService = {
         };
       }
 
+      // Check strict mode setting
+      const { strictMode } = await attendanceSettingsService.getStrictMode();
+      console.log('  🔒 Strict mode:', strictMode);
+
+      // If strict mode is disabled, skip GPS/WiFi validation
+      if (!strictMode) {
+        console.log('  ⚠️  Strict mode disabled - skipping GPS/WiFi validation');
+        
+        // Validation: Attendance not already marked today
+        const todayDate = getTodayDateIST();
+        const { data: existingAttendance } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('user_id', userProfile.id)
+          .eq('date', todayDate)
+          .maybeSingle();
+
+        if (existingAttendance) {
+          return {
+            success: false,
+            error: 'Attendance already marked for today',
+            errorCode: 'ATTENDANCE_ALREADY_MARKED',
+          };
+        }
+
+        // Get the active office for office_id
+        const { data: activeOffice } = await supabase
+          .from('offices')
+          .select('*')
+          .eq('is_active', true)
+          .single();
+
+        if (!activeOffice) {
+          return {
+            success: false,
+            error: 'Office not configured. Please contact admin.',
+            errorCode: 'VALIDATION_FAILED',
+          };
+        }
+
+        // Mark attendance without GPS/WiFi validation
+        const checkInTime = getCurrentISTTime().toISOString();
+        const status = 'present';
+
+        console.log('  ✅ Marking attendance without location verification');
+
+        const { data: attendance, error: insertError } = await supabase
+          .from('attendance')
+          .insert({
+            user_id: userProfile.id,
+            date: todayDate,
+            check_in_time: checkInTime,
+            status: status,
+            office_id: activeOffice.id,
+            latitude: latitude || null,
+            longitude: longitude || null,
+            ip_address: ipAddress || null,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.log('  ❌ Failed to insert attendance:', insertError);
+          return {
+            success: false,
+            error: `Failed to mark attendance: ${insertError.message}`,
+            errorCode: 'VALIDATION_FAILED',
+          };
+        }
+
+        console.log('  ✅ Attendance marked successfully (no verification)');
+
+        return {
+          success: true,
+          attendance: attendance as Attendance,
+        };
+      }
+
+      // Strict mode is enabled - continue with GPS/WiFi validation
+      console.log('  🔒 Strict mode enabled - performing GPS/WiFi validation');
+
       // Validation 6: GPS coordinates provided
       if (latitude === undefined || longitude === undefined) {
         console.log('  ❌ GPS coordinates not provided');

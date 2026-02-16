@@ -69,6 +69,7 @@ export type {
 export type {
   ReportStats,
   DailyBreakdown,
+  EmployeeAttendanceRecord,
 } from './services/reports.service';
 
 export type {

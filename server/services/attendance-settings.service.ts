@@ -12,6 +12,7 @@ export interface AttendanceWindow {
   start_time: string; // HH:MM:SS format
   end_time: string;   // HH:MM:SS format
   is_active: boolean;
+  strict_mode: boolean; // If true, GPS/WiFi verification required
   updated_by: string | null;
   created_at: string;
   updated_at: string;
@@ -198,6 +199,70 @@ export const attendanceSettingsService = {
       return {
         success: false,
         error: err instanceof Error ? err : new Error('Failed to update attendance window'),
+      };
+    }
+  },
+
+  /**
+   * Get strict mode setting
+   */
+  async getStrictMode(): Promise<{ strictMode: boolean; error: Error | null }> {
+    try {
+      const { window, error } = await this.getActiveWindow();
+      
+      if (error || !window) {
+        return { strictMode: true, error }; // Default to strict mode if error
+      }
+
+      return {
+        strictMode: window.strict_mode ?? true, // Default to true if not set
+        error: null,
+      };
+    } catch (err) {
+      return {
+        strictMode: true,
+        error: err instanceof Error ? err : new Error('Failed to get strict mode'),
+      };
+    }
+  },
+
+  /**
+   * Update strict mode setting (admin only)
+   */
+  async updateStrictMode(
+    strictMode: boolean,
+    adminId: string
+  ): Promise<UpdateWindowResponse> {
+    try {
+      console.log('🔄 [UPDATE STRICT MODE]', strictMode);
+
+      const { error } = await supabase
+        .from('attendance_settings')
+        .update({
+          strict_mode: strictMode,
+          updated_by: adminId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('setting_name', 'default_attendance_window');
+
+      if (error) {
+        console.log('  ❌ Update failed:', error.message);
+        return {
+          success: false,
+          error: new Error(error.message),
+        };
+      }
+
+      console.log('  ✅ Strict mode updated successfully');
+      return {
+        success: true,
+        error: null,
+      };
+    } catch (err) {
+      console.log('  ❌ Exception in updateStrictMode:', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err : new Error('Failed to update strict mode'),
       };
     }
   },

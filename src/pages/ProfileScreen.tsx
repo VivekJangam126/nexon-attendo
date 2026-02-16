@@ -236,8 +236,8 @@ const ProfileScreen = () => {
 
           {/* App Version */}
           <div className="text-center pt-2">
-            <p className="text-xs text-muted-foreground">Nexon Attendance v1.0.0</p>
-            <p className="text-xs text-muted-foreground">© 2026 SmartMatrix Pvt Ltd</p>
+            <p className="text-xs text-muted-foreground">Nexus Attendo v1.0.0</p>
+            <p className="text-xs text-muted-foreground">© 2024 Nexus Pvt Ltd</p>
           </div>
         </div>
 

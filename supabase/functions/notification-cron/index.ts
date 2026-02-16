@@ -52,26 +52,115 @@ serve(async (req) => {
 
     console.log(`Found ${slots.length} slot(s) to process`)
 
-    // Get today's attendance data
+    // Get ALL enabled slots to determine time ranges
+    const { data: allSlots, error: allSlotsError } = await supabase
+      .from('notification_settings')
+      .select('slot_number, slot_time')
+      .eq('is_enabled', true)
+      .order('slot_number', { ascending: true })
+
+    if (allSlotsError) throw allSlotsError
+
+    // Get attendance window start time
+    const { data: windowSettings } = await supabase
+      .from('attendance_settings')
+      .select('start_time')
+      .eq('setting_name', 'default_attendance_window')
+      .single()
+
+    const attendanceWindowStart = (windowSettings as any)?.start_time || '10:00:00'
+    console.log('Attendance window start:', attendanceWindowStart)
+
     const today = istTime.toISOString().split('T')[0]
-    const { data: attendanceData, error: attendanceError } = await supabase
-      .from('attendance')
-      .select('status')
-      .eq('date', today)
-
-    if (attendanceError) throw attendanceError
-
-    const presentCount = attendanceData?.filter(a => a.status === 'present').length || 0
-    const lateCount = attendanceData?.filter(a => a.status === 'late').length || 0
-    const totalCount = presentCount + lateCount
-    const attendanceRate = totalCount > 0 ? Math.round((totalCount / (attendanceData?.length || 1)) * 100) : 0
-
-    console.log('Attendance data:', { presentCount, lateCount, totalCount, attendanceRate })
 
     // Process each slot
     const results = []
     for (const slot of slots) {
-      // Format slot time
+      // Determine time range for this slot
+      let startTime: string
+      let startTimeFormatted: string
+      
+      if (slot.slot_number === 1) {
+        // SLOT-1: Use attendance window start
+        startTime = attendanceWindowStart
+        const [startHour, startMinute] = startTime.split(':')
+        const startH = parseInt(startHour)
+        const startPeriod = startH >= 12 ? 'PM' : 'AM'
+        const startDisplayHour = startH > 12 ? startH - 12 : startH === 0 ? 12 : startH
+        startTimeFormatted = `${startDisplayHour}:${startMinute} ${startPeriod}`
+      } else {
+        // SLOT-2/3: Use previous slot's time
+        const previousSlot = allSlots?.find((s: any) => s.slot_number === slot.slot_number - 1)
+        startTime = previousSlot?.slot_time || attendanceWindowStart
+        const [startHour, startMinute] = startTime.split(':')
+        const startH = parseInt(startHour)
+        const startPeriod = startH >= 12 ? 'PM' : 'AM'
+        const startDisplayHour = startH > 12 ? startH - 12 : startH === 0 ? 12 : startH
+        startTimeFormatted = `${startDisplayHour}:${startMinute} ${startPeriod}`
+      }
+
+      const endTime = slot.slot_time
+      
+      console.log(`Slot ${slot.slot_number} time range: ${startTime} to ${endTime}`)
+
+      // Get attendance records within time range
+      const startDateTime = `${today}T${startTime}`
+      const endDateTime = `${today}T${endTime}`
+      
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('attendance')
+        .select('user_id, status, check_in_time')
+        .eq('date', today)
+        .in('status', ['present', 'late'])
+        .gte('check_in_time', startDateTime)
+        .lt('check_in_time', endDateTime)
+        .order('check_in_time', { ascending: true })
+
+      if (attendanceError) {
+        console.error('Error fetching attendance:', attendanceError)
+        continue
+      }
+
+      const presentCount = attendanceData?.filter((a: any) => a.status === 'present').length || 0
+      const lateCount = attendanceData?.filter((a: any) => a.status === 'late').length || 0
+      const totalCount = presentCount + lateCount
+      const attendanceRate = totalCount > 0 ? 100 : 0
+
+      console.log(`Slot ${slot.slot_number} attendance:`, { presentCount, lateCount, totalCount })
+
+      // Get employee details
+      const userIds = attendanceData?.map((a: any) => a.user_id) || []
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds)
+
+      const profileMap = new Map(profiles?.map((p: any) => [p.id, p.full_name]) || [])
+
+      // Format employee details with check-in times
+      const employeeDetails = attendanceData
+        ?.map((record: any) => {
+          const name = profileMap.get(record.user_id)
+          if (!name) return null
+          
+          const checkInDate = new Date(record.check_in_time)
+          const hour = checkInDate.getHours()
+          const minute = checkInDate.getMinutes()
+          const period = hour >= 12 ? 'PM' : 'AM'
+          const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour
+          const formattedTime = `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`
+          
+          return {
+            name,
+            checkInTime: formattedTime,
+            status: record.status,
+          }
+        })
+        .filter((detail: any) => detail != null) || []
+
+      console.log(`Found ${employeeDetails.length} employees in time range`)
+
+      // Format slot time for display
       const [hour, minute] = slot.slot_time.split(':')
       const h = parseInt(hour)
       const period = h >= 12 ? 'PM' : 'AM'
@@ -89,19 +178,22 @@ serve(async (req) => {
         body: JSON.stringify({
           slotNumber: slot.slot_number,
           slotTime: slotTimeFormatted,
+          slotStartTime: startTimeFormatted,
+          slotEndTime: slotTimeFormatted,
           presentCount,
           lateCount,
           totalCount,
           attendanceRate,
           triggeredBy: 'system-cron',
           isManual: false,
+          employeeDetails,
         }),
       })
 
       const result = await response.json()
       results.push({
         slot: slot.slot_number,
-        time: slotTimeFormatted,
+        time: `${startTimeFormatted} to ${slotTimeFormatted}`,
         result,
       })
 

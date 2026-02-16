@@ -8,7 +8,9 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { reportsService, notificationTriggerService } from "@server";
-import type { ReportStats, DailyBreakdown } from "@server";
+import type { ReportStats, DailyBreakdown, EmployeeAttendanceRecord } from "@server";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type TimeRange = "today" | "week" | "month";
 
@@ -30,6 +32,8 @@ const AdminReportsScreen = () => {
     comparedToPrevious: 0,
   });
   const [weeklyBreakdown, setWeeklyBreakdown] = useState<DailyBreakdown[]>([]);
+  const [detailedBreakdown, setDetailedBreakdown] = useState<DailyBreakdown[]>([]);
+  const [employeeRecords, setEmployeeRecords] = useState<EmployeeAttendanceRecord[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,11 +43,19 @@ const AdminReportsScreen = () => {
       const { stats } = await reportsService.getAttendanceStats(timeRange);
       setData(stats);
       
-      // Fetch weekly breakdown if week is selected
+      // Fetch weekly breakdown if week is selected (for display)
       if (timeRange === 'week') {
         const { breakdown } = await reportsService.getWeeklyBreakdown();
         setWeeklyBreakdown(breakdown);
       }
+      
+      // Fetch detailed breakdown for CSV export
+      const { breakdown: detailed } = await reportsService.getDetailedBreakdown(timeRange);
+      setDetailedBreakdown(detailed);
+      
+      // Fetch employee attendance records for CSV export
+      const { records } = await reportsService.getEmployeeAttendanceRecords(timeRange);
+      setEmployeeRecords(records);
       
       setLoading(false);
     };
@@ -52,32 +64,234 @@ const AdminReportsScreen = () => {
   }, [timeRange]);
 
   const generateCSV = () => {
-    const headers = ['Date', 'Day', 'Present', 'Late', 'Absent', 'Rate'];
-    const rows = weeklyBreakdown.map(row => [
-      row.date, 
-      row.day, 
-      row.present, 
-      row.late, 
-      row.absent, 
-      `${Math.round(((row.present + row.late) / (row.present + row.late + row.absent || 1)) * 100)}%`
-    ]);
-    return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const lines: string[] = [];
+    
+    // Format date for header
+    const reportDate = new Date().toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+    const reportTime = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    
+    // Header
+    lines.push(`Attendance Report - ${timeRange.charAt(0).toUpperCase() + timeRange.slice(1)}`);
+    lines.push(`Generated: ${reportDate} at ${reportTime}`);
+    lines.push('');
+    
+    // Summary Section
+    lines.push('=== SUMMARY ===');
+    lines.push(`Total Employees,${data.totalEmployees}`);
+    lines.push(`Present,${data.present}`);
+    lines.push(`Late,${data.late}`);
+    lines.push(`Absent,${data.absent}`);
+    lines.push(`Attendance Rate,${data.attendanceRate}%`);
+    lines.push(`Compared to Previous Period,${data.comparedToPrevious > 0 ? '+' : ''}${data.comparedToPrevious}%`);
+    lines.push('');
+    
+    // Daily Breakdown Section
+    lines.push('=== DAILY BREAKDOWN ===');
+    lines.push('Date,Day,Present,Late,Absent,Total,Rate');
+    detailedBreakdown.forEach(row => {
+      const total = row.present + row.late + row.absent;
+      const rate = total > 0 ? Math.round(((row.present + row.late) / total) * 100) : 0;
+      // Format as text to prevent Excel date interpretation - add apostrophe prefix
+      const dateObj = new Date(row.date + 'T00:00:00');
+      const day = dateObj.getDate().toString().padStart(2, '0');
+      const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+      const year = dateObj.getFullYear();
+      const formattedDate = `'${day}/${month}/${year}`;
+      
+      lines.push(`${formattedDate},${row.day},${row.present},${row.late},${row.absent},${total},${rate}%`);
+    });
+    lines.push('');
+    
+    // Employee Attendance Records Section (without Check-Out column)
+    lines.push('=== EMPLOYEE ATTENDANCE RECORDS ===');
+    lines.push('Employee Name,Email,Date,Check-In Time,Status');
+    employeeRecords.forEach(record => {
+      // Format as text to prevent Excel date interpretation - add apostrophe prefix
+      const dateObj = new Date(record.date + 'T00:00:00');
+      const day = dateObj.getDate().toString().padStart(2, '0');
+      const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+      const year = dateObj.getFullYear();
+      const formattedDate = `'${day}/${month}/${year}`;
+      
+      // Escape commas in names and emails by wrapping in quotes
+      const escapedName = record.employeeName.includes(',') ? `"${record.employeeName}"` : record.employeeName;
+      const escapedEmail = record.email.includes(',') ? `"${record.email}"` : record.email;
+      
+      lines.push(`${escapedName},${escapedEmail},${formattedDate},${record.checkInTime},${record.status.toUpperCase()}`);
+    });
+    
+    return lines.join('\n');
+  };
+
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    
+    // Format date for header
+    const reportDate = new Date().toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+    const reportTime = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    
+    // Title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Attendance Report - ${timeRange.charAt(0).toUpperCase() + timeRange.slice(1)}`, 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generated: ${reportDate} at ${reportTime}`, 14, 28);
+    
+    let yPos = 38;
+    
+    // Summary Section
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Summary', 14, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const summaryData = [
+      ['Total Employees', data.totalEmployees.toString()],
+      ['Present', data.present.toString()],
+      ['Late', data.late.toString()],
+      ['Absent', data.absent.toString()],
+      ['Attendance Rate', `${data.attendanceRate}%`],
+      ['Compared to Previous', `${data.comparedToPrevious > 0 ? '+' : ''}${data.comparedToPrevious}%`],
+    ];
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Metric', 'Value']],
+      body: summaryData,
+      theme: 'grid',
+      headStyles: { fillColor: [102, 126, 234] },
+      margin: { left: 14 },
+      tableWidth: 90,
+    });
+    
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+    
+    // Daily Breakdown Section
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Daily Breakdown', 14, yPos);
+    yPos += 8;
+    
+    const breakdownData = detailedBreakdown.map(row => {
+      const total = row.present + row.late + row.absent;
+      const rate = total > 0 ? Math.round(((row.present + row.late) / total) * 100) : 0;
+      const dateObj = new Date(row.date + 'T00:00:00');
+      const formattedDate = dateObj.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short'
+      });
+      return [formattedDate, row.day, row.present, row.late, row.absent, total, `${rate}%`];
+    });
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Date', 'Day', 'Present', 'Late', 'Absent', 'Total', 'Rate']],
+      body: breakdownData,
+      theme: 'striped',
+      headStyles: { fillColor: [102, 126, 234] },
+      margin: { left: 14, right: 14 },
+    });
+    
+    // Add new page for employee records if needed
+    doc.addPage();
+    yPos = 20;
+    
+    // Employee Attendance Records Section
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Employee Attendance Records', 14, yPos);
+    yPos += 8;
+    
+    const employeeData = employeeRecords.map(record => {
+      const dateObj = new Date(record.date + 'T00:00:00');
+      const formattedDate = dateObj.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short'
+      });
+      return [
+        record.employeeName,
+        record.email,
+        formattedDate,
+        record.checkInTime,
+        record.status.toUpperCase()
+      ];
+    });
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Employee', 'Email', 'Date', 'Check-In', 'Status']],
+      body: employeeData,
+      theme: 'striped',
+      headStyles: { fillColor: [102, 126, 234] },
+      margin: { left: 14, right: 14 },
+      styles: { fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 40 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 25 },
+      },
+    });
+    
+    // Save the PDF
+    doc.save(`attendance-report-${timeRange}-${Date.now()}.pdf`);
   };
 
   const handleExport = async () => {
     setIsExporting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    if (exportFormat === "csv") {
-      const csv = generateCSV();
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `attendance-report-${timeRange}-${Date.now()}.csv`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    try {
+      if (exportFormat === "csv") {
+        const csv = generateCSV();
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `attendance-report-${timeRange}-${Date.now()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        generatePDF();
+      }
+      
+      setIsExporting(false);
+      setShowExportSheet(false);
+      toast({
+        title: "Report Downloaded",
+        description: `Attendance report exported as ${exportFormat.toUpperCase()} successfully.`
+      });
+    } catch (error) {
+      setIsExporting(false);
+      toast({
+        title: "Export Failed",
+        description: "Failed to generate report. Please try again.",
+        variant: "destructive"
+      });
     }
-    setIsExporting(false); setShowExportSheet(false);
-    toast({ title: "Report Downloaded", description: `Attendance report exported as ${exportFormat.toUpperCase()} successfully.` });
   };
 
   const handleSendNotification = async () => {
@@ -88,49 +302,63 @@ const AdminReportsScreen = () => {
 
     setIsSendingNotification(true);
 
-    // Get current attendance data
-    const attendanceData = await notificationTriggerService.getCurrentAttendanceData();
-    
-    if (attendanceData.error) {
-      toast({ title: "Error", description: attendanceData.error.message, variant: "destructive" });
-      setIsSendingNotification(false);
-      return;
-    }
-
-    // Use current time as slot time
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
-    const currentTime = `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
-
-    // Trigger notification
-    const result = await notificationTriggerService.triggerNotification({
-      slotNumber: 1, // Default to slot 1 for manual triggers
-      slotTime: currentTime,
-      presentCount: attendanceData.presentCount,
-      lateCount: attendanceData.lateCount,
-      totalCount: attendanceData.totalCount,
-      attendanceRate: attendanceData.attendanceRate,
-      triggeredBy: user.id,
-    });
-
-    setIsSendingNotification(false);
-    setShowNotificationSheet(false);
-
-    if (result.success) {
-      const totalSent = result.emailsSent + result.smsSent;
-      const totalFailed = result.emailsFailed + result.smsFailed;
+    try {
+      // Get current attendance data
+      const attendanceData = await notificationTriggerService.getCurrentAttendanceData();
       
-      toast({
-        title: "Notifications Sent!",
-        description: `Successfully sent ${totalSent} notification(s). ${totalFailed > 0 ? `${totalFailed} failed.` : ''}`,
+      if (attendanceData.error) {
+        toast({ title: "Error", description: attendanceData.error.message, variant: "destructive" });
+        setIsSendingNotification(false);
+        return;
+      }
+
+      // Use current time as slot time
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+      const currentTime = `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
+
+      // Trigger notification via backend service
+      const result = await notificationTriggerService.triggerNotification({
+        slotNumber: 1,
+        slotTime: currentTime,
+        presentCount: attendanceData.presentCount,
+        lateCount: attendanceData.lateCount,
+        totalCount: attendanceData.totalCount,
+        attendanceRate: attendanceData.attendanceRate,
+        triggeredBy: user.id,
       });
-    } else {
+
+      console.log('Notification result:', result);
+
+      setIsSendingNotification(false);
+      setShowNotificationSheet(false);
+
+      if (result.success) {
+        const totalSent = result.emailsSent + result.smsSent;
+        const totalFailed = result.emailsFailed + result.smsFailed;
+        
+        toast({
+          title: "Notifications Sent!",
+          description: `Successfully sent ${totalSent} notification(s). ${totalFailed > 0 ? `${totalFailed} failed.` : ''}`,
+        });
+      } else {
+        console.error('Notification failed:', result);
+        toast({
+          title: "Failed to Send",
+          description: result.message || result.error?.message || "Failed to send notifications",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Notification error:', error);
+      setIsSendingNotification(false);
+      setShowNotificationSheet(false);
       toast({
-        title: "Failed to Send",
-        description: result.message || "Failed to send notifications",
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive",
       });
     }
@@ -221,37 +449,49 @@ const AdminReportsScreen = () => {
             </div>
           </div>
 
-          {/* Row: Weekly + Department */}
+          {/* Row: Daily Breakdown + Department */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-            {/* Weekly Breakdown */}
-            {timeRange === "week" && (
-              <div className="animate-fade-in-up" style={{ animationDelay: "0.15s" }}>
-                <h2 className="text-overline mb-3">Daily Breakdown</h2>
-                <div className="card-elevated p-4">
-                  <div className="space-y-3">
-                    {weeklyBreakdown.map((day) => {
-                      const total = day.present + day.late + day.absent || 1;
-                      return (
-                        <div key={day.day + day.date} className="flex items-center gap-3">
-                          <span className="w-8 text-sm font-medium text-muted-foreground">{day.day}</span>
-                          <div className="flex-1 flex items-center gap-1 h-6">
-                            <div className="bg-success h-full rounded-l" style={{ width: `${(day.present / total) * 100}%` }} />
-                            <div className="bg-warning h-full" style={{ width: `${(day.late / total) * 100}%` }} />
-                            <div className="bg-destructive h-full rounded-r" style={{ width: `${(day.absent / total) * 100}%` }} />
+            {/* Daily Breakdown - Show for all time ranges */}
+            <div className="animate-fade-in-up" style={{ animationDelay: "0.15s" }}>
+              <h2 className="text-overline mb-3">
+                {timeRange === 'today' ? 'Today' : timeRange === 'week' ? 'Last 7 Days' : 'Last 30 Days'}
+              </h2>
+              <div className="card-elevated p-4">
+                {detailedBreakdown.length > 0 ? (
+                  <>
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                      {detailedBreakdown.map((day) => {
+                        const total = day.present + day.late + day.absent || 1;
+                        const rate = Math.round(((day.present + day.late) / total) * 100);
+                        return (
+                          <div key={day.date} className="flex items-center gap-3">
+                            <div className="w-16 flex-shrink-0">
+                              <span className="text-xs font-medium text-muted-foreground block">{day.day}</span>
+                              <span className="text-xs text-muted-foreground">{day.date.split('-').slice(1).join('/')}</span>
+                            </div>
+                            <div className="flex-1 flex items-center gap-1 h-6">
+                              <div className="bg-success h-full rounded-l" style={{ width: `${(day.present / total) * 100}%` }} />
+                              <div className="bg-warning h-full" style={{ width: `${(day.late / total) * 100}%` }} />
+                              <div className="bg-destructive h-full rounded-r" style={{ width: `${(day.absent / total) * 100}%` }} />
+                            </div>
+                            <span className="text-xs text-muted-foreground w-10 text-right flex-shrink-0">{rate}%</span>
                           </div>
-                          <span className="text-xs text-muted-foreground w-10 text-right">{Math.round(((day.present + day.late) / total) * 100)}%</span>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-border">
+                      <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-success rounded" /><span className="text-xs text-muted-foreground">Present</span></div>
+                      <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-warning rounded" /><span className="text-xs text-muted-foreground">Late</span></div>
+                      <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-destructive rounded" /><span className="text-xs text-muted-foreground">Absent</span></div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm">No attendance data available</p>
                   </div>
-                  <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-border">
-                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-success rounded" /><span className="text-xs text-muted-foreground">Present</span></div>
-                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-warning rounded" /><span className="text-xs text-muted-foreground">Late</span></div>
-                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-destructive rounded" /><span className="text-xs text-muted-foreground">Absent</span></div>
-                  </div>
-                </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Department Stats */}
             <div className="animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
@@ -298,7 +538,12 @@ const AdminReportsScreen = () => {
               </div>
               <div className="bg-muted/50 rounded-xl p-4">
                 <p className="text-sm font-medium mb-1">Report Summary</p>
-                <p className="text-xs text-muted-foreground">{timeRange === "today" ? "1 day" : timeRange === "week" ? "5 days" : "~30 days"} of attendance data • {data.totalEmployees} employees</p>
+                <p className="text-xs text-muted-foreground">
+                  {timeRange === "today" ? "1 day" : timeRange === "week" ? "7 days" : "30 days"} of attendance data
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {data.totalEmployees} employees • {employeeRecords.length} attendance records
+                </p>
               </div>
               <button onClick={handleExport} disabled={isExporting} className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50">
                 {isExporting ? (<><div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />Exporting...</>) : (<><Download className="w-5 h-5" />Download {exportFormat.toUpperCase()}</>)}

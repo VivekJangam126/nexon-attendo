@@ -17,13 +17,13 @@ const Index = () => {
 
         {/* Welcome Text */}
         <div className="text-center mb-8 animate-fade-in-up">
-          <h1 className="text-display text-foreground mb-2">Nexon Attendance</h1>
+          <h1 className="text-display text-foreground mb-2">Nexus Attendo</h1>
           <p className="text-body-secondary">Employee Attendance System</p>
         </div>
 
         {/* Company Name */}
         <div className="mb-12 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-          <p className="text-overline">Nexon Pvt Ltd</p>
+          <p className="text-overline">Nexus Pvt Ltd</p>
         </div>
 
         {/* CTA Button */}
@@ -38,7 +38,7 @@ const Index = () => {
 
         {/* Footer */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-          <p className="text-caption text-center">© 2024 Nexon Pvt Ltd</p>
+          <p className="text-caption text-center">© 2024 Nexus Pvt Ltd</p>
         </div>
       </div>
     </MobileContainer>

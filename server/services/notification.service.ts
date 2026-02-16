@@ -34,6 +34,12 @@ function getTwilioClient(): ReturnType<typeof twilio> {
   return twilioClient;
 }
 
+export interface EmployeeAttendanceDetail {
+  name: string;
+  checkInTime: string;
+  status: 'present' | 'late';
+}
+
 export interface AttendanceNotificationData {
   date: string;
   slotNumber: 1 | 2 | 3;
@@ -43,6 +49,9 @@ export interface AttendanceNotificationData {
   totalCount: number;
   attendanceRate: number;
   isManual?: boolean; // Flag to indicate manual trigger by admin
+  employeeDetails?: EmployeeAttendanceDetail[]; // Employee details with check-in times
+  actualStartTime?: string; // For manual alerts
+  actualEndTime?: string; // For manual alerts
 }
 
 export interface NotificationResult {
@@ -218,30 +227,42 @@ export const notificationService = {
   },
 
   /**
-   * Generate SMS content (under 160 characters)
+   * Generate SMS content (under 160 characters for basic info, longer with employee details)
    */
   generateSMSContent(data: AttendanceNotificationData): string {
-    const { date, slotNumber, slotTime, presentCount, lateCount, totalCount, attendanceRate, isManual } = data;
+    const { date, slotNumber, slotTime, presentCount, lateCount, totalCount, attendanceRate, isManual, employeeDetails, actualStartTime, actualEndTime } = data;
     
     const dateFormatted = new Date(date).toLocaleDateString('en-GB', { 
       day: '2-digit', 
       month: 'short' 
     });
     
-    // Manual alert: shorter, indicates admin sent it
-    if (isManual) {
-      return `[ADMIN ALERT] ${dateFormatted} ${slotTime}: ${presentCount} present, ${lateCount} late. Total: ${totalCount} (${attendanceRate}%)`;
+    // Format employee details list
+    let employeeList = '';
+    if (employeeDetails && employeeDetails.length > 0) {
+      employeeList = '\n\nEmployee Details:\n' + employeeDetails
+        .map((emp, index) => `${index + 1}. ${emp.name} - ${emp.checkInTime}${emp.status === 'late' ? ' (Late)' : ''}`)
+        .join('\n');
     }
     
-    // Automatic alert: standard format
-    return `Slot ${slotNumber} (${slotTime}): ${presentCount} present, ${lateCount} late, ${totalCount} total. Rate: ${attendanceRate}%. ${dateFormatted}`;
+    // Manual alert: show actual time range
+    if (isManual) {
+      const timeRange = actualStartTime && actualEndTime 
+        ? `${actualStartTime} to ${actualEndTime}`
+        : slotTime;
+      
+      return `[MANUAL ALERT] Attendance Report - ${dateFormatted}\nTime: ${timeRange}\n✓ Present: ${presentCount}\n⏰ Late: ${lateCount}\n📊 Total: ${totalCount}\n📈 Rate: ${attendanceRate}%${employeeList}`;
+    }
+    
+    // Automatic slot-wise alert: show slot number and time
+    return `SLOT-${slotNumber} Attendance Report - ${dateFormatted}\nTime: ${slotTime}\n✓ Present: ${presentCount}\n⏰ Late: ${lateCount}\n📊 Total: ${totalCount}\n📈 Rate: ${attendanceRate}%${employeeList}`;
   },
 
   /**
    * Generate HTML email content
    */
   generateEmailHTML(data: AttendanceNotificationData): string {
-    const { date, slotNumber, slotTime, presentCount, lateCount, totalCount, attendanceRate, isManual } = data;
+    const { date, slotNumber, slotTime, presentCount, lateCount, totalCount, attendanceRate, isManual, employeeDetails, actualStartTime, actualEndTime } = data;
     
     const dateFormatted = new Date(date).toLocaleDateString('en-US', {
       weekday: 'long',
@@ -257,6 +278,37 @@ export const notificationService = {
         <span style="color: #dc2626; font-weight: 600; font-size: 14px;">⚠️ MANUAL ALERT SENT BY ADMIN</span>
       </div>
     ` : '';
+
+    const timeDisplay = isManual && actualStartTime && actualEndTime
+      ? `${actualStartTime} to ${actualEndTime}`
+      : slotTime;
+
+    const slotTitle = isManual 
+      ? `Time Period`
+      : `Time Slot ${slotNumber}`;
+
+    // Generate employee list HTML if available
+    let employeeListHtml = '';
+    if (employeeDetails && employeeDetails.length > 0) {
+      const employeeItems = employeeDetails.map((emp, index) => 
+        `<li style="padding: 4px 0; color: #475569;">
+          <span style="font-weight: 500;">${index + 1}. ${emp.name}</span> - 
+          <span style="color: #64748b;">${emp.checkInTime}</span>
+          ${emp.status === 'late' ? '<span style="color: #d97706; font-weight: 600; margin-left: 4px;">(Late)</span>' : ''}
+        </li>`
+      ).join('');
+      
+      const listTitle = isManual ? 'Employees Present/Late:' : `Slot ${slotNumber} Attendance:`;
+      
+      employeeListHtml = `
+        <div style="margin-top: 24px; padding: 20px; background-color: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+          <h3 style="margin: 0 0 12px 0; color: #0c4a6e; font-size: 16px;">${listTitle}</h3>
+          <ul style="margin: 0; padding-left: 20px; list-style-type: decimal; max-height: 400px; overflow-y: auto;">
+            ${employeeItems}
+          </ul>
+        </div>
+      `;
+    }
 
     return `
 <!DOCTYPE html>
@@ -289,10 +341,10 @@ export const notificationService = {
               ${manualBadge}
               <div style="background-color: #f8fafc; border-left: 4px solid ${isManual ? '#dc2626' : '#667eea'}; padding: 16px; border-radius: 4px; margin-bottom: 24px;">
                 <h2 style="margin: 0 0 4px 0; color: #1e293b; font-size: 18px; font-weight: 600;">
-                  Time Slot ${slotNumber}
+                  ${slotTitle}
                 </h2>
                 <p style="margin: 0; color: #64748b; font-size: 14px;">
-                  ${slotTime}
+                  ${timeDisplay}
                 </p>
               </div>
               
@@ -335,6 +387,9 @@ export const notificationService = {
                   ${attendanceRate}% Attendance Rate
                 </div>
               </div>
+              
+              <!-- Employee List -->
+              ${employeeListHtml}
             </td>
           </tr>
           

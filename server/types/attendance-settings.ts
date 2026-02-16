@@ -8,6 +8,7 @@ export interface AttendanceWindow {
   start_time: string; // HH:MM:SS format
   end_time: string;   // HH:MM:SS format
   is_active: boolean;
+  strict_mode: boolean; // If true, GPS/WiFi verification required
   updated_by: string | null;
   created_at: string;
   updated_at: string;

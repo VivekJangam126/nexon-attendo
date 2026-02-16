@@ -7,6 +7,7 @@ import {
 import AdminLayout from "@/components/AdminLayout";
 import { attendanceSettingsService } from "@server";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@server/supabase/client";
 
 const AdminSettingsScreen = () => {
   const navigate = useNavigate();
@@ -22,6 +23,11 @@ const AdminSettingsScreen = () => {
       if (window) {
         setAttendanceWindow(`${window.start_time} - ${window.end_time}`);
       }
+      
+      // Fetch strict mode setting
+      const { strictMode: currentStrictMode } = await attendanceSettingsService.getStrictMode();
+      setStrictMode(currentStrictMode);
+      
       setLoading(false);
     };
 
@@ -32,6 +38,42 @@ const AdminSettingsScreen = () => {
     toast({
       title: "Coming Soon",
       description: "This feature is under development and will be available soon.",
+    });
+  };
+
+  const handleStrictModeToggle = async () => {
+    const newStrictMode = !strictMode;
+    setStrictMode(newStrictMode);
+
+    // Get admin profile
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to update settings",
+        variant: "destructive",
+      });
+      setStrictMode(!newStrictMode); // Revert
+      return;
+    }
+
+    const { error } = await attendanceSettingsService.updateStrictMode(newStrictMode, user.id);
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      setStrictMode(!newStrictMode); // Revert
+      return;
+    }
+
+    toast({
+      title: "Strict Mode Updated",
+      description: newStrictMode 
+        ? "GPS and WiFi verification now required for attendance"
+        : "Direct attendance marking enabled (no location checks)",
     });
   };
 
@@ -116,19 +158,29 @@ const AdminSettingsScreen = () => {
             <div className="animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
               <h2 className="text-overline mb-3">System</h2>
               <div className="card-elevated divide-y divide-border">
-                <div className="flex items-center gap-4 p-4 opacity-60">
-                  <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-muted-foreground" />
+                <button 
+                  onClick={handleStrictModeToggle}
+                  className="flex items-center gap-4 p-4 w-full transition-colors hover:bg-muted/50"
+                >
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    strictMode ? 'bg-accent' : 'bg-muted'
+                  }`}>
+                    <Shield className={`w-5 h-5 ${strictMode ? 'text-primary' : 'text-muted-foreground'}`} />
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">Strict Mode</p>
-                      <Lock className="w-3 h-3 text-muted-foreground" />
-                    </div>
-                    <p className="text-xs text-muted-foreground">Coming Soon</p>
+                  <div className="flex-1 text-left">
+                    <p className="font-medium">Strict Mode</p>
+                    <p className="text-xs text-muted-foreground">
+                      {strictMode 
+                        ? "GPS & WiFi verification required"
+                        : "Direct attendance (no location checks)"}
+                    </p>
                   </div>
-                  <ToggleLeft className="w-8 h-8 text-muted-foreground" />
-                </div>
+                  {strictMode ? (
+                    <ToggleRight className="w-8 h-8 text-success" />
+                  ) : (
+                    <ToggleLeft className="w-8 h-8 text-muted-foreground" />
+                  )}
+                </button>
                 <div className="flex items-center gap-4 p-4 opacity-60">
                   <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
                     <Bell className="w-5 h-5 text-muted-foreground" />
@@ -148,8 +200,8 @@ const AdminSettingsScreen = () => {
 
           {/* Version */}
           <div className="text-center pt-8 pb-4">
-            <p className="text-xs text-muted-foreground">Nexon Attendance Admin v1.0.0</p>
-            <p className="text-xs text-muted-foreground">© 2024 Nexon Pvt Ltd</p>
+            <p className="text-xs text-muted-foreground">Nexus Attendo Admin v1.0.0</p>
+            <p className="text-xs text-muted-foreground">© 2024 Nexus Pvt Ltd</p>
           </div>
         </div>
       </div>

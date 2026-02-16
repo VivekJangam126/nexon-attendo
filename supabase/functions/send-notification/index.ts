@@ -9,15 +9,26 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+interface EmployeeAttendanceDetail {
+  name: string;
+  checkInTime: string;
+  status: 'present' | 'late';
+}
+
 interface NotificationRequest {
   slotNumber: number;
   slotTime: string;
+  slotStartTime?: string; // For slot alerts (e.g., "10:00 AM")
+  slotEndTime?: string; // For slot alerts (e.g., "10:10 AM")
   presentCount: number;
   lateCount: number;
   totalCount: number;
   attendanceRate: number;
   triggeredBy: string;
   isManual: boolean;
+  employeeDetails?: EmployeeAttendanceDetail[]; // For manual and automatic alerts
+  actualStartTime?: string; // For manual alerts (e.g., "10:00 AM")
+  actualEndTime?: string; // For manual alerts (e.g., "02:30 PM")
 }
 
 serve(async (req) => {
@@ -27,14 +38,23 @@ serve(async (req) => {
   }
 
   try {
+    console.log('📨 Notification request received');
+    
     // Get request body
     const request: NotificationRequest = await req.json()
+    console.log('📋 Request data:', { 
+      slotNumber: request.slotNumber, 
+      totalCount: request.totalCount,
+      isManual: request.isManual 
+    });
 
-    // Initialize Supabase client
+    // Initialize Supabase client with service role for admin access
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
+    console.log('🔍 Fetching enabled contacts...');
+    
     // Get enabled contacts
     const { data: contacts, error: contactsError } = await supabase
       .from('notification_contacts')
@@ -44,8 +64,11 @@ serve(async (req) => {
     if (contactsError) throw contactsError
 
     if (!contacts || contacts.length === 0) {
+      console.log('⚠️  No enabled contacts found');
       throw new Error('No enabled contacts found')
     }
+    
+    console.log(`✅ Found ${contacts.length} enabled contact(s)`);
 
     // Prepare notification data
     const notificationData = {
@@ -58,12 +81,53 @@ serve(async (req) => {
       attendanceRate: request.attendanceRate,
     }
 
-    // Generate SMS content
+    // Generate SMS content based on whether it's manual or automatic
     const dateFormatted = new Date(notificationData.date).toLocaleDateString('en-GB', { 
       day: '2-digit', 
       month: 'short' 
     })
-    const smsContent = `Slot ${notificationData.slotNumber} (${notificationData.slotTime}): ${notificationData.presentCount} present, ${notificationData.lateCount} late, ${notificationData.totalCount} total. Rate: ${notificationData.attendanceRate}%. ${dateFormatted}`
+    
+    let smsContent: string
+    if (request.isManual) {
+      // Manual notification - SHORTENED for Twilio trial (max 3 segments)
+      const timeRange = request.actualStartTime && request.actualEndTime 
+        ? `${request.actualStartTime} to ${request.actualEndTime}`
+        : notificationData.slotTime
+      
+      // Limit to first 5 employees for trial account
+      let employeeList = ''
+      if (request.employeeDetails && request.employeeDetails.length > 0) {
+        const limitedEmployees = request.employeeDetails.slice(0, 5)
+        employeeList = '\n' + limitedEmployees
+          .map((emp, index) => `${index + 1}.${emp.name}-${emp.checkInTime}`)
+          .join('\n')
+        
+        if (request.employeeDetails.length > 5) {
+          employeeList += `\n+${request.employeeDetails.length - 5} more`
+        }
+      }
+      
+      smsContent = `[ALERT] ${dateFormatted} ${timeRange}\nP:${notificationData.presentCount} L:${notificationData.lateCount} T:${notificationData.totalCount} (${notificationData.attendanceRate}%)${employeeList}`
+    } else {
+      // Automatic slot-wise notification - SHORTENED with time range
+      const slotTimeRange = request.slotStartTime && request.slotEndTime
+        ? `${request.slotStartTime} to ${request.slotEndTime}`
+        : notificationData.slotTime
+      
+      let employeeList = ''
+      if (request.employeeDetails && request.employeeDetails.length > 0) {
+        const limitedEmployees = request.employeeDetails.slice(0, 5)
+        employeeList = '\n' + limitedEmployees
+          .map((emp, index) => `${index + 1}.${emp.name}-${emp.checkInTime}`)
+          .join('\n')
+        
+        if (request.employeeDetails.length > 5) {
+          employeeList += `\n+${request.employeeDetails.length - 5} more`
+        }
+      }
+      
+      smsContent = `SLOT-${notificationData.slotNumber} ${dateFormatted} ${slotTimeRange}\nP:${notificationData.presentCount} L:${notificationData.lateCount} T:${notificationData.totalCount} (${notificationData.attendanceRate}%)${employeeList}`
+    }
 
     // Get API keys from environment
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
@@ -71,17 +135,33 @@ serve(async (req) => {
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN')
     const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER')
 
+    console.log('🔑 API Keys status:');
+    console.log('  Resend:', resendApiKey ? '✅ Set' : '❌ Missing');
+    console.log('  Twilio SID:', twilioAccountSid ? '✅ Set' : '❌ Missing');
+    console.log('  Twilio Token:', twilioAuthToken ? '✅ Set' : '❌ Missing');
+    console.log('  Twilio Phone:', twilioPhoneNumber ? '✅ Set' : '❌ Missing');
+
     let emailsSent = 0
     let smsSent = 0
     let emailsFailed = 0
     let smsFailed = 0
+
+    console.log('\n📧 Starting email notifications...');
 
     // Send emails using Resend
     if (resendApiKey) {
       for (const contact of contacts) {
         if (contact.email) {
           try {
-            const emailHtml = generateEmailHTML(notificationData)
+            const emailHtml = generateEmailHTML({
+              ...notificationData,
+              slotStartTime: request.slotStartTime,
+              slotEndTime: request.slotEndTime,
+            }, request.isManual, request.employeeDetails, request.actualStartTime, request.actualEndTime)
+            const emailSubject = request.isManual 
+              ? `[Manual Alert] Attendance Report - ${request.actualStartTime || notificationData.slotTime} to ${request.actualEndTime || 'Now'}`
+              : `Slot ${notificationData.slotNumber} Report - ${notificationData.slotTime} (${notificationData.attendanceRate}%)`
+            
             const response = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: {
@@ -91,7 +171,7 @@ serve(async (req) => {
               body: JSON.stringify({
                 from: 'Attendance System <onboarding@resend.dev>',
                 to: [contact.email],
-                subject: `Attendance Report - Slot ${notificationData.slotNumber} (${notificationData.slotTime})`,
+                subject: emailSubject,
                 html: emailHtml,
               }),
             })
@@ -201,6 +281,10 @@ serve(async (req) => {
       }
     }
 
+    console.log(`\n✅ Notification complete:`);
+    console.log(`  Emails: ${emailsSent} sent, ${emailsFailed} failed`);
+    console.log(`  SMS: ${smsSent} sent, ${smsFailed} failed`);
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -229,13 +313,58 @@ serve(async (req) => {
   }
 })
 
-function generateEmailHTML(data: any): string {
+function generateEmailHTML(data: any, isManual: boolean, employeeDetails?: EmployeeAttendanceDetail[], actualStartTime?: string, actualEndTime?: string): string {
   const dateFormatted = new Date(data.date).toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   })
+  
+  const triggerBadge = isManual 
+    ? '<span style="display: inline-block; padding: 4px 12px; background-color: #f59e0b; color: #ffffff; border-radius: 12px; font-size: 12px; font-weight: 600; margin-left: 8px;">MANUAL</span>'
+    : '<span style="display: inline-block; padding: 4px 12px; background-color: #10b981; color: #ffffff; border-radius: 12px; font-size: 12px; font-weight: 600; margin-left: 8px;">AUTO</span>'
+
+  const performanceBadge = !isManual && data.attendanceRate >= 90
+    ? '<div style="margin-top: 8px;"><span style="display: inline-block; padding: 6px 16px; background-color: #10b981; color: #ffffff; border-radius: 16px; font-size: 14px; font-weight: 600;">🌟 Excellent Performance!</span></div>'
+    : !isManual && data.attendanceRate >= 75
+    ? '<div style="margin-top: 8px;"><span style="display: inline-block; padding: 6px 16px; background-color: #3b82f6; color: #ffffff; border-radius: 16px; font-size: 14px; font-weight: 600;">👍 Good Attendance</span></div>'
+    : !isManual && data.attendanceRate < 75
+    ? '<div style="margin-top: 8px;"><span style="display: inline-block; padding: 6px 16px; background-color: #ef4444; color: #ffffff; border-radius: 16px; font-size: 14px; font-weight: 600;">⚡ Needs Attention</span></div>'
+    : ''
+
+  const timeDisplay = isManual && actualStartTime && actualEndTime
+    ? `${actualStartTime} to ${actualEndTime}`
+    : !isManual && data.slotStartTime && data.slotEndTime
+    ? `${data.slotStartTime} to ${data.slotEndTime}`
+    : data.slotTime
+
+  const slotTitle = isManual 
+    ? `Time Period`
+    : `Time Slot ${data.slotNumber}`
+
+  // Generate employee list HTML if available
+  let employeeListHtml = ''
+  if (employeeDetails && employeeDetails.length > 0) {
+    const employeeItems = employeeDetails.map((emp, index) => 
+      `<li style="padding: 4px 0; color: #475569;">
+        <span style="font-weight: 500;">${index + 1}. ${emp.name}</span> - 
+        <span style="color: #64748b;">${emp.checkInTime}</span>
+        ${emp.status === 'late' ? '<span style="color: #d97706; font-weight: 600; margin-left: 4px;">(Late)</span>' : ''}
+      </li>`
+    ).join('')
+    
+    const listTitle = isManual ? 'Employees Present/Late:' : `Slot ${data.slotNumber} Attendance:`
+    
+    employeeListHtml = `
+      <div style="margin-top: 24px; padding: 20px; background-color: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+        <h3 style="margin: 0 0 12px 0; color: #0c4a6e; font-size: 16px;">${listTitle}</h3>
+        <ul style="margin: 0; padding-left: 20px; list-style-type: decimal; max-height: 400px; overflow-y: auto;">
+          ${employeeItems}
+        </ul>
+      </div>
+    `
+  }
 
   return `
 <!DOCTYPE html>
@@ -251,15 +380,16 @@ function generateEmailHTML(data: any): string {
         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           <tr>
             <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 8px 8px 0 0;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 24px;">📊 Attendance Report</h1>
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px;">📊 Attendance Report ${triggerBadge}</h1>
               <p style="margin: 8px 0 0 0; color: #e0e7ff; font-size: 14px;">${dateFormatted}</p>
+              ${performanceBadge}
             </td>
           </tr>
           <tr>
             <td style="padding: 30px;">
               <div style="background-color: #f8fafc; border-left: 4px solid #667eea; padding: 16px; border-radius: 4px; margin-bottom: 24px;">
-                <h2 style="margin: 0 0 4px 0; color: #1e293b; font-size: 18px;">Time Slot ${data.slotNumber}</h2>
-                <p style="margin: 0; color: #64748b; font-size: 14px;">${data.slotTime}</p>
+                <h2 style="margin: 0 0 4px 0; color: #1e293b; font-size: 18px;">${slotTitle}</h2>
+                <p style="margin: 0; color: #64748b; font-size: 14px;">${timeDisplay}</p>
               </div>
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
@@ -285,12 +415,13 @@ function generateEmailHTML(data: any): string {
                   ${data.attendanceRate}% Attendance Rate
                 </div>
               </div>
+              ${employeeListHtml}
             </td>
           </tr>
           <tr>
             <td style="padding: 20px 30px; background-color: #f8fafc; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;">
               <p style="margin: 0; color: #64748b; font-size: 12px; text-align: center;">
-                This is an automated notification from the Attendance Management System.
+                This is ${isManual ? 'a manual' : 'an automated'} notification from the Attendance Management System.
               </p>
             </td>
           </tr>

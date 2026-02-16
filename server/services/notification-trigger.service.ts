@@ -6,6 +6,12 @@
 import { supabase } from '../supabase/client';
 import { notificationSettingsService } from './notification-settings.service';
 
+export interface EmployeeAttendanceDetail {
+  name: string;
+  checkInTime: string; // Formatted time like "10:05 AM"
+  status: 'present' | 'late';
+}
+
 export interface TriggerNotificationRequest {
   slotNumber: 1 | 2 | 3;
   slotTime: string;
@@ -14,6 +20,9 @@ export interface TriggerNotificationRequest {
   totalCount: number;
   attendanceRate: number;
   triggeredBy: string;
+  employeeDetails?: EmployeeAttendanceDetail[];
+  actualStartTime?: string;
+  actualEndTime?: string;
 }
 
 export interface TriggerNotificationResponse {
@@ -28,7 +37,7 @@ export interface TriggerNotificationResponse {
 
 export const notificationTriggerService = {
   /**
-   * Trigger notification via API endpoint
+   * Trigger notification via Supabase Edge Function
    */
   async triggerNotification(
     request: TriggerNotificationRequest
@@ -45,34 +54,99 @@ export const notificationTriggerService = {
         throw new Error('No enabled contacts found. Please add HR contacts in notification settings.');
       }
 
-      // Call API endpoint
-      const response = await fetch('/api/send-notification', {
-        method: 'POST',
+      // Get attendance window settings to determine start time
+      const { data: windowSettings } = await supabase
+        .from('attendance_settings')
+        .select('start_time')
+        .eq('setting_name', 'default_attendance_window')
+        .single();
+
+      const startTime = (windowSettings as any)?.start_time || '10:00:00';
+      
+      // Format start time (e.g., "10:00 AM")
+      const [startHour, startMinute] = startTime.split(':');
+      const startH = parseInt(startHour);
+      const startPeriod = startH >= 12 ? 'PM' : 'AM';
+      const startDisplayHour = startH > 12 ? startH - 12 : startH === 0 ? 12 : startH;
+      const actualStartTime = `${startDisplayHour}:${startMinute} ${startPeriod}`;
+
+      // Get current time for end time
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const endPeriod = currentHour >= 12 ? 'PM' : 'AM';
+      const endDisplayHour = currentHour > 12 ? currentHour - 12 : currentHour === 0 ? 12 : currentHour;
+      const actualEndTime = `${endDisplayHour}:${currentMinute.toString().padStart(2, '0')} ${endPeriod}`;
+
+      // Get today's attendance with employee names and check-in times
+      const today = new Date().toISOString().split('T')[0];
+      
+      // First get attendance records
+      const { data: attendanceRecords, error: attError } = await supabase
+        .from('attendance')
+        .select('user_id, status, check_in_time')
+        .eq('date', today)
+        .in('status', ['present', 'late'])
+        .order('check_in_time', { ascending: true });
+
+      if (attError) {
+        console.error('Error fetching attendance:', attError);
+      }
+
+      // Get user profiles separately
+      const userIds = attendanceRecords?.map((a: any) => a.user_id) || [];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds);
+
+      // Map profiles to attendance
+      const profileMap = new Map(profiles?.map((p: any) => [p.id, p.full_name]) || []);
+
+      // Format employee details with check-in times
+      const employeeDetails: EmployeeAttendanceDetail[] = attendanceRecords
+        ?.map((record: any) => {
+          const name = profileMap.get(record.user_id);
+          if (!name) return null;
+          
+          // Format check-in time
+          const checkInDate = new Date(record.check_in_time);
+          const hour = checkInDate.getHours();
+          const minute = checkInDate.getMinutes();
+          const period = hour >= 12 ? 'PM' : 'AM';
+          const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+          const formattedTime = `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+          
+          return {
+            name,
+            checkInTime: formattedTime,
+            status: record.status,
+          };
+        })
+        .filter((detail: EmployeeAttendanceDetail | null) => detail != null) || [];
+
+      // Call Supabase Edge Function without auth headers
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('send-notification', {
+        body: {
+          ...request,
+          isManual: true,
+          employeeDetails,
+          actualStartTime,
+          actualEndTime,
+        },
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...request,
-          isManual: true,
-        }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = 'Failed to send notifications';
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error || errorMessage;
-        } catch {
-          errorMessage = errorText || errorMessage;
-        }
-        throw new Error(errorMessage);
+      if (functionError) {
+        throw functionError;
       }
 
-      const data = await response.json();
+      const data = functionData;
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to send notifications');
+      if (!data || data.success === false) {
+        throw new Error(data?.error || 'Failed to send notifications');
       }
 
       return {
@@ -119,8 +193,8 @@ export const notificationTriggerService = {
 
       if (attendanceError) throw attendanceError;
 
-      const presentCount = attendanceData?.filter(a => a.status === 'present').length || 0;
-      const lateCount = attendanceData?.filter(a => a.status === 'late').length || 0;
+      const presentCount = attendanceData?.filter((a: any) => a.status === 'present').length || 0;
+      const lateCount = attendanceData?.filter((a: any) => a.status === 'late').length || 0;
       const totalCount = presentCount + lateCount;
       const attendanceRate = totalCount > 0 ? Math.round((totalCount / (attendanceData?.length || 1)) * 100) : 0;
 

@@ -71,7 +71,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             <Building2 className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <p className="font-semibold text-sm text-foreground">Nexon Attendance</p>
+            <p className="font-semibold text-sm text-foreground">Nexus Attendo</p>
             <p className="text-xs text-muted-foreground">Admin Portal</p>
           </div>
         </div>
@@ -119,7 +119,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
                   <Building2 className="w-5 h-5 text-primary-foreground" />
                 </div>
-                <p className="font-semibold text-sm text-foreground">Nexon</p>
+                <p className="font-semibold text-sm text-foreground">Nexus</p>
               </div>
               <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-muted rounded-lg">
                 <X className="w-5 h-5 text-foreground" />
@@ -167,7 +167,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <Building2 className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="text-sm font-semibold text-foreground">Nexon Admin</span>
+            <span className="text-sm font-semibold text-foreground">Nexus Admin</span>
           </div>
           <div className="w-9" /> {/* spacer */}
         </header>

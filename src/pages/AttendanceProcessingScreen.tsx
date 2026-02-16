@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { MapPin, Wifi, ShieldCheck, Loader2 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import { useAuth } from "@/hooks/useAuth";
-import { attendanceService } from "@server";
+import { attendanceService, attendanceSettingsService } from "@server";
 
 type ProcessingStep = "location" | "wifi" | "verifying" | "complete";
 
@@ -28,70 +28,75 @@ const AttendanceProcessingScreen = () => {
       }
 
       try {
-        // Step 1: Request GPS location
-        setCurrentStep(0);
-        console.log('📍 Requesting GPS location...');
-        
+        // Check strict mode first
+        const { strictMode } = await attendanceSettingsService.getStrictMode();
+        console.log('🔒 Strict mode:', strictMode);
+
         let latitude: number | undefined;
         let longitude: number | undefined;
+        let ipAddress: string | undefined;
 
-        if ('geolocation' in navigator) {
-          try {
-            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0,
+        if (strictMode) {
+          // Strict mode enabled - perform GPS/WiFi validation
+          // Step 1: Request GPS location
+          setCurrentStep(0);
+          console.log('📍 Requesting GPS location...');
+          
+          if ('geolocation' in navigator) {
+            try {
+              const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                  enableHighAccuracy: true,
+                  timeout: 10000,
+                  maximumAge: 0,
+                });
               });
-            });
-            
-            latitude = position.coords.latitude;
-            longitude = position.coords.longitude;
-            console.log('✅ GPS location obtained:', latitude, longitude);
-          } catch (gpsError) {
-            console.log('❌ GPS error:', gpsError);
-            // GPS denied or failed - will be caught by backend validation
+              
+              latitude = position.coords.latitude;
+              longitude = position.coords.longitude;
+              console.log('✅ GPS location obtained:', latitude, longitude);
+            } catch (gpsError) {
+              console.log('❌ GPS error:', gpsError);
+              // GPS denied or failed - will be caught by backend validation
+            }
           }
+
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          setCompletedSteps((prev) => [...prev, 0]);
+
+          // Step 2: Get IP address (simulated - backend will use actual request IP)
+          setCurrentStep(1);
+          console.log('📡 Checking network...');
+          
+          try {
+            // Try to get public IP (will work if on internet)
+            ipAddress = await fetch('https://api.ipify.org?format=json', { timeout: 3000 } as any)
+              .then(res => res.json())
+              .then(data => data.ip)
+              .catch(() => undefined);
+          } catch (e) {
+            console.log('  Could not fetch public IP');
+          }
+
+          // For demo: If we're testing locally, use a mock office IP
+          if (!ipAddress || !ipAddress.startsWith('192.168.1.')) {
+            console.log('  Using mock office IP for demo');
+            ipAddress = '192.168.1.141'; // Mock office IP for demo
+          }
+
+          console.log('  IP Address:', ipAddress);
+          
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          setCompletedSteps((prev) => [...prev, 1]);
+        } else {
+          // Strict mode disabled - skip GPS/WiFi validation
+          console.log('⚠️  Strict mode disabled - skipping location checks');
+          setCompletedSteps([0, 1]); // Mark first two steps as complete
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        setCompletedSteps((prev) => [...prev, 0]);
-
-        // Step 2: Get IP address (simulated - backend will use actual request IP)
-        setCurrentStep(1);
-        console.log('📡 Checking network...');
-        
-        // In a real scenario, the backend extracts the IP from the request
-        // For demo, we'll let the backend handle it
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        setCompletedSteps((prev) => [...prev, 1]);
-
-        // Step 3: Mark attendance with GPS and IP
+        // Step 3: Mark attendance
         setCurrentStep(2);
         console.log('💾 Marking attendance...');
-        
-        // For demo: Use a mock office IP since browser can't access local network IP
-        // In production, backend would extract the actual request IP from headers
-        let ipAddress: string | undefined;
-        
-        try {
-          // Try to get public IP (will work if on internet)
-          ipAddress = await fetch('https://api.ipify.org?format=json', { timeout: 3000 } as any)
-            .then(res => res.json())
-            .then(data => data.ip)
-            .catch(() => undefined);
-        } catch (e) {
-          console.log('  Could not fetch public IP');
-        }
-
-        // For demo: If we're testing locally, use a mock office IP
-        // This simulates being on the office network
-        if (!ipAddress || !ipAddress.startsWith('192.168.1.')) {
-          console.log('  Using mock office IP for demo');
-          ipAddress = '192.168.1.141'; // Mock office IP for demo
-        }
-
-        console.log('  IP Address:', ipAddress);
 
         const result = await attendanceService.markAttendance(
           profile,
@@ -114,8 +119,8 @@ const AttendanceProcessingScreen = () => {
           } else {
             navigate("/attendance-error", { 
               state: { 
-                error: result.error,
-                errorCode: result.errorCode 
+                error: 'error' in result ? result.error : 'Failed to mark attendance',
+                errorCode: 'errorCode' in result ? result.errorCode : 'VALIDATION_FAILED'
               } 
             });
           }

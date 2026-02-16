@@ -95,16 +95,17 @@ const AttendanceWindowScreen = () => {
       const startTimeWithSeconds = `${startTime}:00`;
       const endTimeWithSeconds = `${endTime}:00`;
 
-      const { error } = await attendanceSettingsService.updateWindow(
+      // Update window times
+      const { error: windowError } = await attendanceSettingsService.updateWindow(
         startTimeWithSeconds,
         endTimeWithSeconds,
         profile.id
       );
 
-      if (error) {
+      if (windowError) {
         toast({
           title: "Error",
-          description: error.message,
+          description: windowError.message,
           variant: "destructive",
         });
         return;
@@ -279,6 +280,8 @@ const AttendanceWindowScreen = () => {
           </div>
             </>
           )}
+
+          
         </div>
       </div>
     </AdminLayout>

@@ -1,7 +1,7 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "nexus-attendo",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:phase3": "tsx test-phase3-attendance.ts",
-    "test:notification": "tsx test-notification.ts"
+    "test:notification": "tsx test-notification.ts",
+    "pre-deploy": "node scripts/pre-deploy.js",
+    "deploy:preview": "npm run pre-deploy && vercel",
+    "deploy:prod": "npm run pre-deploy && vercel --prod"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -52,6 +55,8 @@
     "dotenv": "^17.2.4",
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
+    "jspdf": "^4.1.0",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",
@@ -77,6 +82,7 @@
     "@types/node": "^22.16.5",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
+    "@vercel/node": "^5.6.3",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.32.0",

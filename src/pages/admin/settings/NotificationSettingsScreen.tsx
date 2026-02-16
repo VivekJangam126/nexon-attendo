@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Plus, Mail, Phone, Trash2, Edit2, Bell, Clock } from "lucide-react";
+import { ArrowLeft, Plus, Mail, Phone, Trash2, Edit2, Bell, Clock, CheckCircle2, XCircle, History } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/AdminLayout";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { notificationSettingsService } from "@server";
-import type { NotificationSlot, NotificationContact } from "@server";
+import type { NotificationSlot, NotificationContact, NotificationHistoryRecord } from "@server";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +23,7 @@ const NotificationSettingsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [slots, setSlots] = useState<NotificationSlot[]>([]);
   const [contacts, setContacts] = useState<NotificationContact[]>([]);
+  const [history, setHistory] = useState<NotificationHistoryRecord[]>([]);
   const [showAddContact, setShowAddContact] = useState(false);
   const [editingContact, setEditingContact] = useState<NotificationContact | null>(null);
   const [deleteContactId, setDeleteContactId] = useState<string | null>(null);
@@ -38,13 +39,15 @@ const NotificationSettingsScreen = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const [slotsResult, contactsResult] = await Promise.all([
+    const [slotsResult, contactsResult, historyResult] = await Promise.all([
       notificationSettingsService.getSlots(),
       notificationSettingsService.getContacts(),
+      notificationSettingsService.getRecentHistory(10),
     ]);
 
     if (!slotsResult.error) setSlots(slotsResult.slots);
     if (!contactsResult.error) setContacts(contactsResult.contacts);
+    if (!historyResult.error) setHistory(historyResult.history);
     setLoading(false);
   };
 
@@ -325,6 +328,56 @@ const NotificationSettingsScreen = () => {
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recent Notification History */}
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <History className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-semibold">Recent Notifications</h2>
+            </div>
+            {history.length === 0 ? (
+              <div className="card-elevated p-8 text-center">
+                <History className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">No notifications sent yet</p>
+              </div>
+            ) : (
+              <div className="card-elevated divide-y divide-border">
+                {history.map((record) => (
+                  <div key={record.id} className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          {record.status === 'success' ? (
+                            <CheckCircle2 className="w-4 h-4 text-success" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-destructive" />
+                          )}
+                          <span className="font-medium">
+                            {record.is_manual ? 'Manual Alert' : `Slot ${record.slot_number}`}
+                          </span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted">
+                            {record.notification_type.toUpperCase()}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {record.slot_time} • {new Date(record.notification_date).toLocaleDateString()}
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          To: {record.recipient_email || record.recipient_phone}
+                        </p>
+                        {record.error_message && (
+                          <p className="text-xs text-destructive mt-1">{record.error_message}</p>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(record.created_at).toLocaleTimeString()}
+                      </span>
                     </div>
                   </div>
                 ))}

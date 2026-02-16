@@ -201,7 +201,7 @@ const LoginScreen = () => {
 
         {/* Footer */}
         <div className="text-center py-4">
-          <p className="text-caption">Nexon Pvt Ltd</p>
+          <p className="text-caption">Nexus Pvt Ltd</p>
         </div>
       </div>
     </MobileContainer>

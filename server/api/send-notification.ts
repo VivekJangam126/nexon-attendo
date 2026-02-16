@@ -26,6 +26,7 @@ export default async function handler(req: Request, res: Response) {
     // Dynamic import to avoid bundling with frontend
     const { notificationService } = await import('../services/notification.service');
     const { notificationSettingsService } = await import('../services/notification-settings.service');
+    const { supabase } = await import('../supabase/client');
 
     const request = req.body;
 
@@ -40,6 +41,53 @@ export default async function handler(req: Request, res: Response) {
       throw new Error('No enabled contacts found');
     }
 
+    // Get today's attendance with employee names and check-in times
+    const today = new Date().toISOString().split('T')[0];
+    
+    // First get attendance records
+    const { data: attendanceRecords, error: attError } = await supabase
+      .from('attendance')
+      .select('user_id, status, check_in_time')
+      .eq('date', today)
+      .in('status', ['present', 'late'])
+      .order('check_in_time', { ascending: true });
+
+    if (attError) {
+      console.error('Error fetching attendance:', attError);
+    }
+
+    // Get user profiles separately
+    const userIds = attendanceRecords?.map((a: any) => a.user_id) || [];
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', userIds);
+
+    // Map profiles to attendance
+    const profileMap = new Map(profiles?.map((p: any) => [p.id, p.full_name]) || []);
+
+    // Format employee details with check-in times
+    const employeeDetails = attendanceRecords
+      ?.map((record: any) => {
+        const name = profileMap.get(record.user_id);
+        if (!name) return null;
+        
+        // Format check-in time
+        const checkInDate = new Date(record.check_in_time);
+        const hour = checkInDate.getHours();
+        const minute = checkInDate.getMinutes();
+        const period = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+        const formattedTime = `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+        
+        return {
+          name,
+          checkInTime: formattedTime,
+          status: record.status,
+        };
+      })
+      .filter((detail: any) => detail != null) || [];
+
     // Prepare notification data
     const notificationData = {
       date: new Date().toISOString().split('T')[0],
@@ -49,6 +97,10 @@ export default async function handler(req: Request, res: Response) {
       lateCount: request.lateCount,
       totalCount: request.totalCount,
       attendanceRate: request.attendanceRate,
+      isManual: request.isManual || true,
+      employeeDetails,
+      actualStartTime: request.actualStartTime,
+      actualEndTime: request.actualEndTime,
     };
 
     // Prepare recipients

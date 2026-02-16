@@ -54,9 +54,9 @@ export const dashboardService = {
 
       if (attendanceError) throw attendanceError;
 
-      const presentToday = attendanceData?.filter(a => a.status === 'present').length || 0;
-      const lateToday = attendanceData?.filter(a => a.status === 'late').length || 0;
-      const absentToday = attendanceData?.filter(a => a.status === 'absent').length || 0;
+      const presentToday = attendanceData?.filter((a: any) => a.status === 'present').length || 0;
+      const lateToday = attendanceData?.filter((a: any) => a.status === 'late').length || 0;
+      const absentToday = attendanceData?.filter((a: any) => a.status === 'absent').length || 0;
       const markedToday = presentToday + lateToday + absentToday;
       const notMarkedToday = (totalEmployees || 0) - markedToday;
 
@@ -111,7 +111,7 @@ export const dashboardService = {
 
       if (error) throw error;
 
-      const activities: RecentActivity[] = data?.map(item => ({
+      const activities: RecentActivity[] = data?.map((item: any) => ({
         user_id: item.user_id,
         name: (item.profiles as any).full_name,
         action: item.status === 'present' ? 'Marked Present' : item.status === 'late' ? 'Marked Late' : 'Marked Absent',

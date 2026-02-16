@@ -104,7 +104,7 @@ const AdminLoginScreen = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@nexon.com"
+                placeholder="admin@nexus.com"
                 className="input-field"
                 autoComplete="email"
               />
@@ -162,7 +162,7 @@ const AdminLoginScreen = () => {
         </div>
 
         <div className="text-center pt-4">
-          <p className="text-caption">Nexon Pvt Ltd</p>
+          <p className="text-caption">Nexus Pvt Ltd</p>
         </div>
       </div>
     </div>

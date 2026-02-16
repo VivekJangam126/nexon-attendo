@@ -41,6 +41,7 @@ export interface NotificationHistoryRecord {
   sent_at: string;
   triggered_by: string | null;
   is_manual: boolean;
+  created_at: string;
 }
 
 export const notificationSettingsService = {
@@ -230,6 +231,28 @@ export const notificationSettingsService = {
       return {
         success: false,
         error: err instanceof Error ? err : new Error('Failed to delete notification contact'),
+      };
+    }
+  },
+
+  /**
+   * Get recent notification history
+   */
+  async getRecentHistory(limit: number = 10): Promise<{ history: NotificationHistoryRecord[]; error: Error | null }> {
+    try {
+      const { data, error } = await supabase
+        .from('notification_history')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+
+      return { history: data || [], error: null };
+    } catch (err) {
+      return {
+        history: [],
+        error: err instanceof Error ? err : new Error('Failed to fetch recent notification history'),
       };
     }
   },

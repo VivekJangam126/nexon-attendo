@@ -1,144 +1,300 @@
-# Nexon Attendance System
+# Nexus Attendo
 
-A corporate attendance tracking system built for Nexon Pvt Ltd using React, TypeScript, and Supabase.
+Employee Attendance Management System for Nexus Pvt Ltd
 
-## 🏗️ Architecture
+---
 
-This project follows a **strict separation** between frontend and backend:
-
-```
-├── src/          # Frontend (React, UI, pages)
-├── server/       # Backend (Supabase, services, business logic)
-└── .env          # Configuration
-```
-
-**Key Principle**: Backend code lives in `server/`, frontend in `src/`. No mixing.
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for complete details.
-
-## 🚀 Quick Start
+## 🚀 Quick Setup
 
 ### 1. Install Dependencies
 ```bash
 npm install
 ```
 
-### 2. Configure Environment
+### 2. Setup Supabase Database
 
-Create a `.env` file:
+Run `COMPLETE_DATABASE_SETUP.sql` in your Supabase SQL Editor to create all tables and policies.
+
+### 3. Create Admin Account
+
+**Via Supabase Dashboard:**
+1. Go to: **Authentication > Users > Add User**
+2. Fill in:
+   - Email: `admin@nexus.com`
+   - Password: `nexus@123`
+   - Auto Confirm User: ✅ **CHECK THIS**
+3. Click "Create User"
+
+**Then run this SQL:**
+```sql
+-- Create admin profile
+INSERT INTO profiles (id, email, full_name, role, status, created_at, updated_at)
+SELECT id, 'admin@nexus.com', 'Admin', 'admin', 'active', NOW(), NOW()
+FROM auth.users WHERE email = 'admin@nexus.com';
+```
+
+### 4. Configure Environment Variables
+
+Create `.env.production`:
 ```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_anon_key
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-### 3. Setup Database
+### 5. Configure Office Location (Optional)
 
-Run `COMPLETE_DATABASE_SETUP.sql` in Supabase SQL Editor.
+For GPS verification, update office coordinates:
+```sql
+UPDATE offices 
+SET 
+  name = 'Nexus Pvt Ltd - Head Office',
+  latitude = YOUR_LATITUDE,
+  longitude = YOUR_LONGITUDE,
+  radius_meters = 100,
+  is_active = true
+WHERE id = (SELECT id FROM offices LIMIT 1);
+```
 
-### 4. Start Development
+### 6. Setup Notifications (Optional)
+
+**Set Supabase Edge Function Secrets:**
 ```bash
+supabase secrets set RESEND_API_KEY=your_resend_key
+supabase secrets set TWILIO_ACCOUNT_SID=your_twilio_sid
+supabase secrets set TWILIO_AUTH_TOKEN=your_twilio_token
+supabase secrets set TWILIO_PHONE_NUMBER=your_twilio_number
+```
+
+**Deploy Edge Functions:**
+```bash
+supabase functions deploy send-notification
+supabase functions deploy notification-cron
+```
+
+**Add Notification Contacts:**
+```sql
+INSERT INTO notification_contacts (contact_type, contact_value, is_active)
+VALUES 
+  ('email', 'admin@nexus.com', true),
+  ('sms', '+1234567890', true);
+```
+
+**Enable Automatic Notifications (Cron Job):**
+```sql
+-- Create cron job for automatic notifications
+SELECT cron.schedule(
+  'attendance-notifications',
+  '0 * * * *',  -- Every hour
+  $$
+  SELECT net.http_post(
+    url := 'YOUR_SUPABASE_URL/functions/v1/notification-cron',
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer YOUR_SERVICE_ROLE_KEY"}'::jsonb
+  );
+  $$
+);
+```
+
+### 7. Deploy to Vercel
+
+```bash
+npm run build
+vercel --prod
+```
+
+---
+
+## 🔑 Default Login
+
+- **URL**: `/admin/login`
+- **Email**: `admin@nexus.com`
+- **Password**: `nexus@123`
+
+---
+
+## 🏗️ Tech Stack
+
+- **Frontend**: React + TypeScript + Vite + Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + Edge Functions)
+- **Deployment**: Vercel
+- **Notifications**: Resend (Email) + Twilio (SMS)
+
+---
+
+## ⚙️ Features
+
+### Employee Features
+- Mark attendance with GPS + WiFi verification
+- View attendance history and reports
+- Profile management
+- Check attendance rules
+
+### Admin Features
+- Employee management (add, edit, approve)
+- Attendance reports and analytics
+- System settings configuration
+- Notification management (manual + automatic)
+- Pending registration approvals
+
+### Attendance Verification
+- **Strict Mode ON**: GPS + WiFi verification required
+- **Strict Mode OFF**: Direct attendance marking (no location checks)
+
+---
+
+## 📁 Project Structure
+
+```
+nexus-attendo/
+├── src/                          # Frontend React app
+│   ├── components/               # UI components
+│   ├── pages/                    # Page components
+│   │   ├── admin/                # Admin pages
+│   │   └── ...                   # Employee pages
+│   ├── hooks/                    # Custom React hooks
+│   └── lib/                      # Utilities
+├── server/                       # Backend services
+│   ├── services/                 # Business logic
+│   ├── types/                    # TypeScript types
+│   └── supabase/                 # Supabase client
+├── supabase/functions/           # Edge Functions
+│   ├── send-notification/        # Notification sender
+│   └── notification-cron/        # Automatic notifications
+├── api/                          # Vercel serverless functions
+├── COMPLETE_DATABASE_SETUP.sql   # Database schema
+└── README.md                     # This file
+```
+
+---
+
+## 🔧 Development
+
+```bash
+# Run development server
 npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+
+# Run tests
+npm run test
 ```
 
-## 📚 Documentation
+---
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Project structure and design
-- **[BACKEND_SETUP.md](BACKEND_SETUP.md)** - Complete backend setup guide
-- **[server/README.md](server/README.md)** - Backend documentation
+## 🗄️ Database Schema
 
-## ✅ Implemented Features
+### Main Tables
+- `profiles` - User profiles (admin/employee)
+- `attendance` - Attendance records
+- `attendance_settings` - System settings (window, strict mode)
+- `offices` - Office locations (GPS coordinates)
+- `office_networks` - WiFi networks for verification
+- `employee_requests` - Registration requests
+- `notification_contacts` - Email/SMS contacts
+- `notification_history` - Notification logs
 
-### Phase 1: Backend Foundation
-- ✅ Supabase integration
-- ✅ Authentication service layer
-- ✅ Profile management
-- ✅ Account status awareness (pending/active/rejected/blocked)
-- ✅ Type-safe database operations
+### Row Level Security (RLS)
+All tables have RLS policies:
+- Employees can only see their own data
+- Admins can see all data
+- Authentication required for all operations
 
-### Phase 2: Registration & Approval
-- ✅ Employee registration service (creates pending users)
-- ✅ Login restriction enforcement (pending/rejected users blocked)
-- ✅ Admin approval service (approve/reject requests)
-- ✅ Multi-office awareness (office selection and assignment)
-- ✅ RLS policies (employee/admin access control)
+---
 
-## 🛠️ Technologies
+## 🎯 Admin Settings
 
-- **Frontend**: React 18, TypeScript, Vite
-- **UI**: shadcn/ui, Tailwind CSS, Radix UI
-- **Backend**: Supabase (PostgreSQL + Auth)
-- **State**: React Context, TanStack Query
-- **Routing**: React Router v6
+### Strict Mode
+Toggle in: **Admin Settings > System > Strict Mode**
+- **Enabled**: GPS + WiFi verification required for attendance
+- **Disabled**: Direct attendance marking (no location checks)
 
-## 🎯 Project Structure
+### Attendance Window
+Configure in: **Admin Settings > Attendance Window**
+- Set working hours (e.g., 9:00 AM - 6:00 PM)
+- Select working days (Mon-Sun)
 
-```
-nexon-attendance/
-├── src/                          # FRONTEND
-│   ├── components/               # React components
-│   ├── pages/                    # Route pages
-│   ├── hooks/                    # React hooks
-│   └── main.tsx                  # Entry point
-│
-├── server/                       # BACKEND
-│   ├── supabase/                 # Supabase client
-│   ├── services/                 # Auth & profile services
-│   ├── types/                    # Type definitions
-│   ├── utils/                    # Utilities
-│   └── index.ts                  # Exports
-│
-├── .env                          # Configuration
-└── package.json                  # Dependencies
-```
+### Notifications
+Configure in: **Admin Settings > Notifications**
+- Add email/SMS contacts
+- Set notification slots (hourly)
+- Send manual alerts
+- View notification history
 
-## 🔐 Authentication
+---
 
-```tsx
-import { useAuth } from '@/hooks/useAuth';
-import { authService, profileService } from '@server';
+## 🐛 Troubleshooting
 
-function MyComponent() {
-  const { user, profile, login, logout } = useAuth();
-  
-  // Or use services directly
-  const handleLogin = async () => {
-    const { user, error } = await authService.login(email, password);
-    if (!error) {
-      const { profile } = await profileService.getProfile(user.id);
-      console.log(profile?.role);      // 'employee' | 'admin'
-      console.log(profile?.status);    // 'pending' | 'active' | 'rejected' | 'blocked'
-    }
-  };
-}
+### Can't login as admin
+Run this SQL to reset admin:
+```sql
+-- Clear references
+UPDATE attendance_settings SET updated_by = NULL;
+DELETE FROM profiles;
+
+-- Delete auth users via Dashboard > Authentication > Users
+
+-- Create new admin via Dashboard > Add User
+-- Then run:
+INSERT INTO profiles (id, email, full_name, role, status, created_at, updated_at)
+SELECT id, 'admin@nexus.com', 'Admin', 'admin', 'active', NOW(), NOW()
+FROM auth.users WHERE email = 'admin@nexus.com';
 ```
 
-## 📝 Available Scripts
-
-```bash
-npm run dev              # Start development server
-npm run build            # Build for production
-npm run preview          # Preview production build
-npm run lint             # Run ESLint
-npm run test             # Run tests
+### "No active attendance window"
+```sql
+INSERT INTO attendance_settings (setting_name, start_time, end_time, is_active, strict_mode)
+VALUES ('default_attendance_window', '09:00:00', '18:00:00', true, true);
 ```
 
-## 🚦 User Status Types
+### GPS verification failing
+1. Check office location is set in `offices` table
+2. Verify GPS coordinates are correct
+3. Adjust `radius_meters` (e.g., 100m)
+4. Or disable strict mode for testing
 
-| Status | Login | App Access | Description |
-|--------|-------|------------|-------------|
-| `pending` | ❌ | ❌ | Awaiting admin approval |
-| `active` | ✅ | ✅ | Full access granted |
-| `rejected` | ❌ | ❌ | Registration rejected |
-| `blocked` | ❌ | ❌ | Account blocked |
+### WiFi verification failing
+1. Check `office_networks` table has WiFi entries
+2. Verify IP ranges match your network
+3. Or disable strict mode for testing
 
-## 🔜 Coming Next
+### Notifications not sending
+1. Verify Edge Function secrets are set
+2. Check `notification_contacts` table has entries
+3. Test with manual notification first
+4. Check notification history for errors
 
-- Attendance marking with validation
-- Geofencing validation
-- WiFi network detection
-- Attendance history
-- Report generation
+---
 
-## 📖 Original Lovable Project Info
+## 📱 Mobile-First Design
 
-**URL**: https://preview--nexon-time-keeper.lovable.app/login
+The app is designed mobile-first with:
+- Responsive layouts for all screen sizes
+- Touch-friendly interactions
+- Bottom navigation for mobile
+- Sidebar navigation for desktop
+- Progressive Web App (PWA) ready
+
+---
+
+## 🔐 Security
+
+- Row Level Security (RLS) on all tables
+- JWT-based authentication via Supabase Auth
+- Role-based access control (admin/employee)
+- Secure password hashing
+- HTTPS only in production
+
+---
+
+## 📄 License
+
+© 2024 Nexus Pvt Ltd. All rights reserved.
+
+---
+
+## 📞 Support
+
+For issues or questions, contact: admin@nexus.com
