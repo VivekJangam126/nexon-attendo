@@ -81,20 +81,19 @@ serve(async (req) => {
       attendanceRate: request.attendanceRate,
     }
 
-    // Generate SMS content based on whether it's manual or automatic
+    // Generate SMS and WhatsApp content
     const dateFormatted = new Date(notificationData.date).toLocaleDateString('en-GB', { 
       day: '2-digit', 
       month: 'short' 
     })
     
+    // SMS Content - LIMITED to 5 employees for Twilio trial (max 3 segments)
     let smsContent: string
     if (request.isManual) {
-      // Manual notification - SHORTENED for Twilio trial (max 3 segments)
       const timeRange = request.actualStartTime && request.actualEndTime 
         ? `${request.actualStartTime} to ${request.actualEndTime}`
         : notificationData.slotTime
       
-      // Limit to first 5 employees for trial account
       let employeeList = ''
       if (request.employeeDetails && request.employeeDetails.length > 0) {
         const limitedEmployees = request.employeeDetails.slice(0, 5)
@@ -109,7 +108,6 @@ serve(async (req) => {
       
       smsContent = `[ALERT] ${dateFormatted} ${timeRange}\nP:${notificationData.presentCount} L:${notificationData.lateCount} T:${notificationData.totalCount} (${notificationData.attendanceRate}%)${employeeList}`
     } else {
-      // Automatic slot-wise notification - SHORTENED with time range
       const slotTimeRange = request.slotStartTime && request.slotEndTime
         ? `${request.slotStartTime} to ${request.slotEndTime}`
         : notificationData.slotTime
@@ -129,22 +127,92 @@ serve(async (req) => {
       smsContent = `SLOT-${notificationData.slotNumber} ${dateFormatted} ${slotTimeRange}\nP:${notificationData.presentCount} L:${notificationData.lateCount} T:${notificationData.totalCount} (${notificationData.attendanceRate}%)${employeeList}`
     }
 
+    // WhatsApp Content - FULL list (up to 1500 characters)
+    let whatsappContent: string
+    if (request.isManual) {
+      const timeRange = request.actualStartTime && request.actualEndTime 
+        ? `${request.actualStartTime} to ${request.actualEndTime}`
+        : notificationData.slotTime
+      
+      let employeeList = ''
+      if (request.employeeDetails && request.employeeDetails.length > 0) {
+        employeeList = '\n\n' + request.employeeDetails
+          .map((emp, index) => `${index + 1}. ${emp.name} - ${emp.checkInTime}${emp.status === 'late' ? ' (Late)' : ''}`)
+          .join('\n')
+        
+        // Truncate if exceeds 1500 characters
+        const baseMessage = `📊 *ATTENDANCE ALERT*\n${dateFormatted} | ${timeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount}\nTotal: ${notificationData.totalCount} | Rate: ${notificationData.attendanceRate}%`
+        
+        if ((baseMessage + employeeList).length > 1500) {
+          // Calculate how many employees we can fit
+          let truncatedList = ''
+          let count = 0
+          for (const emp of request.employeeDetails) {
+            const line = `\n${count + 1}. ${emp.name} - ${emp.checkInTime}${emp.status === 'late' ? ' (Late)' : ''}`
+            if ((baseMessage + truncatedList + line + '\n...').length > 1500) break
+            truncatedList += line
+            count++
+          }
+          employeeList = truncatedList + `\n... +${request.employeeDetails.length - count} more`
+        }
+        
+        whatsappContent = baseMessage + employeeList
+      } else {
+        whatsappContent = `📊 *ATTENDANCE ALERT*\n${dateFormatted} | ${timeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount}\nTotal: ${notificationData.totalCount} | Rate: ${notificationData.attendanceRate}%`
+      }
+    } else {
+      const slotTimeRange = request.slotStartTime && request.slotEndTime
+        ? `${request.slotStartTime} to ${request.slotEndTime}`
+        : notificationData.slotTime
+      
+      let employeeList = ''
+      if (request.employeeDetails && request.employeeDetails.length > 0) {
+        employeeList = '\n\n' + request.employeeDetails
+          .map((emp, index) => `${index + 1}. ${emp.name} - ${emp.checkInTime}${emp.status === 'late' ? ' (Late)' : ''}`)
+          .join('\n')
+        
+        // Truncate if exceeds 1500 characters
+        const baseMessage = `📊 *SLOT-${notificationData.slotNumber} REPORT*\n${dateFormatted} | ${slotTimeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount}\nTotal: ${notificationData.totalCount} | Rate: ${notificationData.attendanceRate}%`
+        
+        if ((baseMessage + employeeList).length > 1500) {
+          // Calculate how many employees we can fit
+          let truncatedList = ''
+          let count = 0
+          for (const emp of request.employeeDetails) {
+            const line = `\n${count + 1}. ${emp.name} - ${emp.checkInTime}${emp.status === 'late' ? ' (Late)' : ''}`
+            if ((baseMessage + truncatedList + line + '\n...').length > 1500) break
+            truncatedList += line
+            count++
+          }
+          employeeList = truncatedList + `\n... +${request.employeeDetails.length - count} more`
+        }
+        
+        whatsappContent = baseMessage + employeeList
+      } else {
+        whatsappContent = `📊 *SLOT-${notificationData.slotNumber} REPORT*\n${dateFormatted} | ${slotTimeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount}\nTotal: ${notificationData.totalCount} | Rate: ${notificationData.attendanceRate}%`
+      }
+    }
+
     // Get API keys from environment
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID')
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN')
     const twilioPhoneNumber = Deno.env.get('TWILIO_PHONE_NUMBER')
+    const twilioWhatsAppNumber = Deno.env.get('TWILIO_WHATSAPP_NUMBER') // e.g., whatsapp:+14155238886
 
     console.log('🔑 API Keys status:');
     console.log('  Resend:', resendApiKey ? '✅ Set' : '❌ Missing');
     console.log('  Twilio SID:', twilioAccountSid ? '✅ Set' : '❌ Missing');
     console.log('  Twilio Token:', twilioAuthToken ? '✅ Set' : '❌ Missing');
     console.log('  Twilio Phone:', twilioPhoneNumber ? '✅ Set' : '❌ Missing');
+    console.log('  Twilio WhatsApp:', twilioWhatsAppNumber ? '✅ Set' : '❌ Missing');
 
     let emailsSent = 0
     let smsSent = 0
     let emailsFailed = 0
     let smsFailed = 0
+    let whatsappSent = 0
+    let whatsappFailed = 0
 
     console.log('\n📧 Starting email notifications...');
 
@@ -281,17 +349,93 @@ serve(async (req) => {
       }
     }
 
+    console.log('\n📱 Starting WhatsApp notifications...');
+
+    // Send WhatsApp messages using Twilio
+    if (twilioAccountSid && twilioAuthToken && twilioWhatsAppNumber) {
+      const twilioAuth = btoa(`${twilioAccountSid}:${twilioAuthToken}`)
+      
+      for (const contact of contacts) {
+        if (contact.phone) {
+          try {
+            // Format phone number for WhatsApp (must include whatsapp: prefix)
+            const whatsappTo = contact.phone.startsWith('whatsapp:') 
+              ? contact.phone 
+              : `whatsapp:${contact.phone}`
+            
+            const response = await fetch(
+              `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Basic ${twilioAuth}`,
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                  To: whatsappTo,
+                  From: twilioWhatsAppNumber,
+                  Body: whatsappContent, // Full employee list for WhatsApp
+                }).toString(),
+              }
+            )
+
+            const result = await response.json()
+
+            if (response.ok) {
+              whatsappSent++
+              console.log(`✅ WhatsApp sent to ${contact.phone}`);
+              // Log success
+              await supabase.from('notification_history').insert({
+                slot_number: request.slotNumber,
+                slot_time: request.slotTime,
+                notification_date: notificationData.date,
+                recipient_phone: contact.phone,
+                notification_type: 'whatsapp',
+                status: 'success',
+                message_id: result.sid,
+                attendance_data: notificationData,
+                triggered_by: request.triggeredBy,
+                is_manual: request.isManual,
+              })
+            } else {
+              whatsappFailed++
+              console.error(`❌ WhatsApp failed for ${contact.phone}:`, result.message);
+              // Log failure
+              await supabase.from('notification_history').insert({
+                slot_number: request.slotNumber,
+                slot_time: request.slotTime,
+                notification_date: notificationData.date,
+                recipient_phone: contact.phone,
+                notification_type: 'whatsapp',
+                status: 'failed',
+                error_message: result.message || 'Unknown error',
+                attendance_data: notificationData,
+                triggered_by: request.triggeredBy,
+                is_manual: request.isManual,
+              })
+            }
+          } catch (error) {
+            whatsappFailed++
+            console.error('WhatsApp error:', error)
+          }
+        }
+      }
+    }
+
     console.log(`\n✅ Notification complete:`);
     console.log(`  Emails: ${emailsSent} sent, ${emailsFailed} failed`);
     console.log(`  SMS: ${smsSent} sent, ${smsFailed} failed`);
+    console.log(`  WhatsApp: ${whatsappSent} sent, ${whatsappFailed} failed`);
 
     return new Response(
       JSON.stringify({
         success: true,
         emailsSent,
         smsSent,
+        whatsappSent,
         emailsFailed,
         smsFailed,
+        whatsappFailed,
         totalContacts: contacts.length,
       }),
       {
