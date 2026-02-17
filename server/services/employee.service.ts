@@ -107,8 +107,10 @@ export const employeeService = {
         // If employee is pending approval, they shouldn't be marked absent
         if (profile.status === 'pending') {
           todayStatus = 'not_marked'; // Awaiting approval, not absent
+        } else if (profile.status === 'blocked') {
+          todayStatus = 'not_marked'; // Blocked employees don't count as absent
         } else if (attendance?.status) {
-          // RECALCULATE status based on check-in time to fix any incorrect database records
+          // Employee has attendance record - RECALCULATE status based on check-in time
           if (attendance.check_in_time && windowData) {
             const checkInDate = new Date(attendance.check_in_time);
             const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
@@ -125,10 +127,18 @@ export const employeeService = {
             // If no check-in time or window data, use database status
             todayStatus = attendance.status as 'present' | 'late' | 'absent' | 'not_marked';
           }
-        } else if (isAfterGracePeriod && profile.status === 'active') {
-          // Only mark as absent if employee is active and grace period has ended
-          todayStatus = 'absent';
+        } else if (profile.status === 'active') {
+          // Active employee with no attendance record
+          if (isAfterGracePeriod) {
+            // Grace period has ended - mark as absent
+            todayStatus = 'absent';
+          } else {
+            // Grace period still active - mark as absent (they should have checked in by now)
+            // Changed from 'not_marked' to 'absent' so active employees show as absent, not awaiting
+            todayStatus = 'absent';
+          }
         } else {
+          // Other statuses (shouldn't happen, but fallback)
           todayStatus = 'not_marked';
         }
         

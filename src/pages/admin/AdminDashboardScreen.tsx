@@ -5,8 +5,8 @@ import {
   Calendar, ChevronRight, AlertCircle, Activity, Minus
 } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
-import { dashboardService } from "@server";
-import type { DashboardStats, RecentActivity, PendingAction } from "@server";
+import { dashboardService, reportsService } from "@server";
+import type { DashboardStats, RecentActivity, PendingAction, DailyBreakdown } from "@server";
 
 const AdminDashboardScreen = () => {
   const navigate = useNavigate();
@@ -21,6 +21,8 @@ const AdminDashboardScreen = () => {
   });
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
+  const [weeklyBreakdown, setWeeklyBreakdown] = useState<DailyBreakdown[]>([]);
+  const [weeklyAttendance, setWeeklyAttendance] = useState<any[]>([]);
   
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
@@ -42,6 +44,28 @@ const AdminDashboardScreen = () => {
       // Fetch pending actions
       const { actions } = await dashboardService.getPendingActions();
       setPendingActions(actions);
+
+      // Fetch weekly breakdown for 7-day history
+      const { breakdown } = await reportsService.getWeeklyBreakdown();
+      setWeeklyBreakdown(breakdown);
+
+      // Fetch employee attendance records for the week
+      const { records } = await reportsService.getEmployeeAttendanceRecords('week');
+      
+      // Group records by employee
+      const employeeMap = new Map<string, any>();
+      records.forEach(record => {
+        if (!employeeMap.has(record.email)) {
+          employeeMap.set(record.email, {
+            name: record.employeeName,
+            email: record.email,
+            attendance: {}
+          });
+        }
+        employeeMap.get(record.email)!.attendance[record.date] = record.status;
+      });
+      
+      setWeeklyAttendance(Array.from(employeeMap.values()));
 
       setLoading(false);
     };
@@ -207,6 +231,118 @@ const AdminDashboardScreen = () => {
                 </div>
                 <p className="font-medium text-sm mb-1">All Caught Up!</p>
                 <p className="text-xs text-muted-foreground">No pending actions at the moment</p>
+              </div>
+            )}
+          </div>
+
+          {/* 7-Day Attendance Sheet */}
+          <div className="card-elevated p-5 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-base font-semibold">7-Day Attendance Sheet</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Weekly attendance overview for all employees</p>
+              </div>
+              <button 
+                onClick={() => navigate("/admin/reports")} 
+                className="text-xs text-primary font-medium hover:underline flex items-center gap-1"
+              >
+                View Reports <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+            
+            {weeklyBreakdown.length > 0 ? (
+              <div className="overflow-x-auto -mx-5 px-5">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-2 font-semibold text-muted-foreground sticky left-0 bg-card z-10 min-w-[140px]">
+                        Employee
+                      </th>
+                      {weeklyBreakdown.map((day, index) => {
+                        const isToday = day.date === new Date().toISOString().split('T')[0];
+                        const dateObj = new Date(day.date + 'T00:00:00');
+                        const formattedDate = dateObj.toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric'
+                        });
+                        
+                        return (
+                          <th 
+                            key={index} 
+                            className={`text-center py-3 px-2 font-semibold min-w-[70px] ${
+                              isToday ? 'text-primary' : 'text-muted-foreground'
+                            }`}
+                          >
+                            <div className="flex flex-col items-center">
+                              <span className={isToday ? 'font-bold' : ''}>{isToday ? 'Today' : day.day}</span>
+                              <span className="text-[10px] font-normal">{formattedDate}</span>
+                            </div>
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {weeklyAttendance.length > 0 ? (
+                      weeklyAttendance.map((employee, empIndex) => (
+                        <tr key={empIndex} className="border-b border-border hover:bg-muted/30 transition-colors">
+                          <td className="py-3 px-2 font-medium sticky left-0 bg-card z-10">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 bg-gradient-to-br from-accent to-accent/50 rounded-full flex items-center justify-center flex-shrink-0">
+                                <span className="text-[10px] font-semibold text-primary">
+                                  {employee.name.split(" ").map((n: string) => n[0]).join("")}
+                                </span>
+                              </div>
+                              <span className="truncate max-w-[120px]">{employee.name}</span>
+                            </div>
+                          </td>
+                          {weeklyBreakdown.map((day, dayIndex) => {
+                            const status = employee.attendance[day.date];
+                            
+                            return (
+                              <td key={dayIndex} className="py-3 px-2 text-center">
+                                {status === 'present' && (
+                                  <div className="inline-flex items-center justify-center w-7 h-7 bg-success-muted rounded-full" title="Present">
+                                    <span className="text-success font-bold">✓</span>
+                                  </div>
+                                )}
+                                {status === 'late' && (
+                                  <div className="inline-flex items-center justify-center w-7 h-7 bg-warning-muted rounded-full" title="Late">
+                                    <Clock className="w-4 h-4 text-warning" />
+                                  </div>
+                                )}
+                                {status === 'absent' && (
+                                  <div className="inline-flex items-center justify-center w-7 h-7 bg-destructive-muted rounded-full" title="Absent">
+                                    <span className="text-destructive font-bold">✗</span>
+                                  </div>
+                                )}
+                                {!status && (
+                                  <div className="inline-flex items-center justify-center w-7 h-7 bg-muted rounded-full" title="No data">
+                                    <Minus className="w-3 h-3 text-muted-foreground" />
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-muted-foreground text-xs">
+                          No employee data available
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Calendar className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">No attendance data available</p>
+                <p className="text-xs text-muted-foreground mt-1">Data will appear as employees check in</p>
               </div>
             )}
           </div>
