@@ -22,6 +22,10 @@ export { dashboardService } from './services/dashboard.service';
 export { reportsService } from './services/reports.service';
 export { notificationSettingsService } from './services/notification-settings.service';
 export { notificationTriggerService } from './services/notification-trigger.service';
+// NOTE: Email and PDF services are server-only and should NOT be imported in frontend
+// They are used only in API endpoints (server/api/send-report-email.ts)
+// export { emailReportService } from './services/email-report.service';
+// export { pdfGenerationService } from './services/pdf-generation.service';
 // NOTE: notificationService is NOT exported here to avoid bundling Node.js-only packages (Twilio)
 // Import it directly in backend scripts: import { notificationService } from './server/services/notification.service';
 

@@ -1,19 +1,32 @@
 /**
- * Supabase Client for API Routes
- * This client is created on-demand to avoid env var issues
+ * Supabase API Client
+ * For use in API endpoints (Vercel serverless functions)
+ * Uses process.env instead of import.meta.env
  */
 
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../types/database';
 
-let cachedClient: any = null;
+/**
+ * Create Supabase client for API endpoints
+ * This function creates a new client instance each time it's called
+ * to ensure fresh environment variables in serverless context
+ */
+export function createApiClient() {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
-export function getSupabaseClient() {
-  if (!cachedClient) {
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://falbkccaqjqdbvrmdlll.supabase.co';
-    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTE4NTQsImV4cCI6MjA4NjI2Nzg1NH0.FkwmwhprYiu7vtXhfGLE_zPmB6-9cbF7uNFqFu7qwVw';
-    
-    cachedClient = createClient(supabaseUrl, supabaseKey);
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      'Missing Supabase environment variables in API context.\n' +
+      'Required: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (or SUPABASE_URL and SUPABASE_ANON_KEY)'
+    );
   }
-  
-  return cachedClient;
+
+  return createClient<Database>(supabaseUrl, supabaseAnonKey);
 }
+
+/**
+ * Default export for convenience
+ */
+export const apiSupabase = createApiClient();
