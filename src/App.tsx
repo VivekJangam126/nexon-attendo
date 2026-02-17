@@ -27,6 +27,7 @@ import AdminEmployeeDetailScreen from "./pages/admin/AdminEmployeeDetailScreen";
 import AdminAddEmployeeScreen from "./pages/admin/AdminAddEmployeeScreen";
 import AdminPendingApprovalsScreen from "./pages/admin/AdminPendingApprovalsScreen";
 import AdminReportsScreen from "./pages/admin/AdminReportsScreen";
+import AdminHistoryReportsScreen from "./pages/admin/AdminHistoryReportsScreen";
 import AdminSettingsScreen from "./pages/admin/AdminSettingsScreen";
 import OfficeLocationsScreen from "./pages/admin/settings/OfficeLocationsScreen";
 import WifiNetworksScreen from "./pages/admin/settings/WifiNetworksScreen";
@@ -75,6 +76,7 @@ const App = () => (
           <Route path="/admin/add-employee" element={<AdminAddEmployeeScreen />} />
           <Route path="/admin/pending-approvals" element={<AdminPendingApprovalsScreen />} />
           <Route path="/admin/reports" element={<AdminReportsScreen />} />
+          <Route path="/admin/history" element={<AdminHistoryReportsScreen />} />
           <Route path="/admin/settings" element={<AdminSettingsScreen />} />
           
           {/* Admin Settings Sub-routes */}

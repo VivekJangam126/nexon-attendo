@@ -35,7 +35,7 @@ interface AdminLayoutProps {
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
   { icon: Users, label: "Employees", path: "/admin/employees" },
-  { icon: FileBarChart, label: "Reports", path: "/admin/reports" },
+  { icon: FileBarChart, label: "Reports", path: "/admin/history" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];
 

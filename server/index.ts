@@ -70,6 +70,9 @@ export type {
   ReportStats,
   DailyBreakdown,
   EmployeeAttendanceRecord,
+  AttendanceHistoryRecord,
+  AttendanceHistoryFilters,
+  EmployeeDetailedHistory,
 } from './services/reports.service';
 
 export type {

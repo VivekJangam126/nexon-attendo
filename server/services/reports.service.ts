@@ -31,7 +31,164 @@ export interface EmployeeAttendanceRecord {
   status: 'present' | 'late' | 'absent';
 }
 
+export interface AttendanceHistoryRecord {
+  userId: string;
+  employeeName: string;
+  email: string;
+  dates: { [date: string]: 'present' | 'late' | 'absent' | null };
+}
+
+export interface AttendanceHistoryFilters {
+  startDate?: string;
+  endDate?: string;
+  employeeIds?: string[];
+  status?: ('present' | 'late' | 'absent')[];
+  searchQuery?: string;
+  officeIds?: string[];
+}
+
+export interface EmployeeDetailedHistory {
+  userId: string;
+  employeeName: string;
+  email: string;
+  officeLocation: string;
+  records: {
+    date: string;
+    status: 'present' | 'late' | 'absent';
+    checkInTime: string | null;
+    checkOutTime: string | null;
+    officeName: string | null;
+  }[];
+  stats: {
+    totalDays: number;
+    presentCount: number;
+    lateCount: number;
+    absentCount: number;
+    attendanceRate: number;
+  };
+}
+
 export const reportsService = {
+  /**
+   * Get attendance history with flexible date ranges and filters
+   */
+  async getAttendanceHistory(
+    filters: AttendanceHistoryFilters
+  ): Promise<{ records: AttendanceHistoryRecord[]; error: Error | null }> {
+    try {
+      const { startDate, endDate, employeeIds, status, searchQuery } = filters;
+
+      // Build employee query
+      let employeeQuery = supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('status', 'active')
+        .eq('role', 'employee')
+        .order('full_name', { ascending: true });
+
+      // Apply employee filters
+      if (employeeIds && employeeIds.length > 0) {
+        employeeQuery = employeeQuery.in('id', employeeIds);
+      }
+
+      if (searchQuery) {
+        employeeQuery = employeeQuery.or(`full_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
+      }
+
+      const { data: employees, error: employeesError } = await employeeQuery;
+      if (employeesError) throw employeesError;
+
+      // Build attendance query
+      let attendanceQuery = supabase
+        .from('attendance')
+        .select('user_id, date, status, check_in_time');
+
+      if (startDate) {
+        attendanceQuery = attendanceQuery.gte('date', startDate);
+      }
+      if (endDate) {
+        attendanceQuery = attendanceQuery.lte('date', endDate);
+      }
+
+      const { data: attendanceData, error: attendanceError } = await attendanceQuery;
+      if (attendanceError) throw attendanceError;
+
+      // Get attendance window settings for status recalculation
+      const { data: windowData } = await supabase
+        .from('attendance_settings')
+        .select('start_time, grace_period_minutes')
+        .eq('setting_name', 'default_attendance_window')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      // Create attendance map with recalculated status
+      const attendanceMap = new Map<string, 'present' | 'late' | 'absent'>();
+      attendanceData?.forEach((record: any) => {
+        const key = `${record.user_id}_${record.date}`;
+        
+        // Recalculate status based on check-in time
+        let correctedStatus = record.status;
+        if (record.check_in_time && windowData) {
+          const checkInDate = new Date(record.check_in_time);
+          const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+          
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
+          const windowStartMinutes = startHour * 60 + startMinute;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
+          const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+          
+          correctedStatus = checkInMinutes <= gracePeriodEndMinutes ? 'present' : 'late';
+        }
+        
+        attendanceMap.set(key, correctedStatus);
+      });
+
+      // Generate date range
+      const dates: string[] = [];
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          dates.push(d.toISOString().split('T')[0]);
+        }
+      }
+
+      // Build records
+      const records: AttendanceHistoryRecord[] = employees?.map((employee: any) => {
+        const dateMap: { [date: string]: 'present' | 'late' | 'absent' | null } = {};
+        
+        dates.forEach(date => {
+          const key = `${employee.id}_${date}`;
+          const attendanceStatus = attendanceMap.get(key);
+          dateMap[date] = attendanceStatus || 'absent';
+        });
+
+        return {
+          userId: employee.id,
+          employeeName: employee.full_name,
+          email: employee.email,
+          dates: dateMap,
+        };
+      }) || [];
+
+      // Apply status filter
+      let filteredRecords = records;
+      if (status && status.length > 0) {
+        filteredRecords = records.filter(record => {
+          return Object.values(record.dates).some(s => s && status.includes(s));
+        });
+      }
+
+      return { records: filteredRecords, error: null };
+    } catch (err) {
+      return {
+        records: [],
+        error: err instanceof Error ? err : new Error('Failed to fetch attendance history'),
+      };
+    }
+  },
+
   /**
    * Get attendance statistics for a time range
    */
@@ -440,6 +597,166 @@ export const reportsService = {
   },
 
   /**
+   * Get detailed attendance history for a specific employee
+   */
+  async getEmployeeDetailedHistory(
+    userId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<{ employee: EmployeeDetailedHistory | null; error: Error | null }> {
+    try {
+      // Get employee profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, office_id')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) throw profileError;
+      if (!profile) throw new Error('Employee not found');
+
+      // Get office name if office_id exists
+      let officeName = 'Not assigned';
+      if ((profile as any).office_id) {
+        const { data: officeData } = await supabase
+          .from('offices')
+          .select('name')
+          .eq('id', (profile as any).office_id)
+          .single();
+        if (officeData) {
+          officeName = (officeData as any).name;
+        }
+      }
+
+      // Get attendance records
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('attendance')
+        .select(`
+          date,
+          check_in_time,
+          check_out_time,
+          status,
+          office_id,
+          offices(name)
+        `)
+        .eq('user_id', userId)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false });
+
+      if (attendanceError) throw attendanceError;
+
+      // Get attendance window settings for status recalculation
+      const { data: windowData } = await supabase
+        .from('attendance_settings')
+        .select('start_time, grace_period_minutes')
+        .eq('setting_name', 'default_attendance_window')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      // Generate all dates in range
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const allDates: string[] = [];
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        allDates.push(d.toISOString().split('T')[0]);
+      }
+
+      // Create attendance map
+      const attendanceMap = new Map<string, any>();
+      attendanceData?.forEach((record: any) => {
+        // Recalculate status
+        let correctedStatus = record.status;
+        if (record.check_in_time && windowData) {
+          const checkInDate = new Date(record.check_in_time);
+          const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+          
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
+          const windowStartMinutes = startHour * 60 + startMinute;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
+          const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+          
+          correctedStatus = checkInMinutes <= gracePeriodEndMinutes ? 'present' : 'late';
+        }
+        
+        attendanceMap.set(record.date, { ...record, status: correctedStatus });
+      });
+
+      // Build records for all dates
+      const records = allDates.map(date => {
+        const attendance = attendanceMap.get(date);
+        
+        if (attendance) {
+          const checkInDate = new Date(attendance.check_in_time);
+          const checkInFormatted = checkInDate.toLocaleString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: 'Asia/Kolkata'
+          });
+
+          let checkOutFormatted = null;
+          if (attendance.check_out_time) {
+            const checkOutDate = new Date(attendance.check_out_time);
+            checkOutFormatted = checkOutDate.toLocaleString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+              timeZone: 'Asia/Kolkata'
+            });
+          }
+
+          return {
+            date,
+            status: attendance.status,
+            checkInTime: checkInFormatted,
+            checkOutTime: checkOutFormatted,
+            officeName: attendance.offices?.name || null,
+          };
+        } else {
+          return {
+            date,
+            status: 'absent' as const,
+            checkInTime: null,
+            checkOutTime: null,
+            officeName: null,
+          };
+        }
+      });
+
+      // Calculate stats
+      const presentCount = records.filter(r => r.status === 'present').length;
+      const lateCount = records.filter(r => r.status === 'late').length;
+      const absentCount = records.filter(r => r.status === 'absent').length;
+      const totalDays = records.length;
+      const attendanceRate = totalDays > 0 ? ((presentCount + lateCount) / totalDays) * 100 : 0;
+
+      const employee: EmployeeDetailedHistory = {
+        userId: (profile as any).id,
+        employeeName: (profile as any).full_name,
+        email: (profile as any).email,
+        officeLocation: officeName,
+        records,
+        stats: {
+          totalDays,
+          presentCount,
+          lateCount,
+          absentCount,
+          attendanceRate: Math.round(attendanceRate * 10) / 10,
+        },
+      };
+
+      return { employee, error: null };
+    } catch (err) {
+      return {
+        employee: null,
+        error: err instanceof Error ? err : new Error('Failed to fetch employee detailed history'),
+      };
+    }
+  },
+
+  /**
    * Get employee attendance records with timestamps for export
    * Includes ALL employees with their status (Present, Late, Absent, Not Marked)
    */
@@ -591,6 +908,145 @@ export const reportsService = {
       return {
         records: [],
         error: err instanceof Error ? err : new Error('Failed to fetch employee attendance records'),
+      };
+    }
+  },
+
+  /**
+   * Get employee attendance records for custom date range with actual check-in times
+   */
+  async getCustomRangeAttendanceRecords(
+    startDate: string,
+    endDate: string
+  ): Promise<{ records: EmployeeAttendanceRecord[]; error: Error | null }> {
+    try {
+      // Get ALL active employees
+      const { data: employees, error: employeesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('status', 'active')
+        .eq('role', 'employee')
+        .order('full_name', { ascending: true });
+
+      if (employeesError) throw employeesError;
+
+      // Get attendance records for the date range
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('attendance')
+        .select(`
+          date,
+          check_in_time,
+          check_out_time,
+          status,
+          user_id
+        `)
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+      if (attendanceError) throw attendanceError;
+
+      // Get attendance window settings for status recalculation
+      const { data: windowData } = await supabase
+        .from('attendance_settings')
+        .select('start_time, grace_period_minutes')
+        .eq('setting_name', 'default_attendance_window')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      // Create a map of attendance records by user_id and date
+      const attendanceMap = new Map<string, any>();
+      attendanceData?.forEach((record: any) => {
+        const key = `${record.user_id}_${record.date}`;
+        
+        // RECALCULATE status based on check-in time
+        let correctedStatus = record.status;
+        if (record.check_in_time && windowData) {
+          const checkInDate = new Date(record.check_in_time);
+          const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+          
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
+          const windowStartMinutes = startHour * 60 + startMinute;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
+          const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+          
+          correctedStatus = checkInMinutes <= gracePeriodEndMinutes ? 'present' : 'late';
+        }
+        
+        attendanceMap.set(key, { ...record, status: correctedStatus });
+      });
+
+      // Generate all dates in the range
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const allDates: string[] = [];
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        allDates.push(d.toISOString().split('T')[0]);
+      }
+
+      // Create records for ALL employees for ALL dates
+      const records: EmployeeAttendanceRecord[] = [];
+      
+      employees?.forEach((employee: any) => {
+        allDates.forEach((date) => {
+          const key = `${employee.id}_${date}`;
+          const attendance = attendanceMap.get(key);
+
+          if (attendance) {
+            // Employee has attendance record
+            const checkInDate = new Date(attendance.check_in_time);
+            const checkInFormatted = checkInDate.toLocaleString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+              timeZone: 'Asia/Kolkata'
+            });
+
+            let checkOutFormatted = null;
+            if (attendance.check_out_time) {
+              const checkOutDate = new Date(attendance.check_out_time);
+              checkOutFormatted = checkOutDate.toLocaleString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: 'Asia/Kolkata'
+              });
+            }
+
+            records.push({
+              employeeName: employee.full_name,
+              email: employee.email,
+              date: date,
+              checkInTime: checkInFormatted,
+              checkOutTime: checkOutFormatted,
+              status: attendance.status,
+            });
+          } else {
+            // Employee has no attendance record - mark as absent
+            records.push({
+              employeeName: employee.full_name,
+              email: employee.email,
+              date: date,
+              checkInTime: '-',
+              checkOutTime: null,
+              status: 'absent',
+            });
+          }
+        });
+      });
+
+      // Sort by date (descending) then by name
+      records.sort((a, b) => {
+        const dateCompare = b.date.localeCompare(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.employeeName.localeCompare(b.employeeName);
+      });
+
+      return { records, error: null };
+    } catch (err) {
+      return {
+        records: [],
+        error: err instanceof Error ? err : new Error('Failed to fetch custom range attendance records'),
       };
     }
   },

@@ -243,7 +243,7 @@ const AdminDashboardScreen = () => {
                 <p className="text-xs text-muted-foreground mt-0.5">Weekly attendance overview for all employees</p>
               </div>
               <button 
-                onClick={() => navigate("/admin/reports")} 
+                onClick={() => navigate("/admin/history")} 
                 className="text-xs text-primary font-medium hover:underline flex items-center gap-1"
               >
                 View Reports <ChevronRight className="w-3 h-3" />
