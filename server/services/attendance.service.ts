@@ -221,21 +221,6 @@ export const attendanceService = {
         }
 
         console.log('  ✅ No duplicate attendance for today');
-        const todayDate = getTodayDateIST();
-        const { data: existingAttendance } = await supabase
-          .from('attendance')
-          .select('*')
-          .eq('user_id', userProfile.id)
-          .eq('date', todayDate)
-          .maybeSingle();
-
-        if (existingAttendance) {
-          return {
-            success: false,
-            error: 'Attendance already marked for today',
-            errorCode: 'ATTENDANCE_ALREADY_MARKED',
-          };
-        }
 
         // Get the active office for office_id
         const { data: activeOffice } = await supabase

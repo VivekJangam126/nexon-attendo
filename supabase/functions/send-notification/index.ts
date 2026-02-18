@@ -344,8 +344,14 @@ serve(async (req) => {
     }
 
     console.log('\n📱 Starting WhatsApp notifications...');
+    console.log('⚠️  NOTE: WhatsApp has 24-hour messaging window limitation');
+    console.log('   Messages will only work if recipient messaged you in last 24 hours');
+    console.log('   For production, use WhatsApp Message Templates instead');
 
     // Send WhatsApp messages using Twilio
+    // NOTE: WhatsApp Business API has a 24-hour messaging window
+    // Freeform messages only work within 24 hours of user's last message
+    // For production use, implement WhatsApp Message Templates
     if (twilioAccountSid && twilioAuthToken && twilioWhatsAppNumber) {
       const twilioAuth = btoa(`${twilioAccountSid}:${twilioAuthToken}`)
       
@@ -393,8 +399,15 @@ serve(async (req) => {
               })
             } else {
               whatsappFailed++
-              console.error(`❌ WhatsApp failed for ${contact.phone}:`, result.message);
-              // Log failure
+              // Check if it's the 24-hour window error
+              const isWindowError = result.code === 63016 || (result.message && result.message.includes('allowed window'))
+              const errorMsg = isWindowError 
+                ? 'WhatsApp 24-hour window expired. Use Message Templates for production.'
+                : result.message || 'Unknown error'
+              
+              console.error(`❌ WhatsApp failed for ${contact.phone}:`, errorMsg);
+              
+              // Log failure with helpful message
               await supabase.from('notification_history').insert({
                 slot_number: request.slotNumber,
                 slot_time: request.slotTime,
@@ -402,7 +415,7 @@ serve(async (req) => {
                 recipient_phone: contact.phone,
                 notification_type: 'whatsapp',
                 status: 'failed',
-                error_message: result.message || 'Unknown error',
+                error_message: errorMsg,
                 attendance_data: notificationData,
                 triggered_by: request.triggeredBy,
                 is_manual: request.isManual,
@@ -411,6 +424,19 @@ serve(async (req) => {
           } catch (error) {
             whatsappFailed++
             console.error('WhatsApp error:', error)
+            // Log exception
+            await supabase.from('notification_history').insert({
+              slot_number: request.slotNumber,
+              slot_time: request.slotTime,
+              notification_date: notificationData.date,
+              recipient_phone: contact.phone,
+              notification_type: 'whatsapp',
+              status: 'failed',
+              error_message: error instanceof Error ? error.message : 'Unknown error',
+              attendance_data: notificationData,
+              triggered_by: request.triggeredBy,
+              is_manual: request.isManual,
+            })
           }
         }
       }
