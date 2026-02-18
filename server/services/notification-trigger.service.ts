@@ -81,7 +81,7 @@ export const notificationTriggerService = {
       // Get today's attendance with employee names and check-in times
       const today = new Date().toISOString().split('T')[0];
       
-      // First get attendance records
+      // Get attendance records ordered by check-in time (earliest first)
       const { data: attendanceRecords, error: attError } = await supabase
         .from('attendance')
         .select('user_id, status, check_in_time')
@@ -93,8 +93,22 @@ export const notificationTriggerService = {
         console.error('Error fetching attendance:', attError);
       }
 
+      // Remove duplicates - keep only FIRST check-in per employee (earliest time)
+      const uniqueAttendance = new Map<string, any>();
+      if (attendanceRecords) {
+        for (const record of attendanceRecords) {
+          // Only add if this employee hasn't been added yet
+          if (!uniqueAttendance.has(record.user_id)) {
+            uniqueAttendance.set(record.user_id, record);
+          }
+        }
+      }
+      const uniqueRecords = Array.from(uniqueAttendance.values());
+      
+      console.log(`📊 Attendance records: ${attendanceRecords?.length || 0} total, ${uniqueRecords.length} unique employees`);
+
       // Get user profiles separately
-      const userIds = attendanceRecords?.map((a: any) => a.user_id) || [];
+      const userIds = uniqueRecords.map((a: any) => a.user_id);
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name')
@@ -104,8 +118,8 @@ export const notificationTriggerService = {
       const profileMap = new Map(profiles?.map((p: any) => [p.id, p.full_name]) || []);
 
       // Format employee details with check-in times
-      const employeeDetails: EmployeeAttendanceDetail[] = attendanceRecords
-        ?.map((record: any) => {
+      const employeeDetails: EmployeeAttendanceDetail[] = uniqueRecords
+        .map((record: any) => {
           const name = profileMap.get(record.user_id);
           if (!name) return null;
           
@@ -123,7 +137,23 @@ export const notificationTriggerService = {
             status: record.status,
           };
         })
-        .filter((detail: EmployeeAttendanceDetail | null) => detail != null) || [];
+        .filter((detail: EmployeeAttendanceDetail | null) => detail != null);
+
+      console.log(`👥 Employee details: ${employeeDetails.length} employees with names`);
+
+      // Get total active employees for accurate rate calculation
+      const { count: totalEmployees, error: employeeError } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'employee')
+        .eq('status', 'active');
+
+      if (employeeError) {
+        console.error('Error fetching total employees:', employeeError);
+      }
+
+      console.log(`📊 Total active employees: ${totalEmployees || 0}`);
+      console.log(`📊 Attendance rate: ${request.totalCount}/${totalEmployees} = ${request.attendanceRate}%`);
 
       // Call Supabase Edge Function without auth headers
       const { data: functionData, error: functionError } = await supabase.functions.invoke('send-notification', {
@@ -133,6 +163,8 @@ export const notificationTriggerService = {
           employeeDetails,
           actualStartTime,
           actualEndTime,
+          totalEmployees: totalEmployees || request.totalCount,
+          absentCount: (totalEmployees || request.totalCount) - request.totalCount,
         },
         headers: {
           'Content-Type': 'application/json',
@@ -185,6 +217,15 @@ export const notificationTriggerService = {
     try {
       const today = new Date().toISOString().split('T')[0];
 
+      // Get total active employees (excluding awaiting/pending)
+      const { count: totalEmployees, error: employeeError } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'employee')
+        .eq('status', 'active');
+
+      if (employeeError) throw employeeError;
+
       // Get today's attendance
       const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance')
@@ -196,7 +237,11 @@ export const notificationTriggerService = {
       const presentCount = attendanceData?.filter((a: any) => a.status === 'present').length || 0;
       const lateCount = attendanceData?.filter((a: any) => a.status === 'late').length || 0;
       const totalCount = presentCount + lateCount;
-      const attendanceRate = totalCount > 0 ? Math.round((totalCount / (attendanceData?.length || 1)) * 100) : 0;
+      
+      // CORRECT: Calculate rate based on total active employees, not attendance records
+      const attendanceRate = (totalEmployees && totalEmployees > 0) 
+        ? Math.round((totalCount / totalEmployees) * 100) 
+        : 0;
 
       return {
         presentCount,

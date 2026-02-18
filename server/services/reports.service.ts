@@ -202,12 +202,14 @@ export const reportsService = {
       let endDate: string;
       let previousStartDate: string;
       let previousEndDate: string;
+      let daysInRange: number;
 
       // Calculate date ranges with proper boundaries
       if (timeRange === 'today') {
         // Today only
         startDate = todayStr;
         endDate = todayStr;
+        daysInRange = 1;
         
         // Yesterday for comparison
         const yesterday = new Date(today);
@@ -220,6 +222,7 @@ export const reportsService = {
         weekStart.setDate(weekStart.getDate() - 6);
         startDate = weekStart.toISOString().split('T')[0];
         endDate = todayStr;
+        daysInRange = 7;
         
         // Previous 7 days (today - 13 days to today - 7 days)
         const prevWeekStart = new Date(today);
@@ -234,6 +237,7 @@ export const reportsService = {
         monthStart.setDate(monthStart.getDate() - 29);
         startDate = monthStart.toISOString().split('T')[0];
         endDate = todayStr;
+        daysInRange = 30;
         
         // Previous 30 days (today - 59 days to today - 30 days)
         const prevMonthStart = new Date(today);
@@ -259,19 +263,23 @@ export const reportsService = {
         .eq('is_active', true)
         .maybeSingle();
 
-      // Get current period attendance with check_in_time for recalculation
+      // Get current period attendance with check_in_time and date for recalculation
       const { data: currentData } = await supabase
         .from('attendance')
-        .select('status, check_in_time')
+        .select('status, check_in_time, date')
         .gte('date', startDate)
         .lte('date', endDate);
 
       // Get previous period attendance
       const { data: previousData } = await supabase
         .from('attendance')
-        .select('status, check_in_time')
+        .select('status, check_in_time, date')
         .gte('date', previousStartDate)
         .lte('date', previousEndDate);
+
+      // Count unique dates with actual attendance data
+      const uniqueDatesWithData = new Set(currentData?.map((r: any) => r.date) || []).size;
+      const previousUniqueDates = new Set(previousData?.map((r: any) => r.date) || []).size;
 
       // RECALCULATE status for current period to fix incorrect database records
       let present = 0;
@@ -329,18 +337,22 @@ export const reportsService = {
         }
       });
       
-      // Calculate absent as: total employees - (present + late)
-      // This accounts for employees who didn't check in at all
-      const absent = (totalEmployees || 0) - (present + late);
+      // CRITICAL FIX: Calculate based on actual days with data, not the full date range
+      // This prevents inflating absent count when there are days with no attendance records
+      const actualDaysWithData = uniqueDatesWithData > 0 ? uniqueDatesWithData : daysInRange;
+      const totalPossibleAttendance = (totalEmployees || 0) * actualDaysWithData;
+      const absent = totalPossibleAttendance - (present + late);
 
-      // Calculate attendance rate based on total employees, not attendance records
-      // Rate = (present + late) / totalEmployees * 100
-      const currentRate = totalEmployees && totalEmployees > 0
-        ? ((present + late) / totalEmployees) * 100
+      // Calculate attendance rate based on actual attendance data
+      // Rate = (present + late) / (totalEmployees × actualDaysWithData) * 100
+      const currentRate = totalPossibleAttendance > 0
+        ? ((present + late) / totalPossibleAttendance) * 100
         : 0;
 
-      const previousRate = totalEmployees && totalEmployees > 0
-        ? ((previousPresent + previousLate) / totalEmployees) * 100
+      const previousActualDays = previousUniqueDates > 0 ? previousUniqueDates : daysInRange;
+      const previousTotalPossible = (totalEmployees || 0) * previousActualDays;
+      const previousRate = previousTotalPossible > 0
+        ? ((previousPresent + previousLate) / previousTotalPossible) * 100
         : 0;
 
       const comparedToPrevious = currentRate - previousRate;

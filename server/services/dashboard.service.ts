@@ -33,34 +33,32 @@ export const dashboardService = {
   /**
    * Get dashboard statistics for admin
    * Includes logic to mark employees as absent after grace period
+   * Uses same calculation logic as employee service for consistency
    */
   async getDashboardStats(): Promise<{ stats: DashboardStats; error: Error | null }> {
     try {
       const today = new Date().toISOString().split('T')[0];
 
-      // Get total active employees (excluding admins)
-      const { count: totalEmployees, error: employeesError } = await supabase
+      // Get all active employees
+      const { data: activeProfiles, error: employeesError } = await supabase
         .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
-        .eq('role', 'employee');
+        .select('id')
+        .eq('role', 'employee')
+        .eq('status', 'active');
 
       if (employeesError) throw employeesError;
 
-      // Get today's attendance
+      const totalEmployees = activeProfiles?.length || 0;
+      const activeEmployeeIds = new Set((activeProfiles || []).map((p: any) => p.id));
+
+      // Get today's attendance with check-in times
       const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance')
-        .select('status')
+        .select('status, user_id, check_in_time')
         .eq('date', today);
 
       if (attendanceError) throw attendanceError;
 
-      const presentToday = attendanceData?.filter((a: any) => a.status === 'present').length || 0;
-      const lateToday = attendanceData?.filter((a: any) => a.status === 'late').length || 0;
-      const absentToday = attendanceData?.filter((a: any) => a.status === 'absent').length || 0;
-      const markedToday = presentToday + lateToday + absentToday;
-      
-      // Check if grace period has ended
       // Get attendance window settings
       const { data: windowData } = await supabase
         .from('attendance_settings')
@@ -69,7 +67,43 @@ export const dashboardService = {
         .eq('is_active', true)
         .single();
 
-      let notMarkedToday = (totalEmployees || 0) - markedToday;
+      // Filter attendance to only include active employees and recalculate status
+      const activeAttendance = attendanceData?.filter((a: any) => activeEmployeeIds.has(a.user_id)) || [];
+      
+      let presentToday = 0;
+      let lateToday = 0;
+      let absentToday = 0;
+
+      // Recalculate status for each attendance record (same logic as employee service)
+      activeAttendance.forEach((attendance: any) => {
+        if (attendance.check_in_time && windowData) {
+          // Recalculate status based on check-in time
+          const checkInDate = new Date(attendance.check_in_time);
+          const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+          
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
+          const windowStartMinutes = startHour * 60 + startMinute;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
+          const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+          
+          // Recalculate correct status
+          if (checkInMinutes <= gracePeriodEndMinutes) {
+            presentToday++;
+          } else {
+            lateToday++;
+          }
+        } else {
+          // Use database status if no check-in time or window data
+          if (attendance.status === 'present') presentToday++;
+          else if (attendance.status === 'late') lateToday++;
+          else if (attendance.status === 'absent') absentToday++;
+        }
+      });
+
+      const markedToday = presentToday + lateToday + absentToday;
+      
+      let notMarkedToday = totalEmployees - markedToday;
       let adjustedAbsentToday = absentToday;
 
       if (windowData) {
@@ -92,18 +126,19 @@ export const dashboardService = {
         }
       }
 
-      // Calculate attendance rate (present + late / total employees)
-      const attendanceRate = totalEmployees && totalEmployees > 0
+      // Calculate attendance rate (present + late / total ACTIVE employees only)
+      // Note: totalEmployees already only includes active employees
+      const attendanceRate = totalEmployees > 0
         ? Math.round(((presentToday + lateToday) / totalEmployees) * 100)
         : 0;
 
       return {
         stats: {
-          totalEmployees: totalEmployees || 0,
+          totalEmployees, // Only active employees
           presentToday,
           lateToday,
           absentToday: adjustedAbsentToday,
-          notMarkedToday,
+          notMarkedToday, // This is "Awaiting" - shown separately, not in total
           attendanceRate,
         },
         error: null,

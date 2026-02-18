@@ -91,7 +91,7 @@ serve(async (req) => {
       month: 'short' 
     })
     
-    // SMS Content - LIMITED to 5 employees for Twilio trial (max 3 segments)
+    // SMS Content - Show full employee list with proper formatting
     let smsContent: string
     if (request.isManual) {
       const timeRange = request.actualStartTime && request.actualEndTime 
@@ -100,17 +100,12 @@ serve(async (req) => {
       
       let employeeList = ''
       if (request.employeeDetails && request.employeeDetails.length > 0) {
-        const limitedEmployees = request.employeeDetails.slice(0, 5)
-        employeeList = '\n' + limitedEmployees
-          .map((emp, index) => `${index + 1}.${emp.name}-${emp.checkInTime}`)
+        employeeList = '\n' + request.employeeDetails
+          .map((emp, index) => `${index + 1}. ${emp.name} - ${emp.checkInTime}${emp.status === 'late' ? ' (Late)' : ''}`)
           .join('\n')
-        
-        if (request.employeeDetails.length > 5) {
-          employeeList += `\n+${request.employeeDetails.length - 5} more`
-        }
       }
       
-      smsContent = `[ALERT] ${dateFormatted} ${timeRange}\nP:${notificationData.presentCount} L:${notificationData.lateCount} A:${notificationData.absentCount} T:${notificationData.totalEmployees} (${notificationData.attendanceRate}%)${employeeList}`
+      smsContent = `📊 *ATTENDANCE ALERT*\n${dateFormatted} | ${timeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount} | Absent: ${notificationData.absentCount}\nTotal: ${notificationData.totalEmployees} | Rate: ${notificationData.attendanceRate}%${employeeList}`
     } else {
       const slotTimeRange = request.slotStartTime && request.slotEndTime
         ? `${request.slotStartTime} to ${request.slotEndTime}`
@@ -118,17 +113,12 @@ serve(async (req) => {
       
       let employeeList = ''
       if (request.employeeDetails && request.employeeDetails.length > 0) {
-        const limitedEmployees = request.employeeDetails.slice(0, 5)
-        employeeList = '\n' + limitedEmployees
-          .map((emp, index) => `${index + 1}.${emp.name}-${emp.checkInTime}`)
+        employeeList = '\n' + request.employeeDetails
+          .map((emp, index) => `${index + 1}. ${emp.name} - ${emp.checkInTime}${emp.status === 'late' ? ' (Late)' : ''}`)
           .join('\n')
-        
-        if (request.employeeDetails.length > 5) {
-          employeeList += `\n+${request.employeeDetails.length - 5} more`
-        }
       }
       
-      smsContent = `SLOT-${notificationData.slotNumber} ${dateFormatted} ${slotTimeRange}\nP:${notificationData.presentCount} L:${notificationData.lateCount} A:${notificationData.absentCount} T:${notificationData.totalEmployees} (${notificationData.attendanceRate}%)${employeeList}`
+      smsContent = `📊 *SLOT-${notificationData.slotNumber} ATTENDANCE*\n${dateFormatted} | ${slotTimeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount} | Absent: ${notificationData.absentCount}\nTotal: ${notificationData.totalEmployees} | Rate: ${notificationData.attendanceRate}%${employeeList}`
     }
 
     // WhatsApp Content - FULL list (up to 1500 characters)

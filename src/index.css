@@ -323,6 +323,23 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
+  /* Prevent body scroll when fixed elements are present on mobile */
+  @media (max-width: 1023px) {
+    html, body {
+      position: fixed;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+    }
+    
+    #root {
+      position: fixed;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+    }
+  }
+
   /* Loading spinner */
   @keyframes spin-slow {
     to {
@@ -420,5 +437,14 @@
 
   .bg-destructive-muted {
     background-color: hsl(var(--destructive-muted));
+  }
+
+  /* Hide scrollbar utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }

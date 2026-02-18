@@ -41,7 +41,7 @@ export const OverviewTab = () => {
   return (
     <div className="space-y-5">
       {/* Time Range Selector */}
-      <div className="flex gap-2 max-w-sm">
+      <div className="flex gap-2 w-full sm:max-w-sm">
         {(["today", "week", "month"] as TimeRange[]).map((range) => (
           <button
             key={range}
@@ -58,25 +58,25 @@ export const OverviewTab = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Attendance Rate */}
-        <div className="card-elevated p-5 animate-fade-in-up">
+        <div className="card-elevated p-4 sm:p-5 animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-sm text-muted-foreground">Attendance Rate</p>
-              <p className="text-3xl font-bold">{data.attendanceRate}%</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Attendance Rate</p>
+              <p className="text-2xl sm:text-3xl font-bold">{data.attendanceRate}%</p>
             </div>
             <div
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${
+              className={`flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium ${
                 data.comparedToPrevious >= 0
                   ? "bg-success-muted text-success"
                   : "bg-destructive-muted text-destructive"
               }`}
             >
               {data.comparedToPrevious >= 0 ? (
-                <TrendingUp className="w-4 h-4" />
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
               ) : (
-                <TrendingDown className="w-4 h-4" />
+                <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />
               )}
               {Math.abs(data.comparedToPrevious)}%
             </div>
@@ -90,18 +90,23 @@ export const OverviewTab = () => {
         </div>
 
         {/* Quick Stats */}
-        <div className="lg:col-span-2 grid grid-cols-3 gap-3 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
+        <div className="md:col-span-2 grid grid-cols-3 gap-2 sm:gap-3 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
           {[
             { icon: UserCheck, value: data.present, label: "Present", color: "text-success", bg: "bg-success-muted" },
             { icon: Clock, value: data.late, label: "Late", color: "text-warning", bg: "bg-warning-muted" },
             { icon: UserX, value: data.absent, label: "Absent", color: "text-destructive", bg: "bg-destructive-muted" },
           ].map((stat, i) => (
-            <div key={i} className="card-elevated p-4 text-center">
-              <div className={`w-10 h-10 ${stat.bg} rounded-full flex items-center justify-center mx-auto mb-2`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+            <div key={i} className="card-elevated p-3 sm:p-4 text-center">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 ${stat.bg} rounded-full flex items-center justify-center mx-auto mb-2`}>
+                <stat.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${stat.color}`} />
               </div>
-              <p className={`text-2xl font-semibold ${stat.color}`}>{stat.value}</p>
-              <p className="text-xs text-muted-foreground">{stat.label}</p>
+              <p className={`text-xl sm:text-2xl font-semibold ${stat.color}`}>{stat.value}</p>
+              <p className="text-xs text-muted-foreground leading-tight">{stat.label}</p>
+              {timeRange !== 'today' && (
+                <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                  Total {timeRange === 'week' ? '7d' : '30d'}
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -112,30 +117,49 @@ export const OverviewTab = () => {
         <h2 className="text-overline mb-3">
           {timeRange === 'today' ? 'Today' : timeRange === 'week' ? 'Last 7 Days' : 'Last 30 Days'}
         </h2>
-        <div className="card-elevated p-4">
+        <div className="card-elevated p-3 sm:p-4">
           {breakdown.length > 0 ? (
             <>
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
                 {breakdown.map((day) => {
                   const total = day.present + day.late + day.absent || 1;
                   const rate = Math.round(((day.present + day.late) / total) * 100);
+                  const presentPercent = (day.present / total) * 100;
+                  const latePercent = (day.late / total) * 100;
+                  const absentPercent = (day.absent / total) * 100;
+                  
                   return (
-                    <div key={day.date} className="flex items-center gap-3">
-                      <div className="w-16 flex-shrink-0">
+                    <div key={day.date} className="flex items-center gap-2 sm:gap-3">
+                      <div className="w-12 sm:w-16 flex-shrink-0">
                         <span className="text-xs font-medium text-muted-foreground block">{day.day}</span>
                         <span className="text-xs text-muted-foreground">{day.date.split('-').slice(1).join('/')}</span>
                       </div>
-                      <div className="flex-1 flex items-center gap-1 h-6">
-                        <div className="bg-success h-full rounded-l" style={{ width: `${(day.present / total) * 100}%` }} />
-                        <div className="bg-warning h-full" style={{ width: `${(day.late / total) * 100}%` }} />
-                        <div className="bg-destructive h-full rounded-r" style={{ width: `${(day.absent / total) * 100}%` }} />
+                      <div className="flex-1 flex items-center h-5 sm:h-6 bg-muted rounded-full overflow-hidden min-w-0">
+                        {presentPercent > 0 && (
+                          <div 
+                            className="bg-success h-full" 
+                            style={{ width: `${presentPercent}%` }} 
+                          />
+                        )}
+                        {latePercent > 0 && (
+                          <div 
+                            className="bg-warning h-full" 
+                            style={{ width: `${latePercent}%` }} 
+                          />
+                        )}
+                        {absentPercent > 0 && (
+                          <div 
+                            className="bg-destructive h-full" 
+                            style={{ width: `${absentPercent}%` }} 
+                          />
+                        )}
                       </div>
-                      <span className="text-xs text-muted-foreground w-10 text-right flex-shrink-0">{rate}%</span>
+                      <span className="text-xs text-muted-foreground w-8 sm:w-10 text-right flex-shrink-0">{rate}%</span>
                     </div>
                   );
                 })}
               </div>
-              <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-border">
+              <div className="flex items-center justify-center gap-3 sm:gap-4 mt-4 pt-4 border-t border-border">
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 bg-success rounded" />
                   <span className="text-xs text-muted-foreground">Present</span>

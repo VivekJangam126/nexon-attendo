@@ -96,54 +96,64 @@ const AdminHistoryReportsScreen = () => {
 
   return (
     <AdminLayout>
-      <div className="flex flex-col min-h-full pb-20 md:pb-0">
-        {/* Header */}
-        <div className="px-4 sm:px-6 lg:px-8 pt-6 lg:pt-8 pb-4 border-b border-border">
-          <div className="flex items-center justify-between">
+      <div className="flex flex-col min-h-full pb-20 lg:pb-0">
+        {/* Compact Header */}
+        <div className="px-4 sm:px-6 md:px-8 pt-3 md:pt-4 pb-3 border-b border-border bg-background">
+          <div className="flex items-center justify-between mb-2">
             <div>
-              <h1 className="text-display mb-1">History & Reports</h1>
-              <p className="text-caption">Attendance analytics and detailed history</p>
+              <h1 className="text-base md:text-lg font-semibold">History & Reports</h1>
+              <p className="text-xs text-muted-foreground hidden sm:block">Attendance analytics and detailed history</p>
             </div>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setShowNotificationSheet(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
-              >
-                <Send className="w-4 h-4" />Send Alert
-              </button>
-            </div>
+            <button 
+              onClick={() => setShowNotificationSheet(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Alert</span>
+            </button>
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs - Horizontal Scroll on Mobile */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ViewMode)} className="flex-1 flex flex-col">
-          <div className="px-4 sm:px-6 lg:px-8 py-4 border-b border-border">
-            <TabsList className="grid w-full max-w-md grid-cols-3">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="history">Attendance History</TabsTrigger>
-              <TabsTrigger value="reports">Reports & Export</TabsTrigger>
-            </TabsList>
+          <div className="border-b border-border bg-background sticky top-0 z-10">
+            <div className="px-4 sm:px-6 md:px-8 py-2 overflow-x-auto scrollbar-hide">
+              <TabsList className="inline-flex h-9 bg-muted p-1 rounded-lg">
+                <TabsTrigger value="overview" className="text-xs px-3 py-1.5 data-[state=active]:bg-background">
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="history" className="text-xs px-3 py-1.5 data-[state=active]:bg-background whitespace-nowrap">
+                  History
+                </TabsTrigger>
+                <TabsTrigger value="reports" className="text-xs px-3 py-1.5 data-[state=active]:bg-background">
+                  Export
+                </TabsTrigger>
+              </TabsList>
+            </div>
           </div>
 
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="flex-1 px-4 sm:px-6 lg:px-8 py-4 overflow-y-auto">
-            <OverviewTab />
-          </TabsContent>
+          {/* Tab Content - Full Height */}
+          <div className="flex-1 overflow-hidden">
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="h-full px-4 sm:px-6 md:px-8 py-4 overflow-y-auto mt-0 data-[state=inactive]:hidden">
+              <OverviewTab />
+            </TabsContent>
 
-          {/* Attendance History Tab */}
-          <TabsContent value="history" className="flex-1 px-4 sm:px-6 lg:px-8 py-4 overflow-y-auto">
-            <AttendanceHistoryTab />
-          </TabsContent>
+            {/* Attendance History Tab */}
+            <TabsContent value="history" className="h-full px-4 sm:px-6 md:px-8 py-4 overflow-y-auto mt-0 data-[state=inactive]:hidden">
+              <AttendanceHistoryTab />
+            </TabsContent>
 
-          {/* Reports & Export Tab */}
-          <TabsContent value="reports" className="flex-1 px-4 sm:px-6 lg:px-8 py-4 overflow-y-auto">
-            <ReportsExportTab />
-          </TabsContent>
+            {/* Reports & Export Tab */}
+            <TabsContent value="reports" className="h-full px-4 sm:px-6 md:px-8 py-4 overflow-y-auto mt-0 data-[state=inactive]:hidden">
+              <ReportsExportTab />
+            </TabsContent>
+          </div>
         </Tabs>
 
         {/* Notification Sheet */}
         <Sheet open={showNotificationSheet} onOpenChange={setShowNotificationSheet}>
-          <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh]">
             <SheetHeader className="text-left">
               <SheetTitle>Send Attendance Alert</SheetTitle>
               <SheetDescription>Send SMS & Email notification to HR contacts</SheetDescription>
@@ -152,7 +162,7 @@ const AdminHistoryReportsScreen = () => {
               <button 
                 onClick={handleSendNotification} 
                 disabled={isSendingNotification} 
-                className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-3.5 bg-primary text-primary-foreground rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity"
               >
                 {isSendingNotification ? (
                   <>
@@ -166,7 +176,7 @@ const AdminHistoryReportsScreen = () => {
                   </>
                 )}
               </button>
-              <p className="text-xs text-muted-foreground text-center">
+              <p className="text-xs text-muted-foreground text-center px-4">
                 SMS & Email will be sent to all enabled HR contacts immediately
               </p>
             </div>

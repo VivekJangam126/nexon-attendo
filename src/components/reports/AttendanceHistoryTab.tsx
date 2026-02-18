@@ -217,7 +217,7 @@ export const AttendanceHistoryTab = () => {
       {/* Filters and View Controls */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          <div className="flex-1 max-w-md">
+          <div className="w-full sm:flex-1 sm:max-w-md">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -229,12 +229,12 @@ export const AttendanceHistoryTab = () => {
             </div>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
-              className="relative"
+              className="relative flex-1 sm:flex-none"
             >
               <Filter className="w-4 h-4 mr-2" />
               Filters
@@ -244,27 +244,32 @@ export const AttendanceHistoryTab = () => {
                 </span>
               )}
             </Button>
-            <Button
-              variant={viewMode === "grid" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode("grid")}
-            >
-              <Grid3x3 className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-            >
-              <List className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "calendar" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode("calendar")}
-            >
-              <CalendarDays className="w-4 h-4" />
-            </Button>
+            <div className="flex gap-1 sm:gap-2">
+              <Button
+                variant={viewMode === "grid" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+                className="px-2 sm:px-3"
+              >
+                <Grid3x3 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className="px-2 sm:px-3"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "calendar" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("calendar")}
+                className="px-2 sm:px-3"
+              >
+                <CalendarDays className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -278,7 +283,7 @@ export const AttendanceHistoryTab = () => {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Date Range Quick Select */}
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground">Quick Date Range</label>
@@ -298,12 +303,12 @@ export const AttendanceHistoryTab = () => {
               </div>
 
               {/* Custom Date Range */}
-              <div className="space-y-2">
+              <div className="space-y-2 sm:col-span-2 lg:col-span-1">
                 <label className="text-xs font-medium text-muted-foreground">Custom Date Range</label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex-1 justify-start text-left font-normal">
+                      <Button variant="outline" size="sm" className="flex-1 justify-start text-left font-normal text-xs">
                         <Calendar className="mr-2 h-4 w-4" />
                         {dateFrom ? format(dateFrom, "MMM dd") : "From"}
                       </Button>
@@ -319,7 +324,7 @@ export const AttendanceHistoryTab = () => {
                   </Popover>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex-1 justify-start text-left font-normal">
+                      <Button variant="outline" size="sm" className="flex-1 justify-start text-left font-normal text-xs">
                         <Calendar className="mr-2 h-4 w-4" />
                         {dateTo ? format(dateTo, "MMM dd") : "To"}
                       </Button>
@@ -335,7 +340,7 @@ export const AttendanceHistoryTab = () => {
                   </Popover>
                 </div>
                 {dateFrom && dateTo && (
-                  <Button size="sm" onClick={handleCustomDateRange} className="w-full">
+                  <Button size="sm" onClick={handleCustomDateRange} className="w-full text-xs">
                     Apply Range
                   </Button>
                 )}
@@ -385,61 +390,144 @@ export const AttendanceHistoryTab = () => {
 
       {/* Grid View */}
       {viewMode === "grid" && (
-        <div className="card-elevated overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted/50 border-b border-border">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground sticky left-0 bg-muted/50 z-10">
-                  Employee
-                </th>
-                {dates.map((date) => {
-                  const dateObj = new Date(date + 'T00:00:00');
-                  const day = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-                  const dayNum = dateObj.getDate();
-                  return (
-                    <th key={date} className="px-3 py-3 text-center text-xs font-medium text-muted-foreground min-w-[60px]">
-                      <div>{day}</div>
-                      <div className="text-xs text-muted-foreground">{dayNum}</div>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {records.map((record) => (
-                <tr key={record.userId} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-4 py-3 sticky left-0 bg-background z-10">
-                    <div 
-                      className="cursor-pointer hover:text-primary transition-colors"
-                      onClick={() => setSelectedEmployee(record.userId)}
-                    >
-                      <p className="text-sm font-medium flex items-center gap-2">
-                        {record.employeeName}
-                        <User className="w-3 h-3 text-muted-foreground" />
-                      </p>
-                      <p className="text-xs text-muted-foreground">{record.email}</p>
+        <>
+          {/* Mobile Card View (< 768px) */}
+          <div className="md:hidden space-y-3">
+            {records.map((record) => {
+              const statusCounts = {
+                present: Object.values(record.dates).filter(s => s === 'present').length,
+                late: Object.values(record.dates).filter(s => s === 'late').length,
+                absent: Object.values(record.dates).filter(s => s === 'absent').length,
+              };
+              const totalDays = dates.length;
+              const attendanceRate = totalDays > 0 
+                ? Math.round(((statusCounts.present + statusCounts.late) / totalDays) * 100) 
+                : 0;
+
+              return (
+                <div key={record.userId} className="card-elevated p-4">
+                  <div 
+                    className="cursor-pointer"
+                    onClick={() => setSelectedEmployee(record.userId)}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          {record.employeeName}
+                          <User className="w-3 h-3 text-muted-foreground" />
+                        </p>
+                        <p className="text-xs text-muted-foreground">{record.email}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold">{attendanceRate}%</p>
+                        <p className="text-xs text-muted-foreground">Rate</p>
+                      </div>
                     </div>
-                  </td>
+
+                    {/* Status Summary */}
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="text-center p-2 rounded-lg bg-success-muted">
+                        <p className="text-lg font-bold text-success">{statusCounts.present}</p>
+                        <p className="text-xs text-muted-foreground">Present</p>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-warning-muted">
+                        <p className="text-lg font-bold text-warning">{statusCounts.late}</p>
+                        <p className="text-xs text-muted-foreground">Late</p>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-destructive-muted">
+                        <p className="text-lg font-bold text-destructive">{statusCounts.absent}</p>
+                        <p className="text-xs text-muted-foreground">Absent</p>
+                      </div>
+                    </div>
+
+                    {/* Date Pills - Horizontal Scroll */}
+                    <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
+                      <div className="flex gap-2 min-w-max pb-1">
+                        {dates.map((date) => {
+                          const status = record.dates[date];
+                          const dateObj = new Date(date + 'T00:00:00');
+                          const day = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                          const dayNum = dateObj.getDate();
+                          return (
+                            <div key={date} className="flex flex-col items-center">
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${getStatusColor(status)}`}>
+                                {getStatusIcon(status)}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">{day}</p>
+                              <p className="text-xs font-medium">{dayNum}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {records.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-sm">No attendance records found</p>
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Table View (≥ 768px) */}
+          <div className="hidden md:block card-elevated overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted/50 border-b border-border">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground sticky left-0 bg-muted/50 z-10">
+                    Employee
+                  </th>
                   {dates.map((date) => {
-                    const status = record.dates[date];
+                    const dateObj = new Date(date + 'T00:00:00');
+                    const day = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                    const dayNum = dateObj.getDate();
                     return (
-                      <td key={date} className="px-3 py-3 text-center">
-                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${getStatusColor(status)}`}>
-                          {getStatusIcon(status)}
-                        </span>
-                      </td>
+                      <th key={date} className="px-3 py-3 text-center text-xs font-medium text-muted-foreground min-w-[60px]">
+                        <div>{day}</div>
+                        <div className="text-xs text-muted-foreground">{dayNum}</div>
+                      </th>
                     );
                   })}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {records.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <p className="text-sm">No attendance records found</p>
-            </div>
-          )}
-        </div>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {records.map((record) => (
+                  <tr key={record.userId} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3 sticky left-0 bg-background z-10">
+                      <div 
+                        className="cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => setSelectedEmployee(record.userId)}
+                      >
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          {record.employeeName}
+                          <User className="w-3 h-3 text-muted-foreground" />
+                        </p>
+                        <p className="text-xs text-muted-foreground">{record.email}</p>
+                      </div>
+                    </td>
+                    {dates.map((date) => {
+                      const status = record.dates[date];
+                      return (
+                        <td key={date} className="px-3 py-3 text-center">
+                          <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${getStatusColor(status)}`}>
+                            {getStatusIcon(status)}
+                          </span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {records.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-sm">No attendance records found</p>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* List View */}
@@ -451,6 +539,7 @@ export const AttendanceHistoryTab = () => {
               variant={sortField === 'name' ? 'default' : 'outline'}
               size="sm"
               onClick={() => handleSort('name')}
+              className="text-xs"
             >
               Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
             </Button>
@@ -458,6 +547,7 @@ export const AttendanceHistoryTab = () => {
               variant={sortField === 'date' ? 'default' : 'outline'}
               size="sm"
               onClick={() => handleSort('date')}
+              className="text-xs"
             >
               Date {sortField === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
             </Button>
@@ -465,6 +555,7 @@ export const AttendanceHistoryTab = () => {
               variant={sortField === 'status' ? 'default' : 'outline'}
               size="sm"
               onClick={() => handleSort('status')}
+              className="text-xs"
             >
               Status {sortField === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
             </Button>
@@ -476,23 +567,23 @@ export const AttendanceHistoryTab = () => {
               const dateObj = new Date(record.date + 'T00:00:00');
               const formatted = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
               return (
-                <div key={`${record.userId}_${record.date}_${idx}`} className="card-elevated p-4">
-                  <div className="flex items-start justify-between mb-2">
+                <div key={`${record.userId}_${record.date}_${idx}`} className="card-elevated p-3 sm:p-4">
+                  <div className="flex items-start justify-between gap-2 mb-2">
                     <div 
-                      className="cursor-pointer hover:text-primary transition-colors"
+                      className="cursor-pointer hover:text-primary transition-colors flex-1 min-w-0"
                       onClick={() => setSelectedEmployee(record.userId)}
                     >
-                      <p className="font-medium flex items-center gap-2">
+                      <p className="text-sm font-medium flex items-center gap-2 truncate">
                         {record.employeeName}
-                        <User className="w-3 h-3 text-muted-foreground" />
+                        <User className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                       </p>
-                      <p className="text-sm text-muted-foreground">{record.email}</p>
+                      <p className="text-xs text-muted-foreground truncate">{record.email}</p>
                     </div>
-                    <div className={`px-3 py-1.5 rounded-lg text-xs font-medium ${getStatusColor(record.status)}`}>
+                    <div className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-medium flex-shrink-0 ${getStatusColor(record.status)}`}>
                       {record.status?.toUpperCase() || 'N/A'}
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">{formatted}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">{formatted}</p>
                 </div>
               );
             })}
@@ -500,9 +591,9 @@ export const AttendanceHistoryTab = () => {
 
           {/* Pagination */}
           {sortedRecords.length > recordsPerPage && (
-            <div className="flex items-center justify-between pt-4 border-t">
-              <p className="text-sm text-muted-foreground">
-                Showing {startIndex + 1}-{Math.min(endIndex, sortedRecords.length)} of {sortedRecords.length} records
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t">
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Showing {startIndex + 1}-{Math.min(endIndex, sortedRecords.length)} of {sortedRecords.length}
               </p>
               <div className="flex gap-2">
                 <Button
@@ -531,6 +622,7 @@ export const AttendanceHistoryTab = () => {
                         variant={currentPage === pageNum ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => setCurrentPage(pageNum)}
+                        className="min-w-[32px]"
                       >
                         {pageNum}
                       </Button>

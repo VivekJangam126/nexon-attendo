@@ -125,11 +125,12 @@ const AdminEmployeesScreen = () => {
   }
 
   // Calculate status counts for filter badges
+  const activeEmployees = employees.filter(e => e.status === 'active');
   const statusCounts = {
-    present: employees.filter(e => e.today_status === 'present').length,
-    late: employees.filter(e => e.today_status === 'late').length,
-    not_marked: employees.filter(e => e.today_status === 'not_marked').length,
-    absent: employees.filter(e => e.today_status === 'absent').length,
+    present: activeEmployees.filter(e => e.today_status === 'present').length,
+    late: activeEmployees.filter(e => e.today_status === 'late').length,
+    not_marked: employees.filter(e => e.today_status === 'not_marked').length, // Includes pending/blocked
+    absent: activeEmployees.filter(e => e.today_status === 'absent').length,
   };
 
   const formatCheckInTime = (isoString: string | null) => {
@@ -165,41 +166,52 @@ const AdminEmployeesScreen = () => {
 
   return (
     <AdminLayout>
-      <div className="flex flex-col min-h-full pb-20 md:pb-0">
+      <div className="flex flex-col min-h-full">
         {/* Header */}
-        <div className="px-4 sm:px-6 lg:px-8 pt-6 lg:pt-8 pb-4 border-b border-border">
-          <div className="flex items-center justify-between mb-3">
+        <div className="px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 lg:pt-8 pb-3 sm:pb-4 border-b border-border">
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
             <div>
-              <h1 className="text-display mb-1">Employees</h1>
-              <p className="text-caption">{employees.length} total employees</p>
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold mb-0.5 sm:mb-1">Employees</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">{activeEmployees.length} active employees</p>
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => navigate("/admin/add-employee")} className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-2.5 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
-              <Plus className="w-4 h-4" />Add Employee
+            <button 
+              onClick={() => navigate("/admin/add-employee")} 
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-3 sm:px-4 bg-primary text-primary-foreground rounded-lg text-xs sm:text-sm font-medium"
+            >
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">Add Employee</span>
+              <span className="xs:hidden">Add</span>
             </button>
             {pendingCount > 0 && (
-              <button onClick={() => navigate("/admin/pending-approvals")} className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-2.5 px-4 bg-warning-muted text-warning rounded-lg text-sm font-medium">
-                <ClipboardList className="w-4 h-4" />
-                Pending Approvals ({pendingCount})
+              <button 
+                onClick={() => navigate("/admin/pending-approvals")} 
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 px-3 sm:px-4 bg-warning-muted text-warning rounded-lg text-xs sm:text-sm font-medium"
+              >
+                <ClipboardList className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden xs:inline">Pending ({pendingCount})</span>
+                <span className="xs:hidden">({pendingCount})</span>
               </button>
             )}
           </div>
         </div>
 
         {/* Search and Filter */}
-        <div className="px-4 sm:px-6 lg:px-8 py-4 space-y-3 border-b border-border">
-          <div className="relative max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4 space-y-2 sm:space-y-3 border-b border-border">
+          <div className="relative w-full">
+            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
             <input 
               type="text" 
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
               placeholder="Search by name or email..." 
-              className="input-field pl-12" 
+              className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" 
             />
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          
+          {/* Desktop filters - show all */}
+          <div className="hidden sm:flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <button 
               onClick={() => setFilterStatus(null)} 
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
@@ -208,7 +220,7 @@ const AdminEmployeesScreen = () => {
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
               }`}
             >
-              All ({employees.length})
+              All ({activeEmployees.length})
             </button>
             {statuses.map(status => (
               <button 
@@ -231,9 +243,92 @@ const AdminEmployeesScreen = () => {
               </button>
             ))}
           </div>
+
+          {/* Mobile filters - compact with dropdown */}
+          <div className="flex sm:hidden gap-1.5 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+            <button 
+              onClick={() => setFilterStatus(null)} 
+              className={`px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+                !filterStatus 
+                  ? "bg-primary text-primary-foreground shadow-sm" 
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              All ({activeEmployees.length})
+            </button>
+            <button 
+              onClick={() => setFilterStatus('present')} 
+              className={`px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1 flex-shrink-0 ${
+                filterStatus === 'present' 
+                  ? "bg-primary text-primary-foreground shadow-sm" 
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              Present
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                filterStatus === 'present' 
+                  ? 'bg-primary-foreground/20 text-primary-foreground' 
+                  : 'bg-background/50'
+              }`}>
+                {statusCounts.present}
+              </span>
+            </button>
+            <button 
+              onClick={() => setFilterStatus('late')} 
+              className={`px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1 flex-shrink-0 ${
+                filterStatus === 'late' 
+                  ? "bg-primary text-primary-foreground shadow-sm" 
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              Late
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                filterStatus === 'late' 
+                  ? 'bg-primary-foreground/20 text-primary-foreground' 
+                  : 'bg-background/50'
+              }`}>
+                {statusCounts.late}
+              </span>
+            </button>
+            <button 
+              onClick={() => setFilterStatus('not_marked')} 
+              className={`px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1 flex-shrink-0 ${
+                filterStatus === 'not_marked' 
+                  ? "bg-primary text-primary-foreground shadow-sm" 
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              Awaiting
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                filterStatus === 'not_marked' 
+                  ? 'bg-primary-foreground/20 text-primary-foreground' 
+                  : 'bg-background/50'
+              }`}>
+                {statusCounts.not_marked}
+              </span>
+            </button>
+            <button 
+              onClick={() => setFilterStatus('absent')} 
+              className={`px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1 flex-shrink-0 ${
+                filterStatus === 'absent' 
+                  ? "bg-primary text-primary-foreground shadow-sm" 
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              Absent
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                filterStatus === 'absent' 
+                  ? 'bg-primary-foreground/20 text-primary-foreground' 
+                  : 'bg-background/50'
+              }`}>
+                {statusCounts.absent}
+              </span>
+            </button>
+          </div>
+
           {filteredEmployees.length !== employees.length && (
             <p className="text-xs text-muted-foreground">
-              Showing {filteredEmployees.length} of {employees.length} employees
+              Showing {filteredEmployees.length} of {employees.length}
             </p>
           )}
         </div>
@@ -332,12 +427,12 @@ const AdminEmployeesScreen = () => {
           </div>
 
           {/* Mobile cards */}
-          <div className="lg:hidden space-y-3 pb-4">
+          <div className="lg:hidden space-y-2 sm:space-y-3 pb-4 pt-3">
             {filteredEmployees.map((employee, index) => (
               <div 
                 key={employee.id} 
                 onClick={() => handleEmployeeClick(employee)} 
-                className={`card-elevated p-4 animate-fade-in-up cursor-pointer transition-all ${
+                className={`card-elevated p-3 sm:p-4 animate-fade-in-up cursor-pointer transition-all ${
                   employee.status === 'pending'
                     ? 'bg-warning/5 border-l-4 border-l-warning hover:bg-warning/10'
                     : employee.today_status === 'absent'
@@ -347,22 +442,26 @@ const AdminEmployeesScreen = () => {
                 style={{ animationDelay: `${index * 0.03}s` }}
                 title={employee.status === 'pending' ? 'Click to approve/reject' : ''}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-semibold text-primary">{employee.full_name.split(" ").map(n => n[0]).join("")}</span>
+                <div className="flex items-start gap-2.5 sm:gap-3">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs sm:text-sm font-semibold text-primary">{employee.full_name.split(" ").map(n => n[0]).join("")}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="font-medium truncate">{employee.full_name}</p>
-                      <StatusBadge status={employee.today_status} />
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="font-medium text-sm sm:text-base truncate">{employee.full_name}</p>
+                      <div className="flex-shrink-0">
+                        <StatusBadge status={employee.today_status} />
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">{employee.role}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-muted-foreground">{employee.email}</span>
-                    </div>
-                    {employee.check_in_time && <p className="text-xs text-muted-foreground mt-1">Check-in: {formatCheckInTime(employee.check_in_time)}</p>}
+                    <p className="text-xs text-muted-foreground mb-0.5">{employee.role}</p>
+                    <p className="text-xs text-muted-foreground truncate">{employee.email}</p>
+                    {employee.check_in_time && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Check-in: {formatCheckInTime(employee.check_in_time)}
+                      </p>
+                    )}
                   </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground flex-shrink-0 mt-1" />
                 </div>
               </div>
             ))}

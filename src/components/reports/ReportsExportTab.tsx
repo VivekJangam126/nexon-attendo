@@ -903,10 +903,10 @@ export const ReportsExportTab = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 px-4 sm:px-0">
       {/* Export Format Selection */}
-      <div className="card-elevated p-6">
-        <h3 className="text-lg font-semibold mb-4">Select Export Format</h3>
+      <div className="card-elevated p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-4">Select Export Format</h3>
         <div className="grid grid-cols-2 gap-3">
           {[
             { format: "pdf" as ExportFormat, icon: FileText, label: "PDF", desc: "Document" },
@@ -915,13 +915,13 @@ export const ReportsExportTab = () => {
             <button
               key={item.format}
               onClick={() => setSelectedFormat(item.format)}
-              className={`p-4 rounded-xl border-2 transition-colors ${
+              className={`p-3 sm:p-4 rounded-xl border-2 transition-colors ${
                 selectedFormat === item.format
                   ? "border-primary bg-accent"
                   : "border-border hover:border-primary/50"
               }`}
             >
-              <item.icon className={`w-8 h-8 mx-auto mb-2 ${selectedFormat === item.format ? "text-primary" : "text-muted-foreground"}`} />
+              <item.icon className={`w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 ${selectedFormat === item.format ? "text-primary" : "text-muted-foreground"}`} />
               <p className="font-medium text-sm">{item.label}</p>
               <p className="text-xs text-muted-foreground">{item.desc}</p>
             </button>
@@ -930,8 +930,8 @@ export const ReportsExportTab = () => {
       </div>
 
       {/* Time Range Selection */}
-      <div className="card-elevated p-6">
-        <h3 className="text-lg font-semibold mb-4">Select Time Range</h3>
+      <div className="card-elevated p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-4">Select Time Range</h3>
         <div className="grid grid-cols-2 gap-3">
           {[
             { range: "today" as TimeRange, label: "Today", desc: "1 day" },
@@ -942,13 +942,13 @@ export const ReportsExportTab = () => {
             <button
               key={item.range}
               onClick={() => setSelectedRange(item.range)}
-              className={`p-4 rounded-xl border-2 transition-colors text-left ${
+              className={`p-3 sm:p-4 rounded-xl border-2 transition-colors text-left ${
                 selectedRange === item.range
                   ? "border-primary bg-accent"
                   : "border-border hover:border-primary/50"
               }`}
             >
-              <Calendar className={`w-6 h-6 mb-2 ${selectedRange === item.range ? "text-primary" : "text-muted-foreground"}`} />
+              <Calendar className={`w-5 h-5 sm:w-6 sm:h-6 mb-2 ${selectedRange === item.range ? "text-primary" : "text-muted-foreground"}`} />
               <p className="font-medium text-sm">{item.label}</p>
               <p className="text-xs text-muted-foreground">{item.desc}</p>
             </button>
@@ -957,14 +957,14 @@ export const ReportsExportTab = () => {
         
         {/* Custom Date Range Picker */}
         {selectedRange === "custom" && (
-          <div className="mt-4 p-4 border-2 border-primary rounded-lg bg-accent/50">
+          <div className="mt-4 p-3 sm:p-4 border-2 border-primary rounded-lg bg-accent/50">
             <h4 className="text-sm font-semibold mb-3">Select Custom Date Range</h4>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-2 block">From Date</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal text-xs sm:text-sm">
                       <Calendar className="mr-2 h-4 w-4" />
                       {customDateFrom ? format(customDateFrom, "PPP") : "Pick a date"}
                     </Button>
@@ -983,7 +983,7 @@ export const ReportsExportTab = () => {
                 <label className="text-xs font-medium text-muted-foreground mb-2 block">To Date</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal text-xs sm:text-sm">
                       <Calendar className="mr-2 h-4 w-4" />
                       {customDateTo ? format(customDateTo, "PPP") : "Pick a date"}
                     </Button>
@@ -1009,8 +1009,8 @@ export const ReportsExportTab = () => {
       </div>
 
       {/* Report Templates */}
-      <div className="card-elevated p-6">
-        <h3 className="text-lg font-semibold mb-4">Report Templates</h3>
+      <div className="card-elevated p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-4">Report Templates</h3>
         <div className="space-y-2">
           {[
             { id: "daily" as ReportTemplate, name: "Daily Attendance Report", desc: "Summary of today's attendance" },
@@ -1018,15 +1018,16 @@ export const ReportsExportTab = () => {
             { id: "monthly" as ReportTemplate, name: "Monthly Report", desc: "30-day detailed analysis" },
           ].map((template) => (
             <div key={template.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
-              <div>
-                <p className="text-sm font-medium">{template.name}</p>
-                <p className="text-xs text-muted-foreground">{template.desc}</p>
+              <div className="flex-1 min-w-0 pr-2">
+                <p className="text-sm font-medium truncate">{template.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{template.desc}</p>
               </div>
               <Button 
                 variant="ghost" 
                 size="sm"
                 onClick={() => handleTemplateExport(template.id)}
                 disabled={isExporting && selectedTemplate === template.id}
+                className="flex-shrink-0"
               >
                 {isExporting && selectedTemplate === template.id ? (
                   <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -1040,24 +1041,24 @@ export const ReportsExportTab = () => {
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Send to Email Button */}
         <Button
           onClick={handleSendEmail}
           disabled={isSendingEmail || isExporting}
-          className="py-6 text-lg"
+          className="h-12 sm:h-14 text-sm sm:text-base"
           size="lg"
           variant="outline"
         >
           {isSendingEmail ? (
             <>
-              <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin mr-2" />
-              Sending...
+              <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin mr-2" />
+              <span className="truncate">Sending...</span>
             </>
           ) : (
             <>
-              <Mail className="w-5 h-5 mr-2" />
-              Send to Email
+              <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="truncate">Send to Email</span>
             </>
           )}
         </Button>
@@ -1066,18 +1067,18 @@ export const ReportsExportTab = () => {
         <Button
           onClick={handleExport}
           disabled={isExporting || isSendingEmail}
-          className="py-6 text-lg"
+          className="h-12 sm:h-14 text-sm sm:text-base"
           size="lg"
         >
           {isExporting ? (
             <>
-              <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin mr-2" />
-              Exporting...
+              <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin mr-2" />
+              <span className="truncate">Exporting...</span>
             </>
           ) : (
             <>
-              <Download className="w-5 h-5 mr-2" />
-              Download {selectedFormat.toUpperCase()}
+              <Download className="w-4 h-4 mr-2 flex-shrink-0" />
+              <span className="truncate">Download {selectedFormat.toUpperCase()}</span>
             </>
           )}
         </Button>

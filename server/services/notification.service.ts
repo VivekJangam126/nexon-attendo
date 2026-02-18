@@ -46,8 +46,10 @@ export interface AttendanceNotificationData {
   slotTime: string;
   presentCount: number;
   lateCount: number;
-  totalCount: number;
+  totalCount: number; // Number who checked in (present + late)
   attendanceRate: number;
+  totalEmployees?: number; // Total active employees
+  absentCount?: number; // Number absent
   isManual?: boolean; // Flag to indicate manual trigger by admin
   employeeDetails?: EmployeeAttendanceDetail[]; // Employee details with check-in times
   actualStartTime?: string; // For manual alerts
@@ -230,18 +232,25 @@ export const notificationService = {
    * Generate SMS content (under 160 characters for basic info, longer with employee details)
    */
   generateSMSContent(data: AttendanceNotificationData): string {
-    const { date, slotNumber, slotTime, presentCount, lateCount, totalCount, attendanceRate, isManual, employeeDetails, actualStartTime, actualEndTime } = data;
+    const { date, slotNumber, slotTime, presentCount, lateCount, totalCount, attendanceRate, isManual, employeeDetails, actualStartTime, actualEndTime, totalEmployees, absentCount } = data;
     
     const dateFormatted = new Date(date).toLocaleDateString('en-GB', { 
       day: '2-digit', 
       month: 'short' 
     });
     
+    // Calculate values
+    const total = totalEmployees || totalCount; // Use totalEmployees if available, otherwise fallback to totalCount
+    const absent = absentCount !== undefined ? absentCount : (total - totalCount);
+    
     // Format employee details list
     let employeeList = '';
     if (employeeDetails && employeeDetails.length > 0) {
-      employeeList = '\n\nEmployee Details:\n' + employeeDetails
-        .map((emp, index) => `${index + 1}. ${emp.name} - ${emp.checkInTime}${emp.status === 'late' ? ' (Late)' : ''}`)
+      employeeList = '\n' + employeeDetails
+        .map((emp, index) => {
+          const statusLabel = emp.status === 'late' ? ' (Late)' : '';
+          return `${index + 1}. ${emp.name} - ${emp.checkInTime}${statusLabel}`;
+        })
         .join('\n');
     }
     
@@ -251,18 +260,18 @@ export const notificationService = {
         ? `${actualStartTime} to ${actualEndTime}`
         : slotTime;
       
-      return `[MANUAL ALERT] Attendance Report - ${dateFormatted}\nTime: ${timeRange}\n✓ Present: ${presentCount}\n⏰ Late: ${lateCount}\n📊 Total: ${totalCount}\n📈 Rate: ${attendanceRate}%${employeeList}`;
+      return `📊 *ATTENDANCE ALERT*\n${dateFormatted} | ${timeRange}\n\nPresent: ${presentCount} | Late: ${lateCount} | Absent: ${absent}\nTotal: ${total} | Rate: ${attendanceRate}%${employeeList}`;
     }
     
     // Automatic slot-wise alert: show slot number and time
-    return `SLOT-${slotNumber} Attendance Report - ${dateFormatted}\nTime: ${slotTime}\n✓ Present: ${presentCount}\n⏰ Late: ${lateCount}\n📊 Total: ${totalCount}\n📈 Rate: ${attendanceRate}%${employeeList}`;
+    return `📊 *SLOT-${slotNumber} ATTENDANCE*\n${dateFormatted} | ${slotTime}\n\nPresent: ${presentCount} | Late: ${lateCount} | Absent: ${absent}\nTotal: ${total} | Rate: ${attendanceRate}%${employeeList}`;
   },
 
   /**
    * Generate HTML email content
    */
   generateEmailHTML(data: AttendanceNotificationData): string {
-    const { date, slotNumber, slotTime, presentCount, lateCount, totalCount, attendanceRate, isManual, employeeDetails, actualStartTime, actualEndTime } = data;
+    const { date, slotNumber, slotTime, presentCount, lateCount, totalCount, attendanceRate, isManual, employeeDetails, actualStartTime, actualEndTime, totalEmployees, absentCount } = data;
     
     const dateFormatted = new Date(date).toLocaleDateString('en-US', {
       weekday: 'long',
@@ -270,6 +279,10 @@ export const notificationService = {
       month: 'long',
       day: 'numeric',
     });
+
+    // Calculate values
+    const total = totalEmployees || totalCount;
+    const absent = absentCount !== undefined ? absentCount : (total - totalCount);
 
     const headerTitle = isManual ? '🚨 Manual Alert - Attendance Report' : '📊 Attendance Report';
     const headerColor = isManual ? 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
@@ -351,24 +364,35 @@ export const notificationService = {
               <!-- Stats Grid -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td width="50%" style="padding: 16px; background-color: #f0fdf4; border-radius: 8px; vertical-align: top;">
+                  <td width="33%" style="padding: 16px; background-color: #f0fdf4; border-radius: 8px; vertical-align: top;">
                     <div style="text-align: center;">
-                      <div style="font-size: 32px; font-weight: 700; color: #16a34a; margin-bottom: 4px;">
+                      <div style="font-size: 28px; font-weight: 700; color: #16a34a; margin-bottom: 4px;">
                         ${presentCount}
                       </div>
-                      <div style="font-size: 12px; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px;">
+                      <div style="font-size: 11px; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px;">
                         Present
                       </div>
                     </div>
                   </td>
-                  <td width="10"></td>
-                  <td width="50%" style="padding: 16px; background-color: #fef3c7; border-radius: 8px; vertical-align: top;">
+                  <td width="5"></td>
+                  <td width="33%" style="padding: 16px; background-color: #fef3c7; border-radius: 8px; vertical-align: top;">
                     <div style="text-align: center;">
-                      <div style="font-size: 32px; font-weight: 700; color: #d97706; margin-bottom: 4px;">
+                      <div style="font-size: 28px; font-weight: 700; color: #d97706; margin-bottom: 4px;">
                         ${lateCount}
                       </div>
-                      <div style="font-size: 12px; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px;">
+                      <div style="font-size: 11px; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px;">
                         Late
+                      </div>
+                    </div>
+                  </td>
+                  <td width="5"></td>
+                  <td width="33%" style="padding: 16px; background-color: #fee2e2; border-radius: 8px; vertical-align: top;">
+                    <div style="text-align: center;">
+                      <div style="font-size: 28px; font-weight: 700; color: #dc2626; margin-bottom: 4px;">
+                        ${absent}
+                      </div>
+                      <div style="font-size: 11px; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px;">
+                        Absent
                       </div>
                     </div>
                   </td>
@@ -378,10 +402,10 @@ export const notificationService = {
               <!-- Total & Rate -->
               <div style="margin-top: 24px; padding: 20px; background-color: #f8fafc; border-radius: 8px; text-align: center;">
                 <div style="font-size: 14px; color: #64748b; margin-bottom: 8px;">
-                  Total Attendance
+                  Total Employees
                 </div>
                 <div style="font-size: 36px; font-weight: 700; color: #1e293b; margin-bottom: 12px;">
-                  ${totalCount}
+                  ${total}
                 </div>
                 <div style="display: inline-block; padding: 8px 16px; background-color: ${attendanceRate >= 90 ? '#16a34a' : attendanceRate >= 75 ? '#d97706' : '#dc2626'}; color: #ffffff; border-radius: 20px; font-size: 16px; font-weight: 600;">
                   ${attendanceRate}% Attendance Rate

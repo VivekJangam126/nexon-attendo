@@ -315,15 +315,16 @@ export const employeeService = {
   },
 
   /**
-   * Delete employee (soft delete by setting status to deleted)
-   * Note: This doesn't actually delete the record, just marks it as deleted
+   * Delete employee (hard delete - permanently removes from database)
+   * This will cascade delete related records (attendance, etc.)
    */
   async deleteEmployee(userId: string): Promise<{ success: boolean; error: Error | null }> {
     try {
-      // Option 1: Soft delete (mark as deleted)
+      // Hard delete - permanently remove the employee
+      // Note: Make sure your database has CASCADE delete rules set up for related tables
       const { error } = await supabase
         .from('profiles')
-        .update({ status: 'blocked' }) // Using blocked as soft delete
+        .delete()
         .eq('id', userId);
 
       if (error) throw error;
