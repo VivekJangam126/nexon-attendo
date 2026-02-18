@@ -76,36 +76,83 @@ serve(async (req) => {
     // Process each slot
     const results = []
     for (const slot of slots) {
-      // Determine time range for this slot
-      let startTime: string
-      let startTimeFormatted: string
+      console.log(`\n=== Processing Slot ${slot.slot_number} ===`)
+      
+      // For display purposes: show the slot's specific time window
+      let slotStartTime: string
+      let slotStartTimeFormatted: string
       
       if (slot.slot_number === 1) {
         // SLOT-1: Use attendance window start
-        startTime = attendanceWindowStart
-        const [startHour, startMinute] = startTime.split(':')
+        slotStartTime = attendanceWindowStart
+        const [startHour, startMinute] = slotStartTime.split(':')
         const startH = parseInt(startHour)
         const startPeriod = startH >= 12 ? 'PM' : 'AM'
         const startDisplayHour = startH > 12 ? startH - 12 : startH === 0 ? 12 : startH
-        startTimeFormatted = `${startDisplayHour}:${startMinute} ${startPeriod}`
+        slotStartTimeFormatted = `${startDisplayHour}:${startMinute} ${startPeriod}`
       } else {
-        // SLOT-2/3: Use previous slot's time
+        // SLOT-2/3: Use previous slot's time for display
         const previousSlot = allSlots?.find((s: any) => s.slot_number === slot.slot_number - 1)
-        startTime = previousSlot?.slot_time || attendanceWindowStart
-        const [startHour, startMinute] = startTime.split(':')
+        slotStartTime = previousSlot?.slot_time || attendanceWindowStart
+        const [startHour, startMinute] = slotStartTime.split(':')
         const startH = parseInt(startHour)
         const startPeriod = startH >= 12 ? 'PM' : 'AM'
         const startDisplayHour = startH > 12 ? startH - 12 : startH === 0 ? 12 : startH
-        startTimeFormatted = `${startDisplayHour}:${startMinute} ${startPeriod}`
+        slotStartTimeFormatted = `${startDisplayHour}:${startMinute} ${startPeriod}`
       }
 
       const endTime = slot.slot_time
       
-      console.log(`Slot ${slot.slot_number} time range: ${startTime} to ${endTime}`)
-
-      // Get attendance records within time range
-      const startDateTime = `${today}T${startTime}`
-      const endDateTime = `${today}T${endTime}`
+      console.log(`Slot ${slot.slot_number} display time range: ${slotStartTime} to ${endTime}`)
+      
+      // IMPORTANT: Convert IST times to UTC for database query
+      // Attendance records are stored in UTC, but slot times are in IST
+      // IST is UTC+5:30, so we need to subtract 5 hours 30 minutes
+      
+      const [startHour, startMin] = attendanceWindowStart.split(':').map(Number)
+      const [endHour, endMin] = endTime.split(':').map(Number)
+      
+      // Convert IST to UTC by subtracting 5:30
+      let utcStartHour = startHour - 5
+      let utcStartMin = startMin - 30
+      if (utcStartMin < 0) {
+        utcStartMin += 60
+        utcStartHour -= 1
+      }
+      if (utcStartHour < 0) {
+        utcStartHour += 24
+      }
+      
+      let utcEndHour = endHour - 5
+      let utcEndMin = endMin - 30
+      if (utcEndMin < 0) {
+        utcEndMin += 60
+        utcEndHour -= 1
+      }
+      if (utcEndHour < 0) {
+        utcEndHour += 24
+      }
+      
+      const utcStartTime = `${utcStartHour.toString().padStart(2, '0')}:${utcStartMin.toString().padStart(2, '0')}:00`
+      const utcEndTime = `${utcEndHour.toString().padStart(2, '0')}:${utcEndMin.toString().padStart(2, '0')}:00`
+      
+      const startDateTime = `${today}T${utcStartTime}`
+      const endDateTime = `${today}T${utcEndTime}`
+      
+      console.log(`IST times: ${attendanceWindowStart} to ${endTime}`)
+      console.log(`UTC times: ${utcStartTime} to ${utcEndTime}`)
+      console.log(`Fetching attendance from ${startDateTime} to ${endDateTime}`)
+      
+      // First, let's check if ANY attendance exists for today
+      const { data: allTodayAttendance, error: allAttError } = await supabase
+        .from('attendance')
+        .select('user_id, status, check_in_time, date')
+        .eq('date', today)
+      
+      console.log(`Total attendance records for ${today}: ${allTodayAttendance?.length || 0}`)
+      if (allTodayAttendance && allTodayAttendance.length > 0) {
+        console.log('Sample records:', JSON.stringify(allTodayAttendance.slice(0, 3), null, 2))
+      }
       
       const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance')
@@ -113,7 +160,7 @@ serve(async (req) => {
         .eq('date', today)
         .in('status', ['present', 'late'])
         .gte('check_in_time', startDateTime)
-        .lt('check_in_time', endDateTime)
+        .lte('check_in_time', endDateTime)
         .order('check_in_time', { ascending: true })
 
       if (attendanceError) {
@@ -121,31 +168,65 @@ serve(async (req) => {
         continue
       }
 
+      console.log(`Found ${attendanceData?.length || 0} attendance records`)
+
       const presentCount = attendanceData?.filter((a: any) => a.status === 'present').length || 0
       const lateCount = attendanceData?.filter((a: any) => a.status === 'late').length || 0
       const totalCount = presentCount + lateCount
-      const attendanceRate = totalCount > 0 ? 100 : 0
+      
+      // Get total number of employees to calculate proper percentage
+      const { data: allEmployees } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'employee')
+      
+      const totalEmployees = allEmployees?.length || 1
+      const absentCount = totalEmployees - totalCount
+      const attendanceRate = totalEmployees > 0 ? Math.round((totalCount / totalEmployees) * 100) : 0
 
-      console.log(`Slot ${slot.slot_number} attendance:`, { presentCount, lateCount, totalCount })
+      console.log(`Slot ${slot.slot_number} attendance:`, { 
+        presentCount, 
+        lateCount, 
+        absentCount,
+        totalCount, 
+        totalEmployees, 
+        attendanceRate 
+      })
 
       // Get employee details
       const userIds = attendanceData?.map((a: any) => a.user_id) || []
-      const { data: profiles } = await supabase
+      
+      if (userIds.length === 0) {
+        console.log('No user IDs to fetch profiles for')
+      }
+      
+      const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select('id, full_name')
         .in('id', userIds)
 
+      if (profileError) {
+        console.error('Error fetching profiles:', profileError)
+      }
+
+      console.log(`Fetched ${profiles?.length || 0} profiles`)
+
       const profileMap = new Map(profiles?.map((p: any) => [p.id, p.full_name]) || [])
 
-      // Format employee details with check-in times
+      // Format employee details with check-in times (convert UTC to IST)
       const employeeDetails = attendanceData
         ?.map((record: any) => {
           const name = profileMap.get(record.user_id)
-          if (!name) return null
+          if (!name) {
+            console.log(`Warning: No profile found for user_id ${record.user_id}`)
+            return null
+          }
           
+          // Convert UTC time to IST (add 5 hours 30 minutes)
           const checkInDate = new Date(record.check_in_time)
-          const hour = checkInDate.getHours()
-          const minute = checkInDate.getMinutes()
+          const istDate = new Date(checkInDate.getTime() + (5.5 * 60 * 60 * 1000))
+          const hour = istDate.getHours()
+          const minute = istDate.getMinutes()
           const period = hour >= 12 ? 'PM' : 'AM'
           const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour
           const formattedTime = `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`
@@ -159,6 +240,7 @@ serve(async (req) => {
         .filter((detail: any) => detail != null) || []
 
       console.log(`Found ${employeeDetails.length} employees in time range`)
+      console.log('Employee details:', JSON.stringify(employeeDetails, null, 2))
 
       // Format slot time for display
       const [hour, minute] = slot.slot_time.split(':')
@@ -169,31 +251,38 @@ serve(async (req) => {
 
       // Call send-notification function
       const functionUrl = `${supabaseUrl}/functions/v1/send-notification`
+      
+      const requestBody = {
+        slotNumber: slot.slot_number,
+        slotTime: slotTimeFormatted,
+        slotStartTime: slotStartTimeFormatted,
+        slotEndTime: slotTimeFormatted,
+        presentCount,
+        lateCount,
+        absentCount,
+        totalCount,
+        totalEmployees,
+        attendanceRate,
+        triggeredBy: 'system-cron',
+        isManual: false,
+        employeeDetails,
+      }
+      
+      console.log('Sending notification request:', JSON.stringify(requestBody, null, 2))
+      
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${supabaseKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          slotNumber: slot.slot_number,
-          slotTime: slotTimeFormatted,
-          slotStartTime: startTimeFormatted,
-          slotEndTime: slotTimeFormatted,
-          presentCount,
-          lateCount,
-          totalCount,
-          attendanceRate,
-          triggeredBy: 'system-cron',
-          isManual: false,
-          employeeDetails,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       const result = await response.json()
       results.push({
         slot: slot.slot_number,
-        time: `${startTimeFormatted} to ${slotTimeFormatted}`,
+        time: `${slotStartTimeFormatted} to ${slotTimeFormatted}`,
         result,
       })
 

@@ -22,7 +22,9 @@ interface NotificationRequest {
   slotEndTime?: string; // For slot alerts (e.g., "10:10 AM")
   presentCount: number;
   lateCount: number;
+  absentCount?: number;
   totalCount: number;
+  totalEmployees?: number;
   attendanceRate: number;
   triggeredBy: string;
   isManual: boolean;
@@ -77,7 +79,9 @@ serve(async (req) => {
       slotTime: request.slotTime,
       presentCount: request.presentCount,
       lateCount: request.lateCount,
+      absentCount: request.absentCount || 0,
       totalCount: request.totalCount,
+      totalEmployees: request.totalEmployees || request.totalCount,
       attendanceRate: request.attendanceRate,
     }
 
@@ -106,7 +110,7 @@ serve(async (req) => {
         }
       }
       
-      smsContent = `[ALERT] ${dateFormatted} ${timeRange}\nP:${notificationData.presentCount} L:${notificationData.lateCount} T:${notificationData.totalCount} (${notificationData.attendanceRate}%)${employeeList}`
+      smsContent = `[ALERT] ${dateFormatted} ${timeRange}\nP:${notificationData.presentCount} L:${notificationData.lateCount} A:${notificationData.absentCount} T:${notificationData.totalEmployees} (${notificationData.attendanceRate}%)${employeeList}`
     } else {
       const slotTimeRange = request.slotStartTime && request.slotEndTime
         ? `${request.slotStartTime} to ${request.slotEndTime}`
@@ -124,7 +128,7 @@ serve(async (req) => {
         }
       }
       
-      smsContent = `SLOT-${notificationData.slotNumber} ${dateFormatted} ${slotTimeRange}\nP:${notificationData.presentCount} L:${notificationData.lateCount} T:${notificationData.totalCount} (${notificationData.attendanceRate}%)${employeeList}`
+      smsContent = `SLOT-${notificationData.slotNumber} ${dateFormatted} ${slotTimeRange}\nP:${notificationData.presentCount} L:${notificationData.lateCount} A:${notificationData.absentCount} T:${notificationData.totalEmployees} (${notificationData.attendanceRate}%)${employeeList}`
     }
 
     // WhatsApp Content - FULL list (up to 1500 characters)
@@ -141,7 +145,7 @@ serve(async (req) => {
           .join('\n')
         
         // Truncate if exceeds 1500 characters
-        const baseMessage = `📊 *ATTENDANCE ALERT*\n${dateFormatted} | ${timeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount}\nTotal: ${notificationData.totalCount} | Rate: ${notificationData.attendanceRate}%`
+        const baseMessage = `📊 *ATTENDANCE ALERT*\n${dateFormatted} | ${timeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount} | Absent: ${notificationData.absentCount}\nTotal: ${notificationData.totalEmployees} | Rate: ${notificationData.attendanceRate}%`
         
         if ((baseMessage + employeeList).length > 1500) {
           // Calculate how many employees we can fit
@@ -158,7 +162,7 @@ serve(async (req) => {
         
         whatsappContent = baseMessage + employeeList
       } else {
-        whatsappContent = `📊 *ATTENDANCE ALERT*\n${dateFormatted} | ${timeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount}\nTotal: ${notificationData.totalCount} | Rate: ${notificationData.attendanceRate}%`
+        whatsappContent = `📊 *ATTENDANCE ALERT*\n${dateFormatted} | ${timeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount} | Absent: ${notificationData.absentCount}\nTotal: ${notificationData.totalEmployees} | Rate: ${notificationData.attendanceRate}%`
       }
     } else {
       const slotTimeRange = request.slotStartTime && request.slotEndTime
@@ -172,7 +176,7 @@ serve(async (req) => {
           .join('\n')
         
         // Truncate if exceeds 1500 characters
-        const baseMessage = `📊 *SLOT-${notificationData.slotNumber} REPORT*\n${dateFormatted} | ${slotTimeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount}\nTotal: ${notificationData.totalCount} | Rate: ${notificationData.attendanceRate}%`
+        const baseMessage = `📊 *SLOT-${notificationData.slotNumber} REPORT*\n${dateFormatted} | ${slotTimeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount} | Absent: ${notificationData.absentCount}\nTotal: ${notificationData.totalEmployees} | Rate: ${notificationData.attendanceRate}%`
         
         if ((baseMessage + employeeList).length > 1500) {
           // Calculate how many employees we can fit
@@ -189,7 +193,7 @@ serve(async (req) => {
         
         whatsappContent = baseMessage + employeeList
       } else {
-        whatsappContent = `📊 *SLOT-${notificationData.slotNumber} REPORT*\n${dateFormatted} | ${slotTimeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount}\nTotal: ${notificationData.totalCount} | Rate: ${notificationData.attendanceRate}%`
+        whatsappContent = `📊 *SLOT-${notificationData.slotNumber} REPORT*\n${dateFormatted} | ${slotTimeRange}\n\nPresent: ${notificationData.presentCount} | Late: ${notificationData.lateCount} | Absent: ${notificationData.absentCount}\nTotal: ${notificationData.totalEmployees} | Rate: ${notificationData.attendanceRate}%`
       }
     }
 
