@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, MapPin, Wifi, Calendar, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Calendar, AlertTriangle, CheckCircle2 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 
 const AttendanceRulesScreen = () => {
@@ -22,19 +22,14 @@ const AttendanceRulesScreen = () => {
       description: "You must be physically present at your assigned office location. The system checks that you are within the office area.",
     },
     {
-      icon: Wifi,
-      title: "Office Wi-Fi Required",
-      description: "You must be connected to the office Wi-Fi network. This helps confirm you are inside the office building.",
-    },
-    {
       icon: CheckCircle2,
       title: "How It Works",
-      description: "When you tap 'Mark Attendance', the app checks your location and Wi-Fi connection automatically. If both are verified, your attendance is recorded.",
+      description: "When you tap 'Mark Attendance', the app checks your location automatically. If verified, your attendance is recorded.",
     },
     {
       icon: AlertTriangle,
       title: "Common Issues",
-      description: "If attendance fails, ensure location permission is enabled, you're connected to office Wi-Fi, and you're within the office premises.",
+      description: "If attendance fails, ensure location permission is enabled and you're within the office premises.",
     },
   ];
 

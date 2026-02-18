@@ -1,7 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
   MapPinOff, 
-  WifiOff, 
   MapPin, 
   Clock, 
   CheckCircle2,
@@ -38,14 +37,6 @@ const AttendanceErrorScreen = () => {
           description: error || "You are not inside office premises. Attendance can only be marked from office location.",
           action: "Please come to office to mark attendance",
           actionButton: "back" as const,
-        };
-      case "OFFICE_WIFI_REQUIRED":
-        return {
-          icon: WifiOff,
-          title: "Office Wi-Fi Required",
-          description: "Please connect to office Wi-Fi to mark attendance.",
-          action: "Connect to your office Wi-Fi network and try again",
-          actionButton: "retry" as const,
         };
       case "UNAUTHORIZED":
         return {

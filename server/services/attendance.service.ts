@@ -1,8 +1,8 @@
 /**
  * Attendance Service
  * Handles attendance marking and validation
- * Phase 3: Attendance marking with strict validation
  * CRITICAL: Attendance window is fetched from database, NOT hardcoded
+ * Validation: Geofencing only (WiFi validation removed)
  */
 
 import { supabase } from '../supabase/client';
@@ -13,8 +13,6 @@ import type {
   TodayAttendanceResponse,
 } from '../types/attendance';
 import { attendanceSettingsService } from './attendance-settings.service';
-import { officeService } from './office.service';
-import { officeNetworkService } from './office-network.service';
 
 /**
  * Get current IST time
@@ -71,13 +69,12 @@ export const attendanceService = {
    * 5. Current time is within window (FROM DATABASE)
    * 6. GPS coordinates provided
    * 7. GPS within office radius (Haversine formula)
-   * 8. IP address on office network (prefix match)
-   * 9. Attendance not already marked today
+   * 8. Attendance not already marked today
    * 
    * @param userProfile - User profile (must be authenticated)
    * @param latitude - GPS latitude
    * @param longitude - GPS longitude
-   * @param ipAddress - Client IP address
+   * @param ipAddress - Client IP address (optional, not used)
    * @returns AttendanceResult with success/error
    */
   async markAttendance(
@@ -128,7 +125,32 @@ export const attendanceService = {
         };
       }
 
-      // Validation 5: Current time is within window (FROM DATABASE)
+      // Validation 5: Check if yesterday's attendance was checked out
+      // This prevents employees from checking in today if they didn't check out yesterday
+      const yesterday = new Date(getCurrentISTTime());
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayDate = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+      
+      const { data: yesterdayAttendance } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', userProfile.id)
+        .eq('date', yesterdayDate)
+        .maybeSingle();
+
+      // @ts-ignore - Supabase type inference issue
+      if (yesterdayAttendance && !yesterdayAttendance.check_out_time) {
+        console.log('  ❌ Yesterday check-out pending');
+        return {
+          success: false,
+          error: 'Previous day check-out is pending. Please contact admin to resolve this issue.',
+          errorCode: 'VALIDATION_FAILED',
+        };
+      }
+
+      console.log('  ✅ Yesterday check-out validation passed');
+
+      // Validation 6: Current time is within window (FROM DATABASE)
       const { isOpen, window, error: windowError } = await attendanceSettingsService.isAttendanceWindowOpen();
       
       if (windowError || !window) {
@@ -156,7 +178,49 @@ export const attendanceService = {
       if (!strictMode) {
         console.log('  ⚠️  Strict mode disabled - skipping GPS/WiFi validation');
         
-        // Validation: Attendance not already marked today
+        // Validation: Check if yesterday's attendance was checked out
+        const yesterday = new Date(getCurrentISTTime());
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayDate = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+        
+        const { data: yesterdayAttendance } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('user_id', userProfile.id)
+          .eq('date', yesterdayDate)
+          .maybeSingle();
+
+        // @ts-ignore - Supabase type inference issue
+        if (yesterdayAttendance && !yesterdayAttendance.check_out_time) {
+          console.log('  ❌ Yesterday check-out pending');
+          return {
+            success: false,
+            error: 'Previous day check-out is pending. Please contact admin to resolve this issue.',
+            errorCode: 'VALIDATION_FAILED',
+          };
+        }
+
+        console.log('  ✅ Yesterday check-out validation passed');
+        
+        // Validation: Check if already marked attendance today (prevent duplicate)
+        const todayDate = getTodayDateIST();
+        const { data: todayAttendance } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('user_id', userProfile.id)
+          .eq('date', todayDate)
+          .maybeSingle();
+
+        if (todayAttendance) {
+          console.log('  ❌ Attendance already marked for today');
+          return {
+            success: false,
+            error: 'Attendance already marked for today',
+            errorCode: 'ATTENDANCE_ALREADY_MARKED',
+          };
+        }
+
+        console.log('  ✅ No duplicate attendance for today');
         const todayDate = getTodayDateIST();
         const { data: existingAttendance } = await supabase
           .from('attendance')
@@ -262,7 +326,7 @@ export const attendanceService = {
       // Strict mode is enabled - continue with GPS/WiFi validation
       console.log('  🔒 Strict mode enabled - performing GPS/WiFi validation');
 
-      // Validation 6: GPS coordinates provided
+      // Validation 7: GPS coordinates provided
       if (latitude === undefined || longitude === undefined) {
         console.log('  ❌ GPS coordinates not provided');
         return {
@@ -272,7 +336,7 @@ export const attendanceService = {
         };
       }
 
-      // Validation 7: GPS within office radius
+      // Validation 8: GPS within office radius
       // SINGLE OFFICE MODE: Always fetch the active office
       const { data: activeOffice, error: officeError } = await supabase
         .from('offices')
@@ -307,54 +371,25 @@ export const attendanceService = {
         office.longitude
       );
 
+      // Get radius from office configuration (config-driven, not hardcoded)
+      const radiusInMeters = office.radius_in_meters || 100; // Fallback to 100m if not set
+
       console.log('  📍 GPS Verification:');
       console.log('    User location:', latitude, longitude);
       console.log('    Office location:', office.latitude, office.longitude);
       console.log('    Distance:', Math.round(distance), 'meters');
-      console.log('    Allowed radius:', office.radius_meters, 'meters');
+      console.log('    Allowed radius:', radiusInMeters, 'meters');
 
-      if (distance > office.radius_meters) {
+      if (distance > radiusInMeters) {
         console.log('  ❌ User is outside office radius');
         return {
           success: false,
-          error: `You are not inside office premises. Distance: ${Math.round(distance)}m (allowed: ${office.radius_meters}m)`,
+          error: `You are not inside office premises. Distance: ${Math.round(distance)}m (allowed: ${radiusInMeters}m)`,
           errorCode: 'OUTSIDE_OFFICE_LOCATION',
         };
       }
 
       console.log('  ✅ GPS verification passed');
-
-      // Validation 8: IP address on office network (MANDATORY)
-      if (!ipAddress) {
-        console.log('  ❌ IP address not provided');
-        return {
-          success: false,
-          error: 'Please connect to office Wi-Fi to mark attendance',
-          errorCode: 'OFFICE_WIFI_REQUIRED',
-        };
-      }
-
-      console.log('  🔍 Verifying Wi-Fi connection...');
-      console.log('    Request IP:', ipAddress);
-
-      // Use the single active office for Wi-Fi verification
-      const { isValid, matchedNetwork } = await officeNetworkService.verifyIPAddress(
-        office.id,
-        ipAddress
-      );
-
-      if (!isValid) {
-        console.log('  ❌ IP address not on office network');
-        return {
-          success: false,
-          error: 'Please connect to office Wi-Fi to mark attendance',
-          errorCode: 'OFFICE_WIFI_REQUIRED',
-        };
-      }
-
-      console.log('  ✅ Wi-Fi verification passed');
-      console.log('    Network:', matchedNetwork?.network_name);
-      console.log('    IP Prefix:', matchedNetwork?.ip_range);
 
       // Validation 9: Attendance not already marked today
       const todayDate = getTodayDateIST();

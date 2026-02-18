@@ -169,12 +169,24 @@ const HistoryScreen = () => {
                         <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                         <p className="font-medium text-sm">{formatDate(record.date)}</p>
                       </div>
-                      {record.check_in_time && (
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                          <p className="text-xs text-muted-foreground">{formatTime(record.check_in_time)}</p>
-                        </div>
-                      )}
+                      <div className="space-y-1">
+                        {record.check_in_time && (
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                            <p className="text-xs text-muted-foreground">
+                              In: {formatTime(record.check_in_time)}
+                            </p>
+                          </div>
+                        )}
+                        {record.check_out_time && (
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                            <p className="text-xs text-muted-foreground">
+                              Out: {formatTime(record.check_out_time)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <StatusBadge status={record.status} />

@@ -88,6 +88,8 @@ const EmployeeManagementScreen = () => {
         description: result.error.message,
         variant: "destructive",
       });
+      setSelectedEmployee(null);
+      setActionType(null);
     } else {
       const actionMessages = {
         activate: `${selectedEmployee.full_name} has been activated successfully`,
@@ -100,12 +102,13 @@ const EmployeeManagementScreen = () => {
         description: actionMessages[actionType],
       });
       
-      // Refresh employee list
-      fetchEmployees();
+      // Close dialog first
+      setSelectedEmployee(null);
+      setActionType(null);
+      
+      // Then refresh employee list
+      await fetchEmployees();
     }
-
-    setSelectedEmployee(null);
-    setActionType(null);
   };
 
   const handleExport = () => {

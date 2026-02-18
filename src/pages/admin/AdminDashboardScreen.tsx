@@ -49,8 +49,8 @@ const AdminDashboardScreen = () => {
 
     fetchDashboardData();
     
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchDashboardData, 30000);
+    // Auto-refresh every 10 seconds for more responsive updates
+    const interval = setInterval(fetchDashboardData, 10000);
     return () => clearInterval(interval);
   }, []);
 

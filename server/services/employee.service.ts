@@ -320,17 +320,61 @@ export const employeeService = {
    */
   async deleteEmployee(userId: string): Promise<{ success: boolean; error: Error | null }> {
     try {
-      // Hard delete - permanently remove the employee
-      // Note: Make sure your database has CASCADE delete rules set up for related tables
-      const { error } = await supabase
+      console.log('🗑️  [DELETE EMPLOYEE] Starting deletion for user:', userId);
+      
+      // First, delete related records manually to avoid foreign key issues
+      // Delete attendance records
+      console.log('  📋 Deleting attendance records...');
+      const { error: attendanceError } = await supabase
+        .from('attendance')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (attendanceError) {
+        console.log('  ⚠️  Warning: Could not delete attendance records:', attendanceError);
+        // Continue anyway - attendance table might not have records
+      } else {
+        console.log('  ✅ Attendance records deleted');
+      }
+      
+      // Delete employee requests
+      console.log('  📋 Deleting employee requests...');
+      const { error: requestsError } = await supabase
+        .from('employee_requests')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (requestsError) {
+        console.log('  ⚠️  Warning: Could not delete employee requests:', requestsError);
+        // Continue anyway
+      } else {
+        console.log('  ✅ Employee requests deleted');
+      }
+      
+      // Finally, delete the profile
+      console.log('  👤 Deleting profile...');
+      const { error: profileError, data: deletedData } = await supabase
         .from('profiles')
         .delete()
-        .eq('id', userId);
+        .eq('id', userId)
+        .select();
 
-      if (error) throw error;
+      console.log('  Delete result:', { error: profileError, data: deletedData });
 
+      if (profileError) {
+        console.log('  ❌ Failed to delete profile:', profileError);
+        throw new Error(`Failed to delete profile: ${profileError.message}`);
+      }
+      
+      if (!deletedData || deletedData.length === 0) {
+        console.log('  ⚠️  No rows were deleted - user might not exist or RLS policy blocking delete');
+        throw new Error('No rows were deleted. Check RLS policies or user existence.');
+      }
+      
+      console.log('  ✅ Employee deleted successfully');
       return { success: true, error: null };
     } catch (err) {
+      console.log('  ❌ Exception during deletion:', err);
       return {
         success: false,
         error: err instanceof Error ? err : new Error('Failed to delete employee'),

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Wifi, Clock, CheckCircle2, Building2, Calendar, AlertCircle } from "lucide-react";
+import { MapPin, Clock, CheckCircle2, Building2, Calendar, AlertCircle } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import BottomNavigation from "@/components/BottomNavigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -156,11 +156,29 @@ const DashboardScreen = () => {
             </div>
 
             {todayAttendance && (
-              <div className="flex items-center gap-2 text-muted-foreground mb-4">
-                <Clock className="w-4 h-4" />
-                <span className="text-sm">
-                  Marked at {formatTime(todayAttendance.check_in_time)}
-                </span>
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-sm">
+                    Check-in: {formatTime(todayAttendance.check_in_time)}
+                  </span>
+                </div>
+                {todayAttendance.check_out_time && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm">
+                      Check-out: {formatTime(todayAttendance.check_out_time)}
+                    </span>
+                  </div>
+                )}
+                {!todayAttendance.check_out_time && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm">
+                      Auto check-out at 6:00 PM
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -173,15 +191,6 @@ const DashboardScreen = () => {
                 <div className="flex-1">
                   <p className="text-sm font-medium">Location</p>
                   <p className="text-xs text-muted-foreground">GPS validation</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                  <Wifi className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Office Wi-Fi</p>
-                  <p className="text-xs text-muted-foreground">WiFi validation</p>
                 </div>
               </div>
             </div>

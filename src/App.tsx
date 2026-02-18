@@ -30,7 +30,6 @@ import AdminReportsScreen from "./pages/admin/AdminReportsScreen";
 import AdminHistoryReportsScreen from "./pages/admin/AdminHistoryReportsScreen";
 import AdminSettingsScreen from "./pages/admin/AdminSettingsScreen";
 import OfficeLocationsScreen from "./pages/admin/settings/OfficeLocationsScreen";
-import WifiNetworksScreen from "./pages/admin/settings/WifiNetworksScreen";
 import GeofencingScreen from "./pages/admin/settings/GeofencingScreen";
 import AttendanceWindowScreen from "./pages/admin/settings/AttendanceWindowScreen";
 import GracePeriodScreen from "./pages/admin/settings/GracePeriodScreen";
@@ -80,8 +79,7 @@ const App = () => (
           <Route path="/admin/settings" element={<AdminSettingsScreen />} />
           
           {/* Admin Settings Sub-routes */}
-          <Route path="/admin/settings/locations" element={<OfficeLocationsScreen />} />
-          <Route path="/admin/settings/wifi" element={<WifiNetworksScreen />} />
+          <Route path="/admin/settings/offices" element={<OfficeLocationsScreen />} />
           <Route path="/admin/settings/geofencing" element={<GeofencingScreen />} />
           <Route path="/admin/settings/window" element={<AttendanceWindowScreen />} />
           <Route path="/admin/settings/grace" element={<GracePeriodScreen />} />

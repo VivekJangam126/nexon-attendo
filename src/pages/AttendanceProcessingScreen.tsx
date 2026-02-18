@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MapPin, Wifi, ShieldCheck, Loader2 } from "lucide-react";
+import { MapPin, ShieldCheck, Loader2 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import { useAuth } from "@/hooks/useAuth";
 import { attendanceService, attendanceSettingsService } from "@server";
 
-type ProcessingStep = "location" | "wifi" | "verifying" | "complete";
+type ProcessingStep = "location" | "verifying" | "complete";
 
 const steps: { key: ProcessingStep; icon: typeof MapPin; label: string; description: string }[] = [
   { key: "location", icon: MapPin, label: "Checking your location", description: "Verifying GPS coordinates" },
-  { key: "wifi", icon: Wifi, label: "Verifying office Wi-Fi", description: "Checking network connection" },
   { key: "verifying", icon: ShieldCheck, label: "Recording attendance", description: "Saving your attendance record" },
 ];
 
@@ -28,85 +27,55 @@ const AttendanceProcessingScreen = () => {
       }
 
       try {
-        // Check strict mode first
+        // Always try to get GPS location (for record-keeping)
+        // But only validate if strict mode is enabled
+        let latitude: number | undefined;
+        let longitude: number | undefined;
+
+        // Step 1: Request GPS location
+        setCurrentStep(0);
+        console.log('📍 Requesting GPS location...');
+        
+        if ('geolocation' in navigator) {
+          try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+              });
+            });
+            
+            latitude = position.coords.latitude;
+            longitude = position.coords.longitude;
+            console.log('✅ GPS location obtained:', latitude, longitude);
+          } catch (gpsError) {
+            console.log('⚠️  GPS error:', gpsError);
+            // GPS denied or failed
+            // If strict mode is enabled, this will be caught by backend validation
+            // If strict mode is disabled, we'll proceed without GPS
+          }
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        setCompletedSteps((prev) => [...prev, 0]);
+
+        // Check strict mode
         const { strictMode } = await attendanceSettingsService.getStrictMode();
         console.log('🔒 Strict mode:', strictMode);
 
-        let latitude: number | undefined;
-        let longitude: number | undefined;
-        let ipAddress: string | undefined;
-
-        if (strictMode) {
-          // Strict mode enabled - perform GPS/WiFi validation
-          // Step 1: Request GPS location
-          setCurrentStep(0);
-          console.log('📍 Requesting GPS location...');
-          
-          if ('geolocation' in navigator) {
-            try {
-              const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                  enableHighAccuracy: true,
-                  timeout: 10000,
-                  maximumAge: 0,
-                });
-              });
-              
-              latitude = position.coords.latitude;
-              longitude = position.coords.longitude;
-              console.log('✅ GPS location obtained:', latitude, longitude);
-            } catch (gpsError) {
-              console.log('❌ GPS error:', gpsError);
-              // GPS denied or failed - will be caught by backend validation
-            }
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          setCompletedSteps((prev) => [...prev, 0]);
-
-          // Step 2: Get IP address (simulated - backend will use actual request IP)
-          setCurrentStep(1);
-          console.log('📡 Checking network...');
-          
-          try {
-            // Try to get public IP (will work if on internet)
-            ipAddress = await fetch('https://api.ipify.org?format=json', { timeout: 3000 } as any)
-              .then(res => res.json())
-              .then(data => data.ip)
-              .catch(() => undefined);
-          } catch (e) {
-            console.log('  Could not fetch public IP');
-          }
-
-          // For demo: If we're testing locally, use a mock office IP
-          if (!ipAddress || !ipAddress.startsWith('192.168.1.')) {
-            console.log('  Using mock office IP for demo');
-            ipAddress = '192.168.1.141'; // Mock office IP for demo
-          }
-
-          console.log('  IP Address:', ipAddress);
-          
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          setCompletedSteps((prev) => [...prev, 1]);
-        } else {
-          // Strict mode disabled - skip GPS/WiFi validation
-          console.log('⚠️  Strict mode disabled - skipping location checks');
-          setCompletedSteps([0, 1]); // Mark first two steps as complete
-        }
-
-        // Step 3: Mark attendance
-        setCurrentStep(2);
+        // Step 2: Mark attendance
+        setCurrentStep(1);
         console.log('💾 Marking attendance...');
 
         const result = await attendanceService.markAttendance(
           profile,
           latitude,
-          longitude,
-          ipAddress
+          longitude
         );
         
         await new Promise((resolve) => setTimeout(resolve, 500));
-        setCompletedSteps((prev) => [...prev, 2]);
+        setCompletedSteps((prev) => [...prev, 1]);
 
         // Navigate based on result
         setTimeout(() => {

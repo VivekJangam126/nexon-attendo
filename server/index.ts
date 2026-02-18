@@ -16,7 +16,6 @@ export { officeService } from './services/office.service';
 export { adminApprovalService } from './services/admin-approval.service';
 export { attendanceService } from './services/attendance.service';
 export { attendanceSettingsService } from './services/attendance-settings.service';
-export { officeNetworkService } from './services/office-network.service';
 export { employeeService } from './services/employee.service';
 export { dashboardService } from './services/dashboard.service';
 export { reportsService } from './services/reports.service';

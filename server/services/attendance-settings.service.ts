@@ -176,9 +176,9 @@ export const attendanceSettingsService = {
         updated_at: new Date().toISOString(),
       };
 
-      // @ts-ignore - Database types not fully generated
       const { error } = await supabase
         .from('attendance_settings')
+        // @ts-ignore - Supabase type inference issue
         .update(updateData)
         .eq('setting_name', 'default_attendance_window');
 
@@ -247,6 +247,7 @@ export const attendanceSettingsService = {
 
       const { error } = await supabase
         .from('attendance_settings')
+        // @ts-ignore - Supabase type inference issue
         .update({
           grace_period_minutes: gracePeriodMinutes,
           updated_by: adminId,
@@ -311,6 +312,7 @@ export const attendanceSettingsService = {
 
       const { error } = await supabase
         .from('attendance_settings')
+        // @ts-ignore - Supabase type inference issue
         .update({
           strict_mode: strictMode,
           updated_by: adminId,
