@@ -57,7 +57,7 @@ export interface Database {
           country: string
           latitude: number | null
           longitude: number | null
-          radius_meters: number
+          radius_in_meters: number
           wifi_ssids: string[] | null
           is_active: boolean
           created_at: string
@@ -72,7 +72,7 @@ export interface Database {
           country: string
           latitude?: number | null
           longitude?: number | null
-          radius_meters?: number
+          radius_in_meters?: number
           wifi_ssids?: string[] | null
           is_active?: boolean
           created_at?: string
@@ -87,7 +87,7 @@ export interface Database {
           country?: string
           latitude?: number | null
           longitude?: number | null
-          radius_meters?: number
+          radius_in_meters?: number
           wifi_ssids?: string[] | null
           is_active?: boolean
           created_at?: string

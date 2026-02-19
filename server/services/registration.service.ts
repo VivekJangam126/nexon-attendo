@@ -19,29 +19,30 @@ export const registrationService = {
    */
   async registerEmployee(data: RegistrationData): Promise<RegistrationResponse> {
     try {
-      const { email, password, full_name } = data;
+      const { email, password, full_name, office_id } = data;
 
       console.log('🔍 [REGISTRATION] Starting employee registration...');
       console.log('  Email:', email);
+      console.log('  Office ID:', office_id);
 
-      // SINGLE OFFICE MODE: Get the active office (SmartMatrix Pvt Ltd)
-      const { data: activeOffice, error: officeError } = await supabase
+      // Verify the selected office exists and is active
+      const { data: selectedOffice, error: officeError } = await supabase
         .from('offices')
         .select('id, name')
+        .eq('id', office_id)
         .eq('is_active', true)
         .single();
 
-      if (officeError || !activeOffice) {
-        console.log('  ❌ No active office found');
+      if (officeError || !selectedOffice) {
+        console.log('  ❌ Selected office not found or inactive');
         return {
           success: false,
           userId: null,
-          error: new Error('Office not configured. Please contact admin.'),
+          error: new Error('Selected office is not available. Please contact admin.'),
         };
       }
 
-      console.log('  🏢 Auto-assigning to office:', activeOffice.name);
-      const office_id = activeOffice.id;
+      console.log('  🏢 Assigning to office:', selectedOffice.name);
 
       // Step 1: Create auth user using Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -114,7 +115,7 @@ export const registrationService = {
       // Step 4: Immediately sign out the user (they cannot login until approved)
       await supabase.auth.signOut();
 
-      console.log('  ✅ Registration successful, assigned to:', activeOffice.name);
+      console.log('  ✅ Registration successful, assigned to:', selectedOffice.name);
 
       return {
         success: true,
