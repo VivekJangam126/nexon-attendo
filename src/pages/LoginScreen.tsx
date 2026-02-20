@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, Eye, EyeOff, AlertCircle } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
+import { useAuth } from "@/hooks/useAuth";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,48 +16,89 @@ import {
 
 const LoginScreen = () => {
   const navigate = useNavigate();
-  const [employeeId, setEmployeeId] = useState("");
+  const { login, logout, profile, user } = useAuth();
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Check if logged-in user is employee
+  useEffect(() => {
+    if (user && profile && !isLoading) {
+      if (profile.role === 'employee') {
+        // Check status and navigate accordingly
+        if (profile.status === 'pending') {
+          navigate("/registration-pending");
+        } else if (profile.status === 'rejected' || profile.status === 'blocked') {
+          navigate("/account-blocked");
+        } else if (profile.status === 'active') {
+          navigate("/dashboard");
+        }
+      } else if (profile.role === 'admin') {
+        // Admin trying to use employee login - redirect to admin login
+        logout();
+        setError("Please use the admin login portal.");
+      }
+    }
+  }, [user, profile, navigate, logout, isLoading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    if (!employeeId || !password) {
-      setError("Please enter your Employee ID and password");
+    if (!email || !password) {
+      setError("Please enter your email and password");
       setIsLoading(false);
       return;
     }
 
-    // Demo account state handling
-    if (employeeId === "pending") {
-      setIsLoading(false);
-      navigate("/account-blocked?reason=pending");
-      return;
-    }
-    if (employeeId === "rejected") {
-      setIsLoading(false);
-      navigate("/account-blocked?reason=rejected");
-      return;
-    }
-    if (employeeId === "deactivated") {
-      setIsLoading(false);
-      navigate("/account-blocked?reason=deactivated");
-      return;
-    }
+    try {
+      const { error: loginError } = await login(email, password);
 
-    if (employeeId && password) {
-      navigate("/dashboard");
-    } else {
-      setError("Invalid credentials. Please try again.");
+      console.log('🔐 Login attempt result:', { loginError });
+
+      if (loginError) {
+        const errorMsg = loginError.message.toLowerCase();
+        
+        console.log('❌ Login error:', errorMsg);
+        
+        // Handle rate limit errors
+        if (errorMsg.includes('too many') || errorMsg.includes('rate limit')) {
+          setError(loginError.message);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Handle JWT/token errors that might indicate time issues
+        if (errorMsg.includes('jwt') || errorMsg.includes('token') || errorMsg.includes('expired') || errorMsg.includes('invalid')) {
+          setError("Login failed. Please ensure your device date and time are correct and synced with network time, then try again.");
+          setIsLoading(false);
+          return;
+        }
+        
+        // Handle status-based errors
+        if (errorMsg.includes('pending')) {
+          navigate("/registration-pending");
+        } else if (errorMsg.includes('rejected')) {
+          navigate("/account-blocked?reason=rejected");
+        } else if (errorMsg.includes('blocked') || errorMsg.includes('deactivated')) {
+          navigate("/account-blocked?reason=deactivated");
+        } else {
+          setError(loginError.message);
+        }
+        setIsLoading(false);
+      } else {
+        // Login successful - useEffect will handle navigation
+        console.log('✅ Login successful');
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error('💥 Login exception:', err);
+      setError("An unexpected error occurred. Please try again.");
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
@@ -87,19 +129,19 @@ const LoginScreen = () => {
 
           {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-4 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-            {/* Employee ID */}
+            {/* Email */}
             <div>
-              <label htmlFor="employeeId" className="block text-sm font-medium text-foreground mb-2">
-                Employee ID
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+                Email Address
               </label>
               <input
-                id="employeeId"
-                type="text"
-                value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
-                placeholder="Enter your Employee ID"
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
                 className="input-field"
-                autoComplete="username"
+                autoComplete="email"
               />
             </div>
 
@@ -179,7 +221,7 @@ const LoginScreen = () => {
 
         {/* Footer */}
         <div className="text-center py-4">
-          <p className="text-caption">Nexon Pvt Ltd</p>
+          <p className="text-caption">Nexus Pvt Ltd</p>
         </div>
       </div>
     </MobileContainer>

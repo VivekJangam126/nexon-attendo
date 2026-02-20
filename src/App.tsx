@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
 import SplashScreen from "./pages/SplashScreen";
 import LoginScreen from "./pages/LoginScreen";
 import RegisterScreen from "./pages/RegisterScreen";
@@ -26,25 +27,29 @@ import AdminEmployeeDetailScreen from "./pages/admin/AdminEmployeeDetailScreen";
 import AdminAddEmployeeScreen from "./pages/admin/AdminAddEmployeeScreen";
 import AdminPendingApprovalsScreen from "./pages/admin/AdminPendingApprovalsScreen";
 import AdminReportsScreen from "./pages/admin/AdminReportsScreen";
+import AdminHistoryReportsScreen from "./pages/admin/AdminHistoryReportsScreen";
 import AdminSettingsScreen from "./pages/admin/AdminSettingsScreen";
 import OfficeLocationsScreen from "./pages/admin/settings/OfficeLocationsScreen";
-import WifiNetworksScreen from "./pages/admin/settings/WifiNetworksScreen";
 import GeofencingScreen from "./pages/admin/settings/GeofencingScreen";
 import AttendanceWindowScreen from "./pages/admin/settings/AttendanceWindowScreen";
 import GracePeriodScreen from "./pages/admin/settings/GracePeriodScreen";
+import CheckoutSettingsScreen from "./pages/admin/settings/CheckoutSettingsScreen";
 import HelpCenterScreen from "./pages/admin/settings/HelpCenterScreen";
 import TermsPoliciesScreen from "./pages/admin/settings/TermsPoliciesScreen";
+import NotificationSettingsScreen from "./pages/admin/settings/NotificationSettingsScreen";
+import EmployeeManagementScreen from "./pages/admin/settings/EmployeeManagementScreen";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
           {/* Employee Routes */}
           <Route path="/" element={<SplashScreen />} />
           <Route path="/login" element={<LoginScreen />} />
@@ -71,22 +76,26 @@ const App = () => (
           <Route path="/admin/add-employee" element={<AdminAddEmployeeScreen />} />
           <Route path="/admin/pending-approvals" element={<AdminPendingApprovalsScreen />} />
           <Route path="/admin/reports" element={<AdminReportsScreen />} />
+          <Route path="/admin/history" element={<AdminHistoryReportsScreen />} />
           <Route path="/admin/settings" element={<AdminSettingsScreen />} />
           
           {/* Admin Settings Sub-routes */}
-          <Route path="/admin/settings/locations" element={<OfficeLocationsScreen />} />
-          <Route path="/admin/settings/wifi" element={<WifiNetworksScreen />} />
+          <Route path="/admin/settings/offices" element={<OfficeLocationsScreen />} />
           <Route path="/admin/settings/geofencing" element={<GeofencingScreen />} />
           <Route path="/admin/settings/window" element={<AttendanceWindowScreen />} />
           <Route path="/admin/settings/grace" element={<GracePeriodScreen />} />
+          <Route path="/admin/settings/checkout" element={<CheckoutSettingsScreen />} />
           <Route path="/admin/settings/help" element={<HelpCenterScreen />} />
           <Route path="/admin/settings/terms" element={<TermsPoliciesScreen />} />
+          <Route path="/admin/settings/notifications" element={<NotificationSettingsScreen />} />
+          <Route path="/admin/settings/employee-management" element={<EmployeeManagementScreen />} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
-    </TooltipProvider>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

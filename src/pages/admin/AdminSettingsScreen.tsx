@@ -1,44 +1,96 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  Building2, Clock, MapPin, Wifi, Bell, Shield, Users,
-  ChevronRight, HelpCircle, FileText, ToggleLeft, ToggleRight
+  Building2, Clock, MapPin, Bell, Users,
+  ChevronRight, HelpCircle, FileText, Lock, Shield, LogOut
 } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
+import { attendanceSettingsService } from "@server";
+import { toast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/hooks/useAuth";
 
 const AdminSettingsScreen = () => {
   const navigate = useNavigate();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const { profile } = useAuth();
+  const [attendanceWindow, setAttendanceWindow] = useState("Loading...");
   const [strictMode, setStrictMode] = useState(false);
+  const [updatingStrictMode, setUpdatingStrictMode] = useState(false);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const { window } = await attendanceSettingsService.getAttendanceWindow();
+      if (window) {
+        setAttendanceWindow(`${window.start_time} - ${window.end_time}`);
+      }
+      
+      const { strictMode: currentStrictMode } = await attendanceSettingsService.getStrictMode();
+      setStrictMode(currentStrictMode);
+    };
+
+    fetchSettings();
+  }, []);
+
+  const handleStrictModeToggle = async (enabled: boolean) => {
+    if (!profile) return;
+    
+    setUpdatingStrictMode(true);
+    const { error } = await attendanceSettingsService.updateStrictMode(enabled, profile.id);
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setStrictMode(enabled);
+      toast({
+        title: "Settings Updated",
+        description: `GPS validation ${enabled ? 'enabled' : 'disabled'}.`,
+      });
+    }
+    
+    setUpdatingStrictMode(false);
+  };
+
+  const handleComingSoon = () => {
+    toast({
+      title: "Coming Soon",
+      description: "This feature is under development and will be available soon.",
+    });
+  };
 
   const sections = [
     {
       title: "Office Configuration",
       items: [
-        { icon: Building2, label: "Office Locations", desc: "Manage office premises", path: "/admin/settings/locations" },
-        { icon: Wifi, label: "Wi-Fi Networks", desc: "Configure allowed networks", path: "/admin/settings/wifi" },
-        { icon: MapPin, label: "Geofencing", desc: "Set location boundaries", path: "/admin/settings/geofencing" },
+        { icon: Building2, label: "Office Locations", desc: "Manage office locations", path: "/admin/settings/offices", disabled: false },
+        { icon: MapPin, label: "Geofencing", desc: "GPS radius settings", path: "/admin/settings/geofencing", disabled: false },
       ],
     },
     {
       title: "Attendance Rules",
       items: [
-        { icon: Clock, label: "Attendance Window", desc: "9:00 AM - 6:00 PM", path: "/admin/settings/window" },
-        { icon: Clock, label: "Grace Period", desc: "15 minutes after start time", path: "/admin/settings/grace" },
+        { icon: Clock, label: "Attendance Window", desc: attendanceWindow, path: "/admin/settings/window", disabled: false },
+        { icon: Clock, label: "Grace Period", desc: "Late arrival tolerance", path: "/admin/settings/grace", disabled: false },
+        { icon: LogOut, label: "Checkout Settings", desc: "Default checkout time", path: "/admin/settings/checkout", disabled: false },
+        { icon: Shield, label: "GPS Validation", desc: strictMode ? "Required" : "Optional", path: null, disabled: false, isToggle: true },
+        { icon: Bell, label: "Notifications", desc: "SMS & Email alerts", path: "/admin/settings/notifications", disabled: false },
       ],
     },
     {
       title: "User Management",
       items: [
-        { icon: Users, label: "Employee Management", desc: "Add, edit, or remove employees", path: "/admin/employees" },
-        { icon: Clock, label: "Pending Approvals", desc: "Review registration requests", path: "/admin/pending-approvals" },
+        { icon: Users, label: "Employee Management", desc: "Activate, deactivate, or delete", path: "/admin/settings/employee-management", disabled: false },
+        { icon: Clock, label: "Pending Approvals", desc: "Review registration requests", path: "/admin/pending-approvals", disabled: false },
       ],
     },
     {
       title: "Support",
       items: [
-        { icon: HelpCircle, label: "Help Center", desc: "FAQs and documentation", path: "/admin/settings/help" },
-        { icon: FileText, label: "Terms & Policies", desc: "Legal information", path: "/admin/settings/terms" },
+        { icon: HelpCircle, label: "Help Center", desc: "Coming Soon", path: null, disabled: true },
+        { icon: FileText, label: "Terms & Policies", desc: "Coming Soon", path: null, disabled: true },
       ],
     },
   ];
@@ -57,58 +109,61 @@ const AdminSettingsScreen = () => {
               <div key={si} className="animate-fade-in-up" style={{ animationDelay: `${si * 0.05}s` }}>
                 <h2 className="text-overline mb-3">{section.title}</h2>
                 <div className="card-elevated divide-y divide-border">
-                  {section.items.map((item, ii) => (
-                    <button key={ii} onClick={() => navigate(item.path)} className="flex items-center gap-4 p-4 w-full hover:bg-muted/50 transition-colors">
-                      <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-                        <item.icon className="w-5 h-5 text-primary" />
+                  {section.items.map((item: any, ii) => (
+                    item.isToggle ? (
+                      <div 
+                        key={ii} 
+                        className="flex items-center gap-4 p-4 w-full"
+                      >
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-accent">
+                          <item.icon className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="font-medium">{item.label}</p>
+                          <p className="text-xs text-muted-foreground">{item.desc}</p>
+                        </div>
+                        <Switch
+                          checked={strictMode}
+                          onCheckedChange={handleStrictModeToggle}
+                          disabled={updatingStrictMode}
+                        />
                       </div>
-                      <div className="flex-1 text-left">
-                        <p className="font-medium">{item.label}</p>
-                        <p className="text-xs text-muted-foreground">{item.desc}</p>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                    </button>
+                    ) : (
+                      <button 
+                        key={ii} 
+                        onClick={() => item.disabled ? handleComingSoon() : navigate(item.path!)} 
+                        className={`flex items-center gap-4 p-4 w-full transition-colors ${
+                          item.disabled 
+                            ? 'opacity-60 cursor-not-allowed' 
+                            : 'hover:bg-muted/50'
+                        }`}
+                        disabled={item.disabled}
+                      >
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          item.disabled ? 'bg-muted' : 'bg-accent'
+                        }`}>
+                          <item.icon className={`w-5 h-5 ${item.disabled ? 'text-muted-foreground' : 'text-primary'}`} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{item.label}</p>
+                            {item.disabled && <Lock className="w-3 h-3 text-muted-foreground" />}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{item.desc}</p>
+                        </div>
+                        {!item.disabled && <ChevronRight className="w-5 h-5 text-muted-foreground" />}
+                      </button>
+                    )
                   ))}
                 </div>
               </div>
             ))}
-
-            {/* Toggles */}
-            <div className="animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-              <h2 className="text-overline mb-3">System</h2>
-              <div className="card-elevated divide-y divide-border">
-                <div className="flex items-center gap-4 p-4">
-                  <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium">Strict Mode</p>
-                    <p className="text-xs text-muted-foreground">Require both location & Wi-Fi</p>
-                  </div>
-                  <button onClick={() => setStrictMode(!strictMode)} className="text-primary">
-                    {strictMode ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
-                  </button>
-                </div>
-                <div className="flex items-center gap-4 p-4">
-                  <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-                    <Bell className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium">Push Notifications</p>
-                    <p className="text-xs text-muted-foreground">Daily attendance alerts</p>
-                  </div>
-                  <button onClick={() => setNotificationsEnabled(!notificationsEnabled)} className="text-primary">
-                    {notificationsEnabled ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Version */}
           <div className="text-center pt-8 pb-4">
-            <p className="text-xs text-muted-foreground">Nexon Attendance Admin v1.0.0</p>
-            <p className="text-xs text-muted-foreground">© 2024 Nexon Pvt Ltd</p>
+            <p className="text-xs text-muted-foreground">Nexus Attendo Admin v1.0.0</p>
+            <p className="text-xs text-muted-foreground">© 2024 Nexus Pvt Ltd</p>
           </div>
         </div>
       </div>

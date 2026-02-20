@@ -1,36 +1,121 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { MapPin, Wifi, ShieldCheck, Loader2 } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { MapPin, ShieldCheck, Loader2 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
+import { useAuth } from "@/hooks/useAuth";
+import { attendanceService, attendanceSettingsService } from "@server";
+import { getDeviceFingerprint, getUserAgent } from "@/utils/device-fingerprint";
 
-type ProcessingStep = "location" | "wifi" | "verifying" | "complete";
+type ProcessingStep = "location" | "verifying" | "complete";
 
 const steps: { key: ProcessingStep; icon: typeof MapPin; label: string; description: string }[] = [
-  { key: "location", icon: MapPin, label: "Checking your location", description: "Verifying you're at the office" },
-  { key: "wifi", icon: Wifi, label: "Verifying office Wi-Fi", description: "Confirming network connection" },
+  { key: "location", icon: MapPin, label: "Checking your location", description: "Verifying GPS coordinates" },
   { key: "verifying", icon: ShieldCheck, label: "Recording attendance", description: "Saving your attendance record" },
 ];
 
 const AttendanceProcessingScreen = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { profile } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
   useEffect(() => {
-    const processSteps = async () => {
-      for (let i = 0; i < steps.length; i++) {
-        setCurrentStep(i);
-        await new Promise((resolve) => setTimeout(resolve, 1200));
-        setCompletedSteps((prev) => [...prev, i]);
+    const processAttendance = async () => {
+      if (!profile) {
+        navigate("/login");
+        return;
       }
-      // Navigate to success after all steps complete
-      setTimeout(() => {
-        navigate("/attendance-success");
-      }, 500);
+
+      try {
+        // Always try to get GPS location (for record-keeping)
+        // But only validate if strict mode is enabled
+        let latitude: number | undefined;
+        let longitude: number | undefined;
+
+        // Step 1: Request GPS location
+        setCurrentStep(0);
+        console.log('📍 Requesting GPS location...');
+        
+        if ('geolocation' in navigator) {
+          try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+              });
+            });
+            
+            latitude = position.coords.latitude;
+            longitude = position.coords.longitude;
+            console.log('✅ GPS location obtained:', latitude, longitude);
+          } catch (gpsError) {
+            console.log('⚠️  GPS error:', gpsError);
+            // GPS denied or failed
+            // If strict mode is enabled, this will be caught by backend validation
+            // If strict mode is disabled, we'll proceed without GPS
+          }
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        setCompletedSteps((prev) => [...prev, 0]);
+
+        // Check strict mode
+        const { strictMode } = await attendanceSettingsService.getStrictMode();
+        console.log('🔒 Strict mode:', strictMode);
+
+        // Step 2: Mark attendance
+        setCurrentStep(1);
+        console.log('💾 Marking attendance...');
+
+        // Get device fingerprint and user agent for tracking
+        const deviceId = getDeviceFingerprint();
+        const userAgent = getUserAgent();
+        console.log('📱 Device ID:', deviceId.substring(0, 20) + '...');
+
+        const result = await attendanceService.markAttendance(
+          profile,
+          latitude,
+          longitude,
+          undefined, // IP address will be extracted on backend
+          deviceId,
+          userAgent
+        );
+        
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        setCompletedSteps((prev) => [...prev, 1]);
+
+        // Navigate based on result
+        setTimeout(() => {
+          if (result.success) {
+            navigate("/attendance-success", { 
+              state: { 
+                attendance: result.attendance 
+              } 
+            });
+          } else {
+            navigate("/attendance-error", { 
+              state: { 
+                error: 'error' in result ? result.error : 'Failed to mark attendance',
+                errorCode: 'errorCode' in result ? result.errorCode : 'VALIDATION_FAILED'
+              } 
+            });
+          }
+        }, 500);
+      } catch (error) {
+        console.error('❌ Processing error:', error);
+        navigate("/attendance-error", { 
+          state: { 
+            error: 'Failed to process attendance',
+            errorCode: 'VALIDATION_FAILED'
+          } 
+        });
+      }
     };
 
-    processSteps();
-  }, [navigate]);
+    processAttendance();
+  }, [navigate, profile]);
 
   return (
     <MobileContainer>

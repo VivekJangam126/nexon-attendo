@@ -1,0 +1,28 @@
+{
+  "cli": {
+    "version": ">= 5.2.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "node": "20.11.1"
+    },
+    "preview": {
+      "distribution": "internal",
+      "node": "20.11.1",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "node": "20.11.1",
+      "android": {
+        "buildType": "apk"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

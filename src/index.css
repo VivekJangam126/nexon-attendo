@@ -3,11 +3,12 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Nexon Attendance - Corporate Design System
+/* Nexus Attendo - Corporate Design System
    Professional, trustworthy, enterprise-grade appearance
    Colors are HSL for theme consistency
 */
@@ -190,7 +191,14 @@
   /* Mobile app container styling */
   .mobile-container {
     @apply mx-auto min-h-screen bg-background relative;
-    max-width: 430px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  @media (min-width: 640px) {
+    .mobile-container {
+      max-width: 430px;
+    }
   }
 
   @media (min-width: 768px) {
@@ -282,19 +290,19 @@
 
   /* Bottom navigation */
   .bottom-nav {
-    @apply fixed bottom-0 left-1/2 -translate-x-1/2 w-full bg-card border-t border-border px-4 py-2 safe-area-bottom;
-    max-width: 430px;
+    @apply fixed bottom-0 left-1/2 -translate-x-1/2 bg-card border-t border-border px-4 py-2 safe-area-bottom;
+    width: min(100vw, 430px);
   }
 
   @media (min-width: 768px) {
     .bottom-nav {
-      max-width: 480px;
+      width: 480px;
     }
   }
 
   @media (min-width: 1024px) {
     .bottom-nav {
-      max-width: 520px;
+      width: 520px;
     }
   }
 
@@ -313,6 +321,23 @@
 
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Prevent body scroll when fixed elements are present on mobile */
+  @media (max-width: 1023px) {
+    html, body {
+      position: fixed;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+    }
+    
+    #root {
+      position: fixed;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+    }
   }
 
   /* Loading spinner */
@@ -413,4 +438,36 @@
   .bg-destructive-muted {
     background-color: hsl(var(--destructive-muted));
   }
+
+  /* Hide scrollbar utility */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Custom scrollbar styles for time picker */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary));
+  border-radius: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.8);
 }

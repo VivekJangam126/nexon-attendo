@@ -1,22 +1,36 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, Eye, EyeOff, AlertCircle, Shield } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
+import { useAuth } from "@/hooks/useAuth";
 
 const AdminLoginScreen = () => {
   const navigate = useNavigate();
+  const { login, logout, profile, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Check if logged-in user is admin
+  useEffect(() => {
+    if (user && profile && !isLoading) {
+      if (profile.role === 'admin') {
+        // User is admin - navigate to dashboard
+        navigate("/admin/dashboard");
+      } else if (profile.role === 'employee') {
+        // User is employee - logout and show error
+        logout();
+        setError("Access denied. This portal is for administrators only. Please use the employee login.");
+      }
+    }
+  }, [user, profile, navigate, logout, isLoading]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
-
-    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     if (!email || !password) {
       setError("Please enter your email and password");
@@ -24,13 +38,26 @@ const AdminLoginScreen = () => {
       return;
     }
 
-    // Demo: Accept any credentials for prototype
-    if (email && password) {
-      navigate("/admin/dashboard");
-    } else {
-      setError("Invalid credentials. Please try again.");
+    try {
+      const { error: loginError } = await login(email, password);
+
+      if (loginError) {
+        setError(loginError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      // Wait for profile to be loaded, then check role
+      // Using a small delay to ensure profile is fetched
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Profile should now be available from useAuth
+      // We'll check it in a useEffect instead
+      setIsLoading(false);
+    } catch (err) {
+      setError("An unexpected error occurred. Please try again.");
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
@@ -77,7 +104,7 @@ const AdminLoginScreen = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@nexon.com"
+                placeholder="admin@nexus.com"
                 className="input-field"
                 autoComplete="email"
               />
@@ -135,7 +162,7 @@ const AdminLoginScreen = () => {
         </div>
 
         <div className="text-center pt-4">
-          <p className="text-caption">Nexon Pvt Ltd</p>
+          <p className="text-caption">Nexus Pvt Ltd</p>
         </div>
       </div>
     </div>

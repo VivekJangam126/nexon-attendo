@@ -1,27 +1,39 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, Eye, EyeOff, AlertCircle, ArrowLeft } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
-
-const departments = ["Engineering", "Design", "Marketing", "HR", "Finance", "Operations"];
-const offices = ["Nexon Pvt Ltd – Head Office", "Nexon Pvt Ltd – Branch Office"];
+import { registrationService, officeService } from "@server";
+import type { Office } from "@server";
 
 const RegisterScreen = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: "",
     email: "",
-    employeeId: "",
-    department: "",
-    role: "",
-    officeLocation: "",
+    officeId: "",
     password: "",
     confirmPassword: "",
   });
+  const [offices, setOffices] = useState<Office[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingOffices, setLoadingOffices] = useState(true);
+
+  // Fetch offices on mount
+  useEffect(() => {
+    const fetchOffices = async () => {
+      const { offices: officeList, error: officeError } = await officeService.getActiveOffices();
+      if (officeError) {
+        setError("Failed to load offices. Please refresh the page.");
+      } else {
+        setOffices(officeList);
+      }
+      setLoadingOffices(false);
+    };
+    fetchOffices();
+  }, []);
 
   const updateField = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -31,7 +43,7 @@ const RegisterScreen = () => {
     e.preventDefault();
     setError(null);
 
-    if (!form.fullName || !form.email || !form.department || !form.role || !form.officeLocation || !form.password || !form.confirmPassword) {
+    if (!form.fullName || !form.email || !form.officeId || !form.password || !form.confirmPassword) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -47,9 +59,27 @@ const RegisterScreen = () => {
     }
 
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    navigate("/registration-pending", { state: { name: form.fullName, email: form.email } });
+
+    try {
+      const { success, error: regError } = await registrationService.registerEmployee({
+        email: form.email,
+        password: form.password,
+        full_name: form.fullName,
+        office_id: form.officeId,
+      });
+
+      if (regError || !success) {
+        setError(regError?.message || "Registration failed. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Registration successful - navigate to pending screen
+      navigate("/registration-pending", { state: { name: form.fullName, email: form.email } });
+    } catch (err) {
+      setError("An unexpected error occurred. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -87,28 +117,21 @@ const RegisterScreen = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Employee ID (optional)</label>
-              <input type="text" value={form.employeeId} onChange={(e) => updateField("employeeId", e.target.value)} placeholder="If already assigned" className="input-field" />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Department *</label>
-              <select value={form.department} onChange={(e) => updateField("department", e.target.value)} className="input-field">
-                <option value="">Select department</option>
-                {departments.map((d) => (<option key={d} value={d}>{d}</option>))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Role / Designation *</label>
-              <input type="text" value={form.role} onChange={(e) => updateField("role", e.target.value)} placeholder="e.g. Software Developer" className="input-field" />
-            </div>
-
-            <div>
               <label className="block text-sm font-medium text-foreground mb-2">Office Location *</label>
-              <select value={form.officeLocation} onChange={(e) => updateField("officeLocation", e.target.value)} className="input-field">
-                <option value="">Select office</option>
-                {offices.map((o) => (<option key={o} value={o}>{o}</option>))}
+              <select 
+                value={form.officeId} 
+                onChange={(e) => updateField("officeId", e.target.value)} 
+                className="input-field"
+                disabled={loadingOffices}
+              >
+                <option value="">
+                  {loadingOffices ? "Loading offices..." : "Select office"}
+                </option>
+                {offices.map((office) => (
+                  <option key={office.id} value={office.id}>
+                    {office.name} - {office.city}
+                  </option>
+                ))}
               </select>
             </div>
 

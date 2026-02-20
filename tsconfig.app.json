@@ -24,8 +24,10 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@server": ["./server/index.ts"],
+      "@server/*": ["./server/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "server"]
 }

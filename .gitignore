@@ -1,16 +1,34 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+*.test.js
+test-*.js
+verify-*.js
+test-*.ps1
+verify-*.ps1
+
+# Production
+/build
+/dist
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+
 # Logs
-logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
+*.log
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +40,51 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase
+.temp/
+supabase/.temp/
+
+# Vercel
+.vercel/
+
+# Build tools
+.cache/
+.parcel-cache/
+
+# Lock files (keep only one)
+bun.lockb
+package-lock.json
+yarn.lock
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Supabase CLI
+supabase-cli/
+supabase-cli.zip
+supabase-cli.tar.gz
+
+# Documentation (keep only final versions)
+*_SUMMARY.md
+*_IMPLEMENTATION.md
+*_FEATURE.md
+DEBUG_*.md
+TESTING_*.md
+UPDATE_*.sql
+CHECK_*.sql
+DEPLOY_*.md
+!docs/
+
+# Temporary SQL files
+UPDATE_*.sql
+CHECK_*.sql
+FIX_*.sql
+TESTING_*.sql
