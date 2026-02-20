@@ -7,11 +7,14 @@
 import { supabase } from '../supabase/client';
 import type { AuthResponse, SessionResponse, UserResponse } from '../types/auth';
 import { profileService } from './profile.service';
+import { rateLimitService } from './rate-limit.service';
+import { extractClientIP } from '../utils/ip-extractor';
 
 export const authService = {
   /**
    * Login with email and password
    * Phase 2: Enforces login restrictions based on user status
+   * Phase 2 Security: Rate limiting (5 attempts per 10 minutes)
    * SINGLE OFFICE MODE: Auto-assigns office if missing
    * - pending → login blocked
    * - rejected → login blocked
@@ -19,9 +22,32 @@ export const authService = {
    * 
    * @param email - User email
    * @param password - User password
+   * @param ipAddress - Client IP address (optional, for rate limiting)
    * @returns AuthResponse with user, session, and error
    */
-  async login(email: string, password: string): Promise<AuthResponse> {
+  async login(email: string, password: string, ipAddress?: string): Promise<AuthResponse> {
+    // ============================================
+    // RATE LIMITING CHECK (FIRST LINE OF DEFENSE)
+    // ============================================
+    const clientIP = ipAddress || 'unknown';
+    console.log('🔒 [RATE LIMIT] Checking login rate limit for:', clientIP, email);
+    
+    const rateLimitCheck = await rateLimitService.checkLogin(clientIP, email);
+    
+    if (!rateLimitCheck.allowed) {
+      console.log('  ❌ Rate limit exceeded');
+      return {
+        user: null,
+        session: null,
+        error: {
+          name: 'RateLimitError',
+          message: `Too many login attempts. Please try again at ${rateLimitCheck.resetAt.toLocaleTimeString()}.`,
+        } as any,
+      };
+    }
+    
+    console.log(`  ✅ Rate limit OK (${rateLimitCheck.remaining} remaining)`);
+
     // Step 1: Authenticate with Supabase
     const { data, error } = await supabase.auth.signInWithPassword({
       email,

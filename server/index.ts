@@ -21,6 +21,8 @@ export { dashboardService } from './services/dashboard.service';
 export { reportsService } from './services/reports.service';
 export { notificationSettingsService } from './services/notification-settings.service';
 export { notificationTriggerService } from './services/notification-trigger.service';
+export { rateLimitService } from './services/rate-limit.service';
+export { auditLogService } from './services/audit-log.service';
 // NOTE: Email and PDF services are server-only and should NOT be imported in frontend
 // They are used only in API endpoints (server/api/send-report-email.ts)
 // export { emailReportService } from './services/email-report.service';
@@ -106,3 +108,9 @@ export {
   getStatusText,
   getRoleText,
 } from './utils/status';
+
+export {
+  extractClientIP,
+  isValidIP,
+  sanitizeIP,
+} from './utils/ip-extractor';

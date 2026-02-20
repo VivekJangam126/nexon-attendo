@@ -4,6 +4,7 @@ import { MapPin, ShieldCheck, Loader2 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import { useAuth } from "@/hooks/useAuth";
 import { attendanceService, attendanceSettingsService } from "@server";
+import { getDeviceFingerprint, getUserAgent } from "@/utils/device-fingerprint";
 
 type ProcessingStep = "location" | "verifying" | "complete";
 
@@ -68,10 +69,18 @@ const AttendanceProcessingScreen = () => {
         setCurrentStep(1);
         console.log('💾 Marking attendance...');
 
+        // Get device fingerprint and user agent for tracking
+        const deviceId = getDeviceFingerprint();
+        const userAgent = getUserAgent();
+        console.log('📱 Device ID:', deviceId.substring(0, 20) + '...');
+
         const result = await attendanceService.markAttendance(
           profile,
           latitude,
-          longitude
+          longitude,
+          undefined, // IP address will be extracted on backend
+          deviceId,
+          userAgent
         );
         
         await new Promise((resolve) => setTimeout(resolve, 500));

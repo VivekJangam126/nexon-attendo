@@ -60,6 +60,13 @@ const LoginScreen = () => {
       if (loginError) {
         const errorMsg = loginError.message.toLowerCase();
         
+        // Handle rate limit errors
+        if (errorMsg.includes('too many') || errorMsg.includes('rate limit')) {
+          setError(loginError.message);
+          setIsLoading(false);
+          return;
+        }
+        
         // Handle status-based errors
         if (errorMsg.includes('pending')) {
           navigate("/registration-pending");

@@ -13,6 +13,7 @@ import type {
   TodayAttendanceResponse,
 } from '../types/attendance';
 import { attendanceSettingsService } from './attendance-settings.service';
+import { rateLimitService } from './rate-limit.service';
 
 /**
  * Get current IST time
@@ -81,13 +82,33 @@ export const attendanceService = {
     userProfile: UserProfile,
     latitude?: number,
     longitude?: number,
-    ipAddress?: string
+    ipAddress?: string,
+    deviceId?: string,
+    userAgent?: string
   ): Promise<AttendanceResult> {
     try {
       console.log('🔍 [MARK ATTENDANCE] Starting validation...');
       console.log('  User:', userProfile.email);
       console.log('  GPS:', latitude, longitude);
       console.log('  IP:', ipAddress);
+      console.log('  Device:', deviceId);
+
+      // ============================================
+      // RATE LIMITING CHECK (FIRST LINE OF DEFENSE)
+      // ============================================
+      console.log('🔒 [RATE LIMIT] Checking attendance rate limit...');
+      const rateLimitCheck = await rateLimitService.checkAttendance(userProfile.id);
+      
+      if (!rateLimitCheck.allowed) {
+        console.log('  ❌ Rate limit exceeded');
+        return {
+          success: false,
+          error: `Too many attendance requests. Please wait until ${rateLimitCheck.resetAt.toLocaleTimeString()}.`,
+          errorCode: 'RATE_LIMITED',
+        };
+      }
+      
+      console.log(`  ✅ Rate limit OK (${rateLimitCheck.remaining} remaining)`);
 
       // Validation 1: User is authenticated (profile exists)
       if (!userProfile || !userProfile.id) {
@@ -202,8 +223,13 @@ export const attendanceService = {
 
         console.log('  ✅ Yesterday check-out validation passed');
         
-        // Validation: Check if already marked attendance today (prevent duplicate)
+        // ============================================
+        // DUPLICATE CHECK (EXPLICIT APP-LEVEL)
+        // ============================================
+        // Check if already marked attendance today (prevent duplicate)
         const todayDate = getTodayDateIST();
+        console.log('🔍 [DUPLICATE CHECK] Checking for existing attendance...');
+        
         const { data: todayAttendance } = await supabase
           .from('attendance')
           .select('*')
@@ -288,6 +314,8 @@ export const attendanceService = {
             latitude: latitude || null,
             longitude: longitude || null,
             ip_address: ipAddress || null,
+            device_id: deviceId || null,
+            user_agent: userAgent || null,
           } as any)
           .select()
           .single();
@@ -380,6 +408,8 @@ export const attendanceService = {
 
       // Validation 9: Attendance not already marked today
       const todayDate = getTodayDateIST();
+      console.log('🔍 [DUPLICATE CHECK] Checking for existing attendance...');
+      
       const { data: existingAttendance } = await supabase
         .from('attendance')
         .select('*')
@@ -388,12 +418,15 @@ export const attendanceService = {
         .maybeSingle();
 
       if (existingAttendance) {
+        console.log('  ❌ Attendance already marked for today');
         return {
           success: false,
           error: 'Attendance already marked for today',
           errorCode: 'ATTENDANCE_ALREADY_MARKED',
         };
       }
+      
+      console.log('  ✅ No duplicate attendance for today');
 
       // All validations passed - Mark attendance with late detection
       const checkInTime = getCurrentISTTime();
@@ -451,6 +484,8 @@ export const attendanceService = {
           latitude: latitude,
           longitude: longitude,
           ip_address: ipAddress,
+          device_id: deviceId || null,
+          user_agent: userAgent || null,
         } as any)
         .select()
         .single();
