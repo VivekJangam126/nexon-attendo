@@ -5,7 +5,7 @@ import MobileContainer from "@/components/MobileContainer";
 import BottomNavigation from "@/components/BottomNavigation";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { attendanceService } from "@server";
+import { attendanceService, attendanceSettingsService } from "@server";
 import type { Attendance } from "@server";
 
 const DashboardScreen = () => {
@@ -18,6 +18,7 @@ const DashboardScreen = () => {
   const [windowOpen, setWindowOpen] = useState(false);
   const [windowDisplay, setWindowDisplay] = useState<string>('Loading...');
   const [workDuration, setWorkDuration] = useState<string>('0h 0m');
+  const [defaultCheckoutTime, setDefaultCheckoutTime] = useState<string>('6:30 PM');
 
   // Fetch today's attendance and window status on mount
   useEffect(() => {
@@ -35,6 +36,17 @@ const DashboardScreen = () => {
       const { isOpen, windowDisplay: display } = await attendanceService.isWindowOpen();
       setWindowOpen(isOpen);
       setWindowDisplay(display);
+
+      // Fetch default checkout time
+      const { defaultCheckoutTime: time } = await attendanceSettingsService.getCheckoutSettings();
+      if (time) {
+        // Format HH:MM:SS to 12-hour format
+        const [hours, minutes] = time.split(':');
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+        setDefaultCheckoutTime(`${displayHour}:${minutes} ${ampm}`);
+      }
 
       setLoading(false);
     };
@@ -298,7 +310,7 @@ const DashboardScreen = () => {
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Clock className="w-4 h-4" />
                       <span className="text-sm">
-                        Auto check-out at 6:30 PM
+                        Auto check-out at {defaultCheckoutTime}
                       </span>
                     </div>
                   </>

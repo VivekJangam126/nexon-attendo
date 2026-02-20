@@ -169,17 +169,15 @@ export const attendanceSettingsService = {
       console.log('  End time:', endTime);
       console.log('  Admin ID:', adminId);
 
-      const updateData: Partial<AttendanceWindow> = {
-        start_time: startTime,
-        end_time: endTime,
-        updated_by: adminId,
-        updated_at: new Date().toISOString(),
-      };
-
       const { error } = await supabase
         .from('attendance_settings')
         // @ts-ignore - Supabase type inference issue
-        .update(updateData)
+        .update({
+          start_time: startTime,
+          end_time: endTime,
+          updated_by: adminId,
+          updated_at: new Date().toISOString(),
+        })
         .eq('setting_name', 'default_attendance_window');
 
       if (error) {

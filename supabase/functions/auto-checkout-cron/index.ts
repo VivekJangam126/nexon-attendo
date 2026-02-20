@@ -1,7 +1,12 @@
 /**
  * Auto Check-Out Cron Job
- * Runs daily at 6:00 PM IST to automatically check out all employees
+ * Runs daily to automatically check out all employees
  * who checked in today but haven't checked out yet
+ * 
+ * Configuration:
+ * - Reads default checkout time from attendance_settings table
+ * - Respects auto_checkout_enabled flag
+ * - Default fallback: 6:30 PM IST if settings not found
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
@@ -60,16 +65,63 @@ Deno.serve(async (req) => {
     console.log(`📅 Processing date: ${todayDate} (IST)`);
     console.log(`⏰ Current IST time: ${istTime.toISOString()}`);
 
-    // Set check-out time to 6:00 PM IST today
-    // 6:00 PM IST = 18:00 IST = 12:30 UTC (subtract 5 hours 30 minutes)
+    // Fetch checkout settings from database
+    console.log('📋 Fetching checkout settings from database...');
+    
+    // Get default checkout time
+    const { data: timeSettings, error: timeError } = await supabase
+      .from('attendance_settings')
+      .select('setting_value')
+      .eq('setting_name', 'default_checkout_time')
+      .single();
+
+    // Get auto-checkout enabled flag
+    const { data: autoSettings, error: autoError } = await supabase
+      .from('attendance_settings')
+      .select('setting_value')
+      .eq('setting_name', 'auto_checkout_enabled')
+      .single();
+
+    if (timeError || !timeSettings) {
+      console.error('❌ Error fetching checkout time settings:', timeError);
+      // Fallback to default 6:30 PM if settings not found
+      console.log('⚠️  Using fallback default: 18:30 (6:30 PM)');
+    }
+
+    // Check if auto-checkout is enabled
+    const autoCheckoutEnabled = autoSettings?.setting_value === 'true' || autoSettings?.setting_value === true;
+    console.log(`⚙️  Auto-checkout enabled: ${autoCheckoutEnabled}`);
+
+    if (!autoCheckoutEnabled) {
+      console.log('⏸️  Auto-checkout is disabled. Skipping checkout process.');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Auto-checkout is disabled',
+          date: todayDate,
+          processed: 0,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse the default checkout time from settings (format: HH:MM:SS)
+    const defaultTime = timeSettings?.setting_value || '18:30:00';
+    const [hours, minutes] = defaultTime.split(':').map(Number);
+    
+    console.log(`⚙️  Default checkout time from settings: ${hours}:${minutes.toString().padStart(2, '0')}`);
+
+    // Set check-out time to configured time IST today
     const checkOutTime = new Date(istTime);
-    checkOutTime.setHours(18, 0, 0, 0); // 6:00 PM IST
+    checkOutTime.setHours(hours, minutes, 0, 0);
     
     // Convert IST to UTC by subtracting 5 hours 30 minutes
     const checkOutTimeUTC = new Date(checkOutTime.getTime() - (5.5 * 60 * 60 * 1000));
     const checkOutTimeISO = checkOutTimeUTC.toISOString();
 
-    console.log(`🕕 Check-out time (IST): 6:00 PM`);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHour = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+    console.log(`🕕 Check-out time (IST): ${displayHour}:${minutes.toString().padStart(2, '0')} ${ampm}`);
     console.log(`🕕 Check-out time (UTC): ${checkOutTimeISO}`);
 
     // Find all attendance records for today without check-out time

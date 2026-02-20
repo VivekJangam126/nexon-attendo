@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Building2, Clock, MapPin, Bell, Users,
-  ChevronRight, HelpCircle, FileText, Lock, Shield
+  ChevronRight, HelpCircle, FileText, Lock, Shield, LogOut
 } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { attendanceSettingsService } from "@server";
@@ -74,6 +74,7 @@ const AdminSettingsScreen = () => {
       items: [
         { icon: Clock, label: "Attendance Window", desc: attendanceWindow, path: "/admin/settings/window", disabled: false },
         { icon: Clock, label: "Grace Period", desc: "Late arrival tolerance", path: "/admin/settings/grace", disabled: false },
+        { icon: LogOut, label: "Checkout Settings", desc: "Default checkout time", path: "/admin/settings/checkout", disabled: false },
         { icon: Shield, label: "GPS Validation", desc: strictMode ? "Required" : "Optional", path: null, disabled: false, isToggle: true },
         { icon: Bell, label: "Notifications", desc: "SMS & Email alerts", path: "/admin/settings/notifications", disabled: false },
       ],

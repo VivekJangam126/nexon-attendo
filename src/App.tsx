@@ -33,6 +33,7 @@ import OfficeLocationsScreen from "./pages/admin/settings/OfficeLocationsScreen"
 import GeofencingScreen from "./pages/admin/settings/GeofencingScreen";
 import AttendanceWindowScreen from "./pages/admin/settings/AttendanceWindowScreen";
 import GracePeriodScreen from "./pages/admin/settings/GracePeriodScreen";
+import CheckoutSettingsScreen from "./pages/admin/settings/CheckoutSettingsScreen";
 import HelpCenterScreen from "./pages/admin/settings/HelpCenterScreen";
 import TermsPoliciesScreen from "./pages/admin/settings/TermsPoliciesScreen";
 import NotificationSettingsScreen from "./pages/admin/settings/NotificationSettingsScreen";
@@ -83,6 +84,7 @@ const App = () => (
           <Route path="/admin/settings/geofencing" element={<GeofencingScreen />} />
           <Route path="/admin/settings/window" element={<AttendanceWindowScreen />} />
           <Route path="/admin/settings/grace" element={<GracePeriodScreen />} />
+          <Route path="/admin/settings/checkout" element={<CheckoutSettingsScreen />} />
           <Route path="/admin/settings/help" element={<HelpCenterScreen />} />
           <Route path="/admin/settings/terms" element={<TermsPoliciesScreen />} />
           <Route path="/admin/settings/notifications" element={<NotificationSettingsScreen />} />
