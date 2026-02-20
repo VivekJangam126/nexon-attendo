@@ -222,17 +222,18 @@ export const attendanceService = {
 
         console.log('  ✅ No duplicate attendance for today');
 
-        // Get the active office for office_id
+        // Get the user's assigned office
         const { data: activeOffice } = await supabase
           .from('offices')
           .select('*')
+          .eq('id', userProfile.office_location)
           .eq('is_active', true)
           .single();
 
         if (!activeOffice) {
           return {
             success: false,
-            error: 'Office not configured. Please contact admin.',
+            error: 'Your assigned office is not active. Please contact admin.',
             errorCode: 'VALIDATION_FAILED',
           };
         }
@@ -322,23 +323,24 @@ export const attendanceService = {
       }
 
       // Validation 8: GPS within office radius
-      // SINGLE OFFICE MODE: Always fetch the active office
+      // Fetch the user's assigned office
       const { data: activeOffice, error: officeError } = await supabase
         .from('offices')
         .select('*')
+        .eq('id', userProfile.office_location)
         .eq('is_active', true)
         .single();
       
       if (officeError || !activeOffice) {
-        console.log('  ❌ No active office configured');
+        console.log('  ❌ Your assigned office is not active');
         return {
           success: false,
-          error: 'Office not configured. Please contact admin.',
+          error: 'Your assigned office is not active. Please contact admin.',
           errorCode: 'VALIDATION_FAILED',
         };
       }
 
-      const office = activeOffice as any; // Type assertion for single office mode
+      const office = activeOffice as any;
       console.log('  🏢 Using office:', office.name);
 
       if (office.latitude === null || office.longitude === null) {
