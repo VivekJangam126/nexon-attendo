@@ -81,6 +81,24 @@ const HistoryScreen = () => {
 
       // Fill in missing dates with "absent" status (for 30 days)
       const filledRecords = fillMissingDates(attendance, 30);
+      
+      // Debug: Log today's date and records
+      const istNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      const year = istNow.getFullYear();
+      const month = String(istNow.getMonth() + 1).padStart(2, '0');
+      const day = String(istNow.getDate()).padStart(2, '0');
+      const todayDateString = `${year}-${month}-${day}`;
+      
+      console.log('=== ATTENDANCE HISTORY DEBUG ===');
+      console.log('📅 Today (IST):', todayDateString);
+      console.log('📅 IST Now:', istNow.toISOString());
+      console.log('📊 Fetched records:', attendance.length);
+      console.log('📊 Fetched dates:', attendance.map(r => r.date));
+      console.log('📊 Filled records:', filledRecords.length);
+      console.log('📊 First 3 filled dates:', filledRecords.slice(0, 3).map(r => ({ date: r.date, status: r.status })));
+      console.log('📊 Today\'s record:', filledRecords.find(r => r.date === todayDateString));
+      console.log('================================');
+      
       setRecords(filledRecords);
       setLoading(false);
     };
@@ -109,21 +127,34 @@ const HistoryScreen = () => {
    * Creates a complete attendance record for the last N days
    */
   const fillMissingDates = (records: Attendance[], days: number): Attendance[] => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Get current date in IST timezone
+    const now = new Date();
+    const istDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    istDate.setHours(0, 0, 0, 0);
 
     // Create a map of existing records by date
     const recordMap = new Map<string, Attendance>();
     records.forEach(record => {
-      recordMap.set(record.date, record);
+      // Normalize the date to YYYY-MM-DD format
+      const normalizedDate = record.date.split('T')[0]; // Handle both "2024-02-20" and "2024-02-20T00:00:00"
+      recordMap.set(normalizedDate, record);
     });
+
+    console.log('📊 Record map keys:', Array.from(recordMap.keys()));
 
     // Generate all dates for the last N days
     const allRecords: Attendance[] = [];
     for (let i = 0; i < days; i++) {
-      const date = new Date(today);
+      const date = new Date(istDate);
       date.setDate(date.getDate() - i);
-      const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      // Format as YYYY-MM-DD
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+
+      console.log(`📅 Checking date ${i}: ${dateString}, exists: ${recordMap.has(dateString)}`);
 
       if (recordMap.has(dateString)) {
         // Use existing record
@@ -185,10 +216,12 @@ const HistoryScreen = () => {
     return `${displayHours}:${displayMinutes} ${ampm}`;
   };
 
-  // Calculate stats from ALL records (not filtered)
-  const presentCount = records.filter(r => r.status === "present").length;
-  const lateCount = records.filter(r => r.status === "late").length;
-  const absentCount = records.filter(r => r.status === "absent").length;
+  // Calculate stats from filtered date range (not all records)
+  const days = dateRange === "week" ? 7 : 30;
+  const dateRangeRecords = records.slice(0, days);
+  const presentCount = dateRangeRecords.filter(r => r.status === "present").length;
+  const lateCount = dateRangeRecords.filter(r => r.status === "late").length;
+  const absentCount = dateRangeRecords.filter(r => r.status === "absent").length;
 
   return (
     <MobileContainer>
@@ -201,18 +234,24 @@ const HistoryScreen = () => {
 
         {/* Stats Summary */}
         <div className="px-6 py-4">
+          <p className="text-xs text-muted-foreground mb-3 text-center">
+            {dateRange === "week" ? "Last 7 days" : "Last 30 days"} summary
+          </p>
           <div className="grid grid-cols-3 gap-3">
             <div className="card-elevated p-3 text-center">
               <p className="text-2xl font-semibold text-success">{presentCount}</p>
               <p className="text-xs text-muted-foreground">Present</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">On time</p>
             </div>
             <div className="card-elevated p-3 text-center">
               <p className="text-2xl font-semibold text-warning">{lateCount}</p>
               <p className="text-xs text-muted-foreground">Late</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">After grace</p>
             </div>
             <div className="card-elevated p-3 text-center">
               <p className="text-2xl font-semibold text-destructive">{absentCount}</p>
               <p className="text-xs text-muted-foreground">Absent</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Not marked</p>
             </div>
           </div>
         </div>
