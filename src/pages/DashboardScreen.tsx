@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Clock, CheckCircle2, Building2, Calendar, AlertCircle } from "lucide-react";
+import { MapPin, Clock, CheckCircle2, Building2, Calendar, AlertCircle, LogOut } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import BottomNavigation from "@/components/BottomNavigation";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
 import { attendanceService } from "@server";
 import type { Attendance } from "@server";
 
@@ -13,8 +14,10 @@ const DashboardScreen = () => {
   const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(null);
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   const [windowOpen, setWindowOpen] = useState(false);
   const [windowDisplay, setWindowDisplay] = useState<string>('Loading...');
+  const [workDuration, setWorkDuration] = useState<string>('0h 0m');
 
   // Fetch today's attendance and window status on mount
   useEffect(() => {
@@ -38,6 +41,27 @@ const DashboardScreen = () => {
 
     fetchData();
   }, [profile]);
+
+  // Update work duration every minute if checked in but not checked out
+  useEffect(() => {
+    if (!todayAttendance || todayAttendance.check_out_time) {
+      return;
+    }
+
+    const updateDuration = () => {
+      const checkInTime = new Date(todayAttendance.check_in_time);
+      const now = new Date();
+      const diffMs = now.getTime() - checkInTime.getTime();
+      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      setWorkDuration(`${hours}h ${minutes}m`);
+    };
+
+    updateDuration();
+    const interval = setInterval(updateDuration, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [todayAttendance]);
 
   // Redirect if not authenticated or not active
   useEffect(() => {
@@ -68,6 +92,7 @@ const DashboardScreen = () => {
   };
 
   const canMarkAttendance = !todayAttendance && windowOpen;
+  const canCheckOut = todayAttendance && !todayAttendance.check_out_time;
 
   const handleMarkAttendance = async () => {
     if (!profile || marking) return;
@@ -79,13 +104,90 @@ const DashboardScreen = () => {
     navigate("/attendance-processing");
   };
 
+  const handleCheckOut = async () => {
+    if (!profile || !todayAttendance || checkingOut) return;
+
+    setCheckingOut(true);
+
+    try {
+      // Get current location
+      if (!navigator.geolocation) {
+        toast({
+          title: "Location Not Supported",
+          description: "Your browser doesn't support location services",
+          variant: "destructive",
+        });
+        setCheckingOut(false);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+
+          // Call checkout service
+          const result = await attendanceService.checkOut(profile, latitude, longitude);
+
+          if (result.success) {
+            toast({
+              title: "Checked Out Successfully",
+              description: `Work duration: ${result.workHours?.toFixed(1)} hours`,
+            });
+
+            // Refresh attendance data
+            const { attendance } = await attendanceService.getTodayAttendance(profile);
+            setTodayAttendance(attendance);
+          } else {
+            toast({
+              title: "Checkout Failed",
+              description: result.message || "Please try again",
+              variant: "destructive",
+            });
+          }
+
+          setCheckingOut(false);
+        },
+        (error) => {
+          console.error("Location error:", error);
+          toast({
+            title: "Location Error",
+            description: "Could not get your location. Please enable location services.",
+            variant: "destructive",
+          });
+          setCheckingOut(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    } catch (error) {
+      console.error("Checkout error:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+      setCheckingOut(false);
+    }
+  };
+
   const formatTime = (isoString: string) => {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+    // Parse the UTC time and convert to IST
+    const utcDate = new Date(isoString);
+    
+    // Convert to IST by adding 5 hours 30 minutes
+    const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
+    
+    // Format the time
+    const hours = istDate.getUTCHours();
+    const minutes = istDate.getUTCMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes.toString().padStart(2, '0');
+    
+    return `${displayHours}:${displayMinutes} ${ampm}`;
   };
 
   if (loading) {
@@ -163,21 +265,43 @@ const DashboardScreen = () => {
                     Check-in: {formatTime(todayAttendance.check_in_time)}
                   </span>
                 </div>
-                {todayAttendance.check_out_time && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-sm">
-                      Check-out: {formatTime(todayAttendance.check_out_time)}
-                    </span>
-                  </div>
-                )}
-                {!todayAttendance.check_out_time && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-sm">
-                      Auto check-out at 6:00 PM
-                    </span>
-                  </div>
+                {todayAttendance.check_out_time ? (
+                  <>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      <span className="text-sm">
+                        Check-out: {formatTime(todayAttendance.check_out_time)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-success">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span className="text-sm font-medium">
+                        Work duration: {(() => {
+                          const checkIn = new Date(todayAttendance.check_in_time);
+                          const checkOut = new Date(todayAttendance.check_out_time);
+                          const diffMs = checkOut.getTime() - checkIn.getTime();
+                          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                          return `${hours}h ${minutes}m`;
+                        })()}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-primary">
+                      <Clock className="w-4 h-4 animate-pulse" />
+                      <span className="text-sm font-medium">
+                        Working: {workDuration}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      <span className="text-sm">
+                        Auto check-out at 6:30 PM
+                      </span>
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -234,27 +358,59 @@ const DashboardScreen = () => {
             </p>
           </div>
 
-          {/* Mark Attendance Button */}
-          <div className="pt-2 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-            <button
-              onClick={handleMarkAttendance}
-              disabled={!canMarkAttendance || marking}
-              className="btn-primary-large"
-            >
-              {marking ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  Processing...
-                </span>
-              ) : todayAttendance ? (
+          {/* Action Buttons */}
+          <div className="pt-2 space-y-3 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
+            {/* Mark Attendance Button */}
+            {!todayAttendance && (
+              <button
+                onClick={handleMarkAttendance}
+                disabled={!canMarkAttendance || marking}
+                className="btn-primary-large"
+              >
+                {marking ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    Processing...
+                  </span>
+                ) : (
+                  "Mark Attendance"
+                )}
+              </button>
+            )}
+
+            {/* Checkout Button */}
+            {canCheckOut && (
+              <button
+                onClick={handleCheckOut}
+                disabled={checkingOut}
+                className="w-full py-4 bg-success text-white rounded-xl font-medium hover:bg-success/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {checkingOut ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Checking Out...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-5 h-5" />
+                    Check Out
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Already Checked Out */}
+            {todayAttendance && todayAttendance.check_out_time && (
+              <button
+                disabled
+                className="btn-primary-large opacity-50 cursor-not-allowed"
+              >
                 <span className="flex items-center justify-center gap-2">
                   <CheckCircle2 className="w-5 h-5" />
-                  Attendance Marked
+                  Checked Out
                 </span>
-              ) : (
-                "Mark Attendance"
-              )}
-            </button>
+              </button>
+            )}
 
             {!canMarkAttendance && !todayAttendance && (
               <p className="text-center text-xs text-muted-foreground mt-3">

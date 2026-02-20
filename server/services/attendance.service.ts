@@ -631,4 +631,240 @@ export const attendanceService = {
       error: null,
     };
   },
+
+  /**
+   * Check out from attendance
+   * Validates that user has checked in today before allowing checkout
+   * 
+   * @param userProfile - User profile (must be authenticated)
+   * @param latitude - GPS latitude (optional)
+   * @param longitude - GPS longitude (optional)
+   * @returns AttendanceResult with success/error
+   */
+  async checkOut(
+    userProfile: UserProfile,
+    latitude?: number,
+    longitude?: number
+  ): Promise<AttendanceResult> {
+    try {
+      console.log('🚪 [CHECK OUT] Starting checkout process...');
+      console.log('  User:', userProfile.email);
+      console.log('  GPS:', latitude, longitude);
+
+      // Validation 1: User must be authenticated
+      if (!userProfile || !userProfile.id) {
+        return {
+          success: false,
+          errorCode: 'UNAUTHORIZED',
+          message: 'User not authenticated',
+        };
+      }
+
+      // Validation 2: Get today's attendance
+      const todayDate = getTodayDateIST();
+      const { data: attendance, error: fetchError } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', userProfile.id)
+        .eq('date', todayDate)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.log('  ❌ Error fetching attendance:', fetchError);
+        return {
+          success: false,
+          errorCode: 'DATABASE_ERROR',
+          message: 'Failed to fetch attendance record',
+        };
+      }
+
+      // Validation 3: Must have checked in today
+      if (!attendance) {
+        console.log('  ❌ No check-in record found for today');
+        return {
+          success: false,
+          errorCode: 'NOT_CHECKED_IN',
+          message: 'You must check in before checking out',
+        };
+      }
+
+      // Type assertion after null check
+      const attendanceRecord = attendance as Attendance;
+
+      // Validation 4: Cannot checkout twice
+      if (attendanceRecord.check_out_time) {
+        console.log('  ❌ Already checked out');
+        return {
+          success: false,
+          errorCode: 'ALREADY_CHECKED_OUT',
+          message: 'You have already checked out today',
+        };
+      }
+
+      // Get current IST time
+      const now = getCurrentISTTime();
+      const checkOutTime = now.toISOString();
+
+      console.log('  ⏰ Check-out time (IST):', now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      console.log('  ⏰ Check-out time (UTC):', checkOutTime);
+
+      // Update attendance record with checkout time
+      // @ts-ignore - Supabase type inference issue with update
+      const { error: updateError } = await supabase
+        .from('attendance')
+        // @ts-ignore
+        .update({
+          check_out_time: checkOutTime,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', attendanceRecord.id);
+
+      if (updateError) {
+        console.log('  ❌ Failed to update checkout time:', updateError);
+        return {
+          success: false,
+          errorCode: 'DATABASE_ERROR',
+          message: 'Failed to record checkout',
+        };
+      }
+
+      // Calculate work hours
+      const checkInTime = new Date(attendanceRecord.check_in_time);
+      const checkOutTimeDate = new Date(checkOutTime);
+      const workHours = (checkOutTimeDate.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+
+      console.log('  ✅ Checkout successful');
+      console.log('  ⏱️  Work hours:', workHours.toFixed(2));
+
+      return {
+        success: true,
+        message: 'Checkout successful',
+        attendance: {
+          ...attendanceRecord,
+          check_out_time: checkOutTime,
+        },
+        workHours: parseFloat(workHours.toFixed(2)),
+      };
+    } catch (err) {
+      console.log('  ❌ Exception during checkout:', err);
+      return {
+        success: false,
+        errorCode: 'UNKNOWN_ERROR',
+        message: err instanceof Error ? err.message : 'Checkout failed',
+      };
+    }
+  },
+
+  /**
+   * Get checkout status for today
+   * Checks if user has checked in and/or checked out
+   * 
+   * @param userProfile - User profile
+   * @returns Checkout status information
+   */
+  async getCheckoutStatus(userProfile: UserProfile): Promise<{
+    canCheckOut: boolean;
+    hasCheckedIn: boolean;
+    hasCheckedOut: boolean;
+    checkInTime: string | null;
+    checkOutTime: string | null;
+    workHours: number | null;
+    error: Error | null;
+  }> {
+    try {
+      if (!userProfile || !userProfile.id) {
+        return {
+          canCheckOut: false,
+          hasCheckedIn: false,
+          hasCheckedOut: false,
+          checkInTime: null,
+          checkOutTime: null,
+          workHours: null,
+          error: new Error('User not authenticated'),
+        };
+      }
+
+      const todayDate = getTodayDateIST();
+      const { data: attendance, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', userProfile.id)
+        .eq('date', todayDate)
+        .maybeSingle();
+
+      if (error) {
+        return {
+          canCheckOut: false,
+          hasCheckedIn: false,
+          hasCheckedOut: false,
+          checkInTime: null,
+          checkOutTime: null,
+          workHours: null,
+          error: new Error(error.message),
+        };
+      }
+
+      if (!attendance) {
+        return {
+          canCheckOut: false,
+          hasCheckedIn: false,
+          hasCheckedOut: false,
+          checkInTime: null,
+          checkOutTime: null,
+          workHours: null,
+          error: null,
+        };
+      }
+
+      // Type assertion after null check
+      const attendanceRecord = attendance as Attendance;
+
+      const hasCheckedIn = !!attendanceRecord.check_in_time;
+      const hasCheckedOut = !!attendanceRecord.check_out_time;
+      const canCheckOut = hasCheckedIn && !hasCheckedOut;
+
+      // Calculate work hours if checked out
+      let workHours: number | null = null;
+      if (hasCheckedIn && hasCheckedOut) {
+        const checkInTime = new Date(attendanceRecord.check_in_time);
+        const checkOutTime = new Date(attendanceRecord.check_out_time!);
+        workHours = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+        workHours = parseFloat(workHours.toFixed(2));
+      }
+
+      return {
+        canCheckOut,
+        hasCheckedIn,
+        hasCheckedOut,
+        checkInTime: attendanceRecord.check_in_time,
+        checkOutTime: attendanceRecord.check_out_time,
+        workHours,
+        error: null,
+      };
+    } catch (err) {
+      return {
+        canCheckOut: false,
+        hasCheckedIn: false,
+        hasCheckedOut: false,
+        checkInTime: null,
+        checkOutTime: null,
+        workHours: null,
+        error: err instanceof Error ? err : new Error('Failed to get checkout status'),
+      };
+    }
+  },
+
+  /**
+   * Calculate work hours between check-in and check-out
+   * 
+   * @param checkInTime - Check-in timestamp
+   * @param checkOutTime - Check-out timestamp
+   * @returns Work hours as decimal number
+   */
+  calculateWorkHours(checkInTime: string, checkOutTime: string): number {
+    const checkIn = new Date(checkInTime);
+    const checkOut = new Date(checkOutTime);
+    const hours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+    return parseFloat(hours.toFixed(2));
+  },
 };

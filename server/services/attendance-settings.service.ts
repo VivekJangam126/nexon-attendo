@@ -388,4 +388,113 @@ export const attendanceSettingsService = {
 
     return `${formatTime(window.start_time)} - ${formatTime(window.end_time)}`;
   },
+
+  /**
+   * Get checkout settings
+   */
+  async getCheckoutSettings(): Promise<{
+    defaultCheckoutTime: string;
+    autoCheckoutEnabled: boolean;
+    minWorkHours: number;
+    error: Error | null;
+  }> {
+    try {
+      const { window, error } = await this.getActiveWindow();
+      
+      if (error || !window) {
+        return {
+          defaultCheckoutTime: '18:30:00',
+          autoCheckoutEnabled: true,
+          minWorkHours: 8.0,
+          error: error || new Error('No active window found'),
+        };
+      }
+
+      return {
+        defaultCheckoutTime: (window as any).default_checkout_time || '18:30:00',
+        autoCheckoutEnabled: (window as any).auto_checkout_enabled ?? true,
+        minWorkHours: (window as any).min_work_hours || 8.0,
+        error: null,
+      };
+    } catch (err) {
+      return {
+        defaultCheckoutTime: '18:30:00',
+        autoCheckoutEnabled: true,
+        minWorkHours: 8.0,
+        error: err instanceof Error ? err : new Error('Failed to get checkout settings'),
+      };
+    }
+  },
+
+  /**
+   * Update checkout settings (admin only)
+   */
+  async updateCheckoutSettings(
+    defaultCheckoutTime: string,
+    autoCheckoutEnabled: boolean,
+    minWorkHours: number,
+    adminId: string
+  ): Promise<UpdateWindowResponse> {
+    try {
+      console.log('🔄 [UPDATE CHECKOUT SETTINGS]');
+      console.log('  Default checkout time:', defaultCheckoutTime);
+      console.log('  Auto-checkout enabled:', autoCheckoutEnabled);
+      console.log('  Min work hours:', minWorkHours);
+
+      // Validate inputs
+      if (minWorkHours < 0 || minWorkHours > 24) {
+        return {
+          success: false,
+          error: new Error('Minimum work hours must be between 0 and 24'),
+        };
+      }
+
+      const { error } = await supabase
+        .from('attendance_settings')
+        // @ts-ignore - Supabase type inference issue
+        .update({
+          default_checkout_time: defaultCheckoutTime,
+          auto_checkout_enabled: autoCheckoutEnabled,
+          min_work_hours: minWorkHours,
+          updated_by: adminId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('setting_name', 'default_attendance_window');
+
+      if (error) {
+        console.log('  ❌ Update failed:', error.message);
+        return {
+          success: false,
+          error: new Error(error.message),
+        };
+      }
+
+      console.log('  ✅ Checkout settings updated successfully');
+      return {
+        success: true,
+        error: null,
+      };
+    } catch (err) {
+      console.log('  ❌ Exception in updateCheckoutSettings:', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err : new Error('Failed to update checkout settings'),
+      };
+    }
+  },
+
+  /**
+   * Get default checkout time
+   */
+  async getDefaultCheckoutTime(): Promise<{ time: string; error: Error | null }> {
+    try {
+      const { defaultCheckoutTime, error } = await this.getCheckoutSettings();
+      return { time: defaultCheckoutTime, error };
+    } catch (err) {
+      return {
+        time: '18:30:00',
+        error: err instanceof Error ? err : new Error('Failed to get default checkout time'),
+      };
+    }
+  },
 };

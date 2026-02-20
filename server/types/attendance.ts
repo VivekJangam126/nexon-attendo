@@ -43,17 +43,24 @@ export type AttendanceErrorCode =
   | 'OUTSIDE_OFFICE_LOCATION'
   | 'OFFICE_WIFI_REQUIRED'
   | 'VALIDATION_FAILED'
-  | 'RATE_LIMITED';
+  | 'RATE_LIMITED'
+  | 'NOT_CHECKED_IN'
+  | 'ALREADY_CHECKED_OUT'
+  | 'DATABASE_ERROR'
+  | 'UNKNOWN_ERROR';
 
 export interface AttendanceValidationError {
   success: false;
-  error: string;
+  error?: string;
+  message?: string;
   errorCode: AttendanceErrorCode;
 }
 
 export interface AttendanceValidationSuccess {
   success: true;
   attendance: Attendance;
+  message?: string;
+  workHours?: number;
 }
 
 export type AttendanceResult = AttendanceValidationSuccess | AttendanceValidationError;
