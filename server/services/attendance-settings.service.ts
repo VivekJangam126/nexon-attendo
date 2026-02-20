@@ -237,11 +237,11 @@ export const attendanceSettingsService = {
     try {
       console.log('🔄 [UPDATE GRACE PERIOD]', gracePeriodMinutes);
 
-      // Validate grace period (0-60 minutes)
-      if (gracePeriodMinutes < 0 || gracePeriodMinutes > 60) {
+      // Validate grace period (minimum 0 minutes, no maximum)
+      if (gracePeriodMinutes < 0) {
         return {
           success: false,
-          error: new Error('Grace period must be between 0 and 60 minutes'),
+          error: new Error('Grace period must be 0 or greater'),
         };
       }
 

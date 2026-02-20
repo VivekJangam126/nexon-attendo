@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Nexus Attendo",
-    "slug": "nexus-attendo-mobile",
+    "slug": "nexus-attendo",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -16,7 +16,10 @@
       "versionCode": 1,
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE"
       ],
       "softwareKeyboardLayoutMode": "pan"
     },
@@ -27,6 +30,13 @@
           "locationAlwaysAndWhenInUsePermission": "Allow Nexus Attendo to use your location for attendance marking."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "EXPO_PUBLIC_SUPABASE_URL": "https://falbkccaqjqdbvrmdlll.supabase.co",
+      "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTE4NTQsImV4cCI6MjA4NjI2Nzg1NH0.FkwmwhprYiu7vtXhfGLE_zPmB6-9cbF7uNFqFu7qwVw",
+      "eas": {
+        "projectId": "7d5ca84f-4ade-4321-b89c-77692ef64950"
+      }
+    }
   }
 }

@@ -8,9 +8,10 @@
 -- ============================================
 
 -- Add grace_period_minutes column (default 15 minutes)
+-- No maximum limit - admin can set any duration
 ALTER TABLE attendance_settings 
 ADD COLUMN IF NOT EXISTS grace_period_minutes INTEGER DEFAULT 15 
-CHECK (grace_period_minutes >= 0 AND grace_period_minutes <= 60);
+CHECK (grace_period_minutes >= 0);
 
 -- Add strict_mode column (default true)
 ALTER TABLE attendance_settings 
