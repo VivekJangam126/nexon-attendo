@@ -61,11 +61,16 @@ Deno.serve(async (req) => {
     console.log(`⏰ Current IST time: ${istTime.toISOString()}`);
 
     // Set check-out time to 6:00 PM IST today
+    // 6:00 PM IST = 18:00 IST = 12:30 UTC (subtract 5 hours 30 minutes)
     const checkOutTime = new Date(istTime);
-    checkOutTime.setHours(18, 0, 0, 0);
-    const checkOutTimeISO = checkOutTime.toISOString();
+    checkOutTime.setHours(18, 0, 0, 0); // 6:00 PM IST
+    
+    // Convert IST to UTC by subtracting 5 hours 30 minutes
+    const checkOutTimeUTC = new Date(checkOutTime.getTime() - (5.5 * 60 * 60 * 1000));
+    const checkOutTimeISO = checkOutTimeUTC.toISOString();
 
-    console.log(`🕕 Check-out time: ${checkOutTimeISO}`);
+    console.log(`🕕 Check-out time (IST): 6:00 PM`);
+    console.log(`🕕 Check-out time (UTC): ${checkOutTimeISO}`);
 
     // Find all attendance records for today without check-out time
     const { data: attendanceRecords, error: fetchError } = await supabase

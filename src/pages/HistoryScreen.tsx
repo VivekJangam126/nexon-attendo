@@ -1,10 +1,17 @@
 import { useState, useEffect } from "react";
-import { Calendar, Clock, CheckCircle2, AlertCircle, XCircle } from "lucide-react";
+import { Calendar, Clock, CheckCircle2, AlertCircle, XCircle, Filter } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import BottomNavigation from "@/components/BottomNavigation";
 import { useAuth } from "@/hooks/useAuth";
 import { attendanceService } from "@server";
 import type { Attendance } from "@server";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const StatusIcon = ({ status }: { status: "present" | "late" | "absent" }) => {
   switch (status) {
@@ -48,8 +55,13 @@ const StatusBadge = ({ status }: { status: "present" | "late" | "absent" }) => {
 const HistoryScreen = () => {
   const { profile } = useAuth();
   const [records, setRecords] = useState<Attendance[]>([]);
+  const [filteredRecords, setFilteredRecords] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Filter states
+  const [dateRange, setDateRange] = useState<"week" | "month">("week");
+  const [statusFilter, setStatusFilter] = useState<"all" | "present" | "late" | "absent">("all");
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -58,18 +70,82 @@ const HistoryScreen = () => {
         return;
       }
 
+      // Fetch 30 days of data (we'll filter on frontend)
       const { attendance, error: fetchError } = await attendanceService.getAttendanceHistory(profile, 30);
       
       if (fetchError) {
         setError(fetchError.message);
-      } else {
-        setRecords(attendance);
+        setLoading(false);
+        return;
       }
+
+      // Fill in missing dates with "absent" status (for 30 days)
+      const filledRecords = fillMissingDates(attendance, 30);
+      setRecords(filledRecords);
       setLoading(false);
     };
 
     fetchHistory();
   }, [profile]);
+
+  // Apply filters whenever records, dateRange, or statusFilter changes
+  useEffect(() => {
+    let filtered = [...records];
+
+    // Apply date range filter
+    const days = dateRange === "week" ? 7 : 30;
+    filtered = filtered.slice(0, days);
+
+    // Apply status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(record => record.status === statusFilter);
+    }
+
+    setFilteredRecords(filtered);
+  }, [records, dateRange, statusFilter]);
+
+  /**
+   * Fill in missing dates with "absent" status
+   * Creates a complete attendance record for the last N days
+   */
+  const fillMissingDates = (records: Attendance[], days: number): Attendance[] => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Create a map of existing records by date
+    const recordMap = new Map<string, Attendance>();
+    records.forEach(record => {
+      recordMap.set(record.date, record);
+    });
+
+    // Generate all dates for the last N days
+    const allRecords: Attendance[] = [];
+    for (let i = 0; i < days; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+      if (recordMap.has(dateString)) {
+        // Use existing record
+        allRecords.push(recordMap.get(dateString)!);
+      } else {
+        // Create absent record for missing date
+        allRecords.push({
+          id: `absent-${dateString}`,
+          user_id: profile?.id || '',
+          date: dateString,
+          check_in_time: null,
+          check_out_time: null,
+          status: 'absent',
+          office_id: profile?.office_location || '',
+          created_at: dateString,
+          updated_at: dateString,
+        } as Attendance);
+      }
+    }
+
+    return allRecords;
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -90,16 +166,26 @@ const HistoryScreen = () => {
     }
   };
 
-  const formatTime = (isoString: string) => {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
+  const formatTime = (isoString: string | null) => {
+    if (!isoString) return "N/A";
+    
+    // Parse the UTC time and convert to IST
+    const utcDate = new Date(isoString);
+    
+    // Convert to IST by adding 5 hours 30 minutes
+    const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
+    
+    // Format the time
+    const hours = istDate.getUTCHours();
+    const minutes = istDate.getUTCMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes.toString().padStart(2, '0');
+    
+    return `${displayHours}:${displayMinutes} ${ampm}`;
   };
 
-  // Calculate stats
+  // Calculate stats from ALL records (not filtered)
   const presentCount = records.filter(r => r.status === "present").length;
   const lateCount = records.filter(r => r.status === "late").length;
   const absentCount = records.filter(r => r.status === "absent").length;
@@ -131,6 +217,38 @@ const HistoryScreen = () => {
           </div>
         </div>
 
+        {/* Filters */}
+        <div className="px-6 py-3 border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Filter className="w-4 h-4" />
+              <span>Filters:</span>
+            </div>
+            
+            <Select value={dateRange} onValueChange={(value: "week" | "month") => setDateRange(value)}>
+              <SelectTrigger className="w-[110px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="week">Last Week</SelectItem>
+                <SelectItem value="month">Last Month</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+              <SelectTrigger className="w-[100px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="present">Present</SelectItem>
+                <SelectItem value="late">Late</SelectItem>
+                <SelectItem value="absent">Absent</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         {/* Records List */}
         <div className="flex-1 px-6 py-2 overflow-y-auto">
           {loading ? (
@@ -153,9 +271,17 @@ const HistoryScreen = () => {
               <p className="text-heading mb-1">No Records Yet</p>
               <p className="text-caption">Your attendance history will appear here</p>
             </div>
+          ) : filteredRecords.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                <Filter className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <p className="text-heading mb-1">No Records Found</p>
+              <p className="text-caption">Try changing your filters</p>
+            </div>
           ) : (
             <div className="space-y-3">
-              {records.map((record, index) => (
+              {filteredRecords.map((record, index) => (
                 <div
                   key={record.id}
                   className="card-elevated p-4 animate-fade-in-up"
@@ -169,24 +295,28 @@ const HistoryScreen = () => {
                         <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                         <p className="font-medium text-sm">{formatDate(record.date)}</p>
                       </div>
-                      <div className="space-y-1">
-                        {record.check_in_time && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                            <p className="text-xs text-muted-foreground">
-                              In: {formatTime(record.check_in_time)}
-                            </p>
-                          </div>
-                        )}
-                        {record.check_out_time && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                            <p className="text-xs text-muted-foreground">
-                              Out: {formatTime(record.check_out_time)}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      {record.status === 'absent' ? (
+                        <p className="text-xs text-muted-foreground">No attendance marked</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {record.check_in_time && (
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                              <p className="text-xs text-muted-foreground">
+                                In: {formatTime(record.check_in_time)}
+                              </p>
+                            </div>
+                          )}
+                          {record.check_out_time && (
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                              <p className="text-xs text-muted-foreground">
+                                Out: {formatTime(record.check_out_time)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <StatusBadge status={record.status} />

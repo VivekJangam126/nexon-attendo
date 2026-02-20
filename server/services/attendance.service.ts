@@ -11,6 +11,7 @@ import type {
   Attendance,
   AttendanceResult,
   TodayAttendanceResponse,
+  AttendanceErrorCode,
 } from '../types/attendance';
 import { attendanceSettingsService } from './attendance-settings.service';
 import { rateLimitService } from './rate-limit.service';

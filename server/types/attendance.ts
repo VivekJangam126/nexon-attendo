@@ -42,7 +42,8 @@ export type AttendanceErrorCode =
   | 'GPS_REQUIRED'
   | 'OUTSIDE_OFFICE_LOCATION'
   | 'OFFICE_WIFI_REQUIRED'
-  | 'VALIDATION_FAILED';
+  | 'VALIDATION_FAILED'
+  | 'RATE_LIMITED';
 
 export interface AttendanceValidationError {
   success: false;
