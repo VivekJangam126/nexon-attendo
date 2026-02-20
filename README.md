@@ -1,300 +1,378 @@
-# Nexus Attendo
+# Nexon Time Keeper - Attendance Management System
 
-Employee Attendance Management System for Nexus Pvt Ltd
+A comprehensive attendance management system with web and mobile applications, built for modern workplaces.
 
----
+## 🚀 Features
 
-## 🚀 Quick Setup
+### Employee Features
+- **Attendance Marking**
+  - GPS-based check-in/check-out
+  - Real-time location verification
+  - Automatic late detection with grace period
+  - Live work duration tracking
 
-### 1. Install Dependencies
+- **Dashboard**
+  - Today's attendance status
+  - Work duration timer
+  - Attendance window display
+  - Quick check-in/check-out
+
+- **History & Reports**
+  - Attendance history with filters
+  - Work hours tracking
+  - Monthly statistics
+  - Status indicators (Present/Late/Absent)
+
+- **Profile Management**
+  - View profile information
+  - Change password
+  - Office location details
+
+### Admin Features
+- **Employee Management**
+  - Add/edit/delete employees
+  - Approve/reject registrations
+  - Activate/deactivate accounts
+  - Bulk operations
+
+- **Attendance Configuration**
+  - Flexible attendance window (24-hour support)
+  - Grace period settings (unlimited duration)
+  - Checkout time configuration
+  - Auto-checkout toggle
+
+- **Office Management**
+  - Multiple office locations
+  - GPS geofencing with custom radius
+  - Office-specific settings
+
+- **Reports & Analytics**
+  - Attendance reports with filters
+  - Export to Excel/PDF
+  - Email report delivery
+  - Real-time statistics
+
+- **Settings**
+  - GPS validation toggle
+  - Notification settings (SMS/Email)
+  - Employee management
+  - System configuration
+
+### System Features
+- **Security**
+  - Role-based access control (Admin/Employee)
+  - Device fingerprinting
+  - Rate limiting
+  - Audit logging
+
+- **Automation**
+  - Auto-checkout cron job
+  - Notification triggers
+  - Email reports scheduling
+
+- **Multi-Platform**
+  - Web application (React)
+  - Mobile application (React Native/Expo)
+  - Responsive design
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **Web**: React 18 + TypeScript + Vite
+- **Mobile**: React Native + Expo
+- **UI**: TailwindCSS + shadcn/ui
+- **State**: React Query
+- **Routing**: React Router v6
+
+### Backend
+- **Runtime**: Node.js + Express
+- **Database**: PostgreSQL (Supabase)
+- **Authentication**: Supabase Auth
+- **Storage**: Supabase Storage
+- **Edge Functions**: Deno (Supabase Functions)
+
+### Infrastructure
+- **Hosting**: Vercel (Web), EAS (Mobile)
+- **Database**: Supabase
+- **Cron Jobs**: Supabase pg_cron
+- **Notifications**: SMS/Email APIs
+
+## 📦 Project Structure
+
+```
+nexon-time-keeper/
+├── src/                      # Web application source
+│   ├── components/          # React components
+│   ├── pages/              # Page components
+│   ├── hooks/              # Custom hooks
+│   ├── lib/                # Utilities
+│   └── utils/              # Helper functions
+├── server/                  # Backend services
+│   ├── api/                # API endpoints
+│   ├── services/           # Business logic
+│   ├── types/              # TypeScript types
+│   └── utils/              # Server utilities
+├── mobile/                  # Mobile application
+│   ├── src/
+│   │   ├── components/     # Mobile components
+│   │   ├── screens/        # Screen components
+│   │   ├── services/       # API services
+│   │   └── navigation/     # Navigation setup
+│   └── app.json            # Expo configuration
+├── supabase/               # Supabase configuration
+│   └── functions/          # Edge functions
+├── docs/                   # Documentation
+│   ├── ADMIN_USER_MANUAL.md
+│   └── EMPLOYEE_USER_MANUAL.md
+└── public/                 # Static assets
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+ and npm/yarn
+- Supabase account
+- Git
+
+### Installation
+
+1. **Clone the repository**
 ```bash
+git clone <repository-url>
+cd nexon-time-keeper
+```
+
+2. **Install dependencies**
+```bash
+# Web app
 npm install
+
+# Mobile app
+cd mobile
+npm install
+cd ..
 ```
 
-### 2. Setup Supabase Database
+3. **Environment Setup**
 
-Run `COMPLETE_DATABASE_SETUP.sql` in your Supabase SQL Editor to create all tables and policies.
-
-### 3. Create Admin Account
-
-**Via Supabase Dashboard:**
-1. Go to: **Authentication > Users > Add User**
-2. Fill in:
-   - Email: `admin@nexus.com`
-   - Password: `nexus@123`
-   - Auto Confirm User: ✅ **CHECK THIS**
-3. Click "Create User"
-
-**Then run this SQL:**
-```sql
--- Create admin profile
-INSERT INTO profiles (id, email, full_name, role, status, created_at, updated_at)
-SELECT id, 'admin@nexus.com', 'Admin', 'admin', 'active', NOW(), NOW()
-FROM auth.users WHERE email = 'admin@nexus.com';
-```
-
-### 4. Configure Environment Variables
-
-Create `.env.production`:
+Create `.env` file in root:
 ```env
-VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-### 5. Configure Office Location (Optional)
-
-For GPS verification, update office coordinates:
-```sql
-UPDATE offices 
-SET 
-  name = 'Nexus Pvt Ltd - Head Office',
-  latitude = YOUR_LATITUDE,
-  longitude = YOUR_LONGITUDE,
-  radius_meters = 100,
-  is_active = true
-WHERE id = (SELECT id FROM offices LIMIT 1);
+Create `mobile/.env` file:
+```env
+EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-### 6. Setup Notifications (Optional)
+4. **Database Setup**
 
-**Set Supabase Edge Function Secrets:**
-```bash
-supabase secrets set RESEND_API_KEY=your_resend_key
-supabase secrets set TWILIO_ACCOUNT_SID=your_twilio_sid
-supabase secrets set TWILIO_AUTH_TOKEN=your_twilio_token
-supabase secrets set TWILIO_PHONE_NUMBER=your_twilio_number
-```
+Run the database migrations in Supabase SQL Editor:
+- Set up tables and relationships
+- Configure Row Level Security (RLS)
+- Insert default data
 
-**Deploy Edge Functions:**
-```bash
-supabase functions deploy send-notification
-supabase functions deploy notification-cron
-```
-
-**Add Notification Contacts:**
-```sql
-INSERT INTO notification_contacts (contact_type, contact_value, is_active)
-VALUES 
-  ('email', 'admin@nexus.com', true),
-  ('sms', '+1234567890', true);
-```
-
-**Enable Automatic Notifications (Cron Job):**
-```sql
--- Create cron job for automatic notifications
-SELECT cron.schedule(
-  'attendance-notifications',
-  '0 * * * *',  -- Every hour
-  $$
-  SELECT net.http_post(
-    url := 'YOUR_SUPABASE_URL/functions/v1/notification-cron',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer YOUR_SERVICE_ROLE_KEY"}'::jsonb
-  );
-  $$
-);
-```
-
-### 7. Deploy to Vercel
+5. **Start Development**
 
 ```bash
-npm run build
-vercel --prod
-```
-
----
-
-## 🔑 Default Login
-
-- **URL**: `/admin/login`
-- **Email**: `admin@nexus.com`
-- **Password**: `nexus@123`
-
----
-
-## 🏗️ Tech Stack
-
-- **Frontend**: React + TypeScript + Vite + Tailwind CSS
-- **Backend**: Supabase (PostgreSQL + Edge Functions)
-- **Deployment**: Vercel
-- **Notifications**: Resend (Email) + Twilio (SMS)
-
----
-
-## ⚙️ Features
-
-### Employee Features
-- Mark attendance with GPS + WiFi verification
-- View attendance history and reports
-- Profile management
-- Check attendance rules
-
-### Admin Features
-- Employee management (add, edit, approve)
-- Attendance reports and analytics
-- System settings configuration
-- Notification management (manual + automatic)
-- Pending registration approvals
-
-### Attendance Verification
-- **Strict Mode ON**: GPS + WiFi verification required
-- **Strict Mode OFF**: Direct attendance marking (no location checks)
-
----
-
-## 📁 Project Structure
-
-```
-nexus-attendo/
-├── src/                          # Frontend React app
-│   ├── components/               # UI components
-│   ├── pages/                    # Page components
-│   │   ├── admin/                # Admin pages
-│   │   └── ...                   # Employee pages
-│   ├── hooks/                    # Custom React hooks
-│   └── lib/                      # Utilities
-├── server/                       # Backend services
-│   ├── services/                 # Business logic
-│   ├── types/                    # TypeScript types
-│   └── supabase/                 # Supabase client
-├── supabase/functions/           # Edge Functions
-│   ├── send-notification/        # Notification sender
-│   └── notification-cron/        # Automatic notifications
-├── api/                          # Vercel serverless functions
-├── COMPLETE_DATABASE_SETUP.sql   # Database schema
-└── README.md                     # This file
-```
-
----
-
-## 🔧 Development
-
-```bash
-# Run development server
+# Web app
 npm run dev
 
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Run tests
-npm run test
+# Mobile app
+cd mobile
+npm start
 ```
 
----
+## 📱 Mobile App Setup
 
-## 🗄️ Database Schema
+### Development Build
+```bash
+cd mobile
+npx expo start
+```
 
-### Main Tables
-- `profiles` - User profiles (admin/employee)
+### Production Build
+```bash
+# Android
+eas build --platform android --profile production
+
+# iOS
+eas build --platform ios --profile production
+```
+
+See `mobile/DEPLOYMENT_GUIDE_COMPLETE.md` for detailed instructions.
+
+## 🔧 Configuration
+
+### Attendance Settings
+- **Attendance Window**: Configure check-in time range (up to 22 hours)
+- **Grace Period**: Set late arrival tolerance (unlimited duration)
+- **Checkout Time**: Set default auto-checkout time
+- **GPS Validation**: Toggle location verification
+
+### Office Settings
+- **Geofencing**: Set GPS radius for each office (default: 100m)
+- **Multiple Offices**: Support for multiple office locations
+- **Office-specific Rules**: Different settings per office
+
+### Notification Settings
+- **SMS Notifications**: Configure SMS alerts
+- **Email Notifications**: Set up email notifications
+- **Triggers**: Attendance marked, late arrival, etc.
+
+## 📊 Database Schema
+
+### Core Tables
+- `profiles` - User profiles and roles
+- `offices` - Office locations and settings
 - `attendance` - Attendance records
-- `attendance_settings` - System settings (window, strict mode)
-- `offices` - Office locations (GPS coordinates)
-- `office_networks` - WiFi networks for verification
-- `employee_requests` - Registration requests
-- `notification_contacts` - Email/SMS contacts
-- `notification_history` - Notification logs
+- `attendance_settings` - System configuration
+- `notifications` - Notification logs
+- `audit_logs` - System audit trail
 
-### Row Level Security (RLS)
-All tables have RLS policies:
-- Employees can only see their own data
-- Admins can see all data
-- Authentication required for all operations
-
----
-
-## 🎯 Admin Settings
-
-### Strict Mode
-Toggle in: **Admin Settings > System > Strict Mode**
-- **Enabled**: GPS + WiFi verification required for attendance
-- **Disabled**: Direct attendance marking (no location checks)
-
-### Attendance Window
-Configure in: **Admin Settings > Attendance Window**
-- Set working hours (e.g., 9:00 AM - 6:00 PM)
-- Select working days (Mon-Sun)
-
-### Notifications
-Configure in: **Admin Settings > Notifications**
-- Add email/SMS contacts
-- Set notification slots (hourly)
-- Send manual alerts
-- View notification history
-
----
-
-## 🐛 Troubleshooting
-
-### Can't login as admin
-Run this SQL to reset admin:
-```sql
--- Clear references
-UPDATE attendance_settings SET updated_by = NULL;
-DELETE FROM profiles;
-
--- Delete auth users via Dashboard > Authentication > Users
-
--- Create new admin via Dashboard > Add User
--- Then run:
-INSERT INTO profiles (id, email, full_name, role, status, created_at, updated_at)
-SELECT id, 'admin@nexus.com', 'Admin', 'admin', 'active', NOW(), NOW()
-FROM auth.users WHERE email = 'admin@nexus.com';
-```
-
-### "No active attendance window"
-```sql
-INSERT INTO attendance_settings (setting_name, start_time, end_time, is_active, strict_mode)
-VALUES ('default_attendance_window', '09:00:00', '18:00:00', true, true);
-```
-
-### GPS verification failing
-1. Check office location is set in `offices` table
-2. Verify GPS coordinates are correct
-3. Adjust `radius_meters` (e.g., 100m)
-4. Or disable strict mode for testing
-
-### WiFi verification failing
-1. Check `office_networks` table has WiFi entries
-2. Verify IP ranges match your network
-3. Or disable strict mode for testing
-
-### Notifications not sending
-1. Verify Edge Function secrets are set
-2. Check `notification_contacts` table has entries
-3. Test with manual notification first
-4. Check notification history for errors
-
----
-
-## 📱 Mobile-First Design
-
-The app is designed mobile-first with:
-- Responsive layouts for all screen sizes
-- Touch-friendly interactions
-- Bottom navigation for mobile
-- Sidebar navigation for desktop
-- Progressive Web App (PWA) ready
-
----
+### Views
+- `daily_work_summary` - Aggregated work hours
 
 ## 🔐 Security
 
-- Row Level Security (RLS) on all tables
-- JWT-based authentication via Supabase Auth
-- Role-based access control (admin/employee)
-- Secure password hashing
-- HTTPS only in production
+### Authentication
+- Email/password authentication
+- Session management
+- Device fingerprinting
+
+### Authorization
+- Role-based access control (RBAC)
+- Row Level Security (RLS)
+- API rate limiting
+
+### Data Protection
+- Encrypted connections (HTTPS)
+- Secure password storage
+- PII data protection
+
+## 🧪 Testing
+
+```bash
+# Run tests
+npm test
+
+# Run with coverage
+npm run test:coverage
+```
+
+## 📚 Documentation
+
+- [Admin User Manual](docs/ADMIN_USER_MANUAL.md)
+- [Employee User Manual](docs/EMPLOYEE_USER_MANUAL.md)
+- [Mobile Deployment Guide](mobile/DEPLOYMENT_GUIDE_COMPLETE.md)
+
+## 🚀 Deployment
+
+### Web Application
+Deployed on Vercel with automatic deployments from main branch.
+
+```bash
+# Manual deployment
+vercel --prod
+```
+
+### Mobile Application
+Built and distributed via Expo Application Services (EAS).
+
+```bash
+# Submit to stores
+eas submit --platform android
+eas submit --platform ios
+```
+
+### Supabase Functions
+```bash
+# Deploy edge functions
+supabase functions deploy auto-checkout-cron
+supabase functions deploy notification-cron
+```
+
+## 🔄 Cron Jobs
+
+### Auto-Checkout
+Runs daily to automatically check out employees who haven't manually checked out.
+- Reads default time from settings
+- Respects auto-checkout toggle
+- Logs all operations
+
+### Notifications
+Sends scheduled notifications based on configured triggers.
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**GPS not working**
+- Ensure location permissions are granted
+- Check GPS is enabled on device
+- Verify office coordinates are correct
+
+**Attendance not marking**
+- Check attendance window is open
+- Verify GPS is within office radius
+- Ensure user is active and has office assigned
+
+**Times showing incorrectly**
+- All times stored in UTC
+- Converted to IST for display
+- Check timezone settings
+
+## 📝 License
+
+Proprietary - All rights reserved
+
+## 👥 Support
+
+For support and queries:
+- Email: support@nexon.com
+- Documentation: See `/docs` folder
+
+## 🎯 Roadmap
+
+### Phase 3 (Planned)
+- Leave Management System
+- Holiday & Weekend Management
+- Employee Performance Dashboard
+- Advanced Analytics
+
+## 📈 Version History
+
+### v2.0.0 (Current)
+- ✅ Checkout functionality
+- ✅ Enhanced grace period
+- ✅ 24-hour attendance window
+- ✅ Improved admin controls
+- ✅ Timezone handling fixes
+
+### v1.0.0
+- ✅ Basic attendance marking
+- ✅ GPS validation
+- ✅ Admin dashboard
+- ✅ Employee management
+- ✅ Reports and exports
+
+## 🤝 Contributing
+
+This is a private project. For internal contributions:
+1. Create a feature branch
+2. Make your changes
+3. Submit a pull request
+4. Wait for review
+
+## 📞 Contact
+
+**Nexon Technologies**
+- Website: www.nexon.com
+- Email: info@nexon.com
+- Phone: +91-XXXXXXXXXX
 
 ---
 
-## 📄 License
-
-© 2024 Nexus Pvt Ltd. All rights reserved.
-
----
-
-## 📞 Support
-
-For issues or questions, contact: admin@nexus.com
+Built with ❤️ by Nexon Technologies
