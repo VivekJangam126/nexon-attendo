@@ -57,12 +57,23 @@ const LoginScreen = () => {
     try {
       const { error: loginError } = await login(email, password);
 
+      console.log('🔐 Login attempt result:', { loginError });
+
       if (loginError) {
         const errorMsg = loginError.message.toLowerCase();
+        
+        console.log('❌ Login error:', errorMsg);
         
         // Handle rate limit errors
         if (errorMsg.includes('too many') || errorMsg.includes('rate limit')) {
           setError(loginError.message);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Handle JWT/token errors that might indicate time issues
+        if (errorMsg.includes('jwt') || errorMsg.includes('token') || errorMsg.includes('expired') || errorMsg.includes('invalid')) {
+          setError("Login failed. Please ensure your device date and time are correct and synced with network time, then try again.");
           setIsLoading(false);
           return;
         }
@@ -80,9 +91,11 @@ const LoginScreen = () => {
         setIsLoading(false);
       } else {
         // Login successful - useEffect will handle navigation
+        console.log('✅ Login successful');
         setIsLoading(false);
       }
     } catch (err) {
+      console.error('💥 Login exception:', err);
       setError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
     }

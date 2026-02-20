@@ -20,7 +20,40 @@ const AttendanceErrorScreen = () => {
   const error = location.state?.error as string | undefined;
   const errorCode = location.state?.errorCode as AttendanceErrorCode | undefined;
 
-  const getErrorConfig = () => {
+  console.log('📍 AttendanceErrorScreen mounted:', { error, errorCode });
+
+  const getErrorConfig = (): {
+    icon: typeof MapPinOff | typeof MapPin | typeof Clock | typeof CheckCircle2 | typeof AlertTriangle | typeof XCircle | typeof UserX | typeof Building2;
+    title: string;
+    description: string;
+    action: string;
+    actionButton: "retry" | "back";
+    warning?: string;
+  } => {
+    // Check if error message contains "previous day" and "check-out"
+    const errorLower = error?.toLowerCase() || '';
+    const isPreviousDayCheckoutError = errorLower.includes('previous day') && 
+                                       errorLower.includes('check-out');
+    
+    console.log('🔍 Error Screen Debug:', { 
+      error, 
+      errorLower, 
+      isPreviousDayCheckoutError,
+      errorCode 
+    });
+    
+    if (isPreviousDayCheckoutError) {
+      console.log('✅ Showing previous day checkout error message');
+      return {
+        icon: Clock,
+        title: "Previous Day Checkout Pending",
+        description: "Your previous day's attendance checkout is pending. This might be due to incorrect device date/time settings.",
+        action: "Please ensure your device date and time are correct and synced with network time. If this is a genuine issue, contact admin to resolve the previous day's checkout.",
+        actionButton: "back" as const,
+        warning: "⚠️ Make sure your device time is synced with network time",
+      };
+    }
+
     switch (errorCode) {
       case "GPS_REQUIRED":
         return {
@@ -147,6 +180,15 @@ const AttendanceErrorScreen = () => {
             </div>
           </div>
         </div>
+
+        {/* Warning for date/time issues */}
+        {config.warning && (
+          <div className="bg-warning-muted border border-warning/20 rounded-xl p-4 mb-6 w-full max-w-sm animate-fade-in-up" style={{ animationDelay: "0.15s" }}>
+            <p className="text-sm text-center text-warning-foreground font-medium">
+              {config.warning}
+            </p>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="w-full max-w-sm space-y-3 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
