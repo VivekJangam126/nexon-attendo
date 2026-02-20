@@ -79,15 +79,28 @@ export const MarkAttendanceScreen: React.FC<MarkAttendanceScreenProps> = ({ navi
       const deviceId = await getDeviceIdentifier();
       const userAgent = getUserAgent();
       
+      console.log('📝 Calling markAttendance with:', {
+        userId: profile.id,
+        email: profile.email,
+        latitude,
+        longitude,
+        deviceId,
+        userAgent,
+      });
+      
       const result = await markAttendance(profile, latitude, longitude, deviceId, userAgent);
       
+      console.log('📝 markAttendance result:', result);
+      
       if (!result.success) {
+        console.error('❌ Attendance marking failed:', result.error, result.errorCode);
         setError(getErrorMessage(result.errorCode, result.error));
         setLoading(false);
         return;
       }
       
       // Success
+      console.log('✅ Attendance marked successfully!');
       setStep('complete');
       setLoading(false);
       
@@ -97,7 +110,10 @@ export const MarkAttendanceScreen: React.FC<MarkAttendanceScreenProps> = ({ navi
         [
           {
             text: 'OK',
-            onPress: () => navigation.goBack(),
+            onPress: () => {
+              // Navigate back and trigger refresh
+              navigation.navigate('EmployeeApp', { refresh: Date.now() });
+            },
           },
         ]
       );

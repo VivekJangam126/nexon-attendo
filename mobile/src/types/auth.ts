@@ -15,6 +15,7 @@ export interface UserProfile {
   role: UserRole;
   status: UserStatus;
   office_location: string | null;
+  office_name?: string | null;
   created_at: string;
   updated_at: string;
 }

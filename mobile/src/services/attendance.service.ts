@@ -24,7 +24,7 @@ export const markAttendance = async (
     console.log('  Location:', latitude, longitude);
     console.log('  Device:', deviceId);
     
-    // Call the backend RPC function or insert directly
+    // Call the backend RPC function
     // The backend will handle all validation
     const { data, error } = await supabase.rpc('mark_attendance', {
       p_user_id: userProfile.id,
@@ -34,8 +34,10 @@ export const markAttendance = async (
       p_user_agent: userAgent,
     });
     
+    console.log('  📦 RPC Response:', { data, error });
+    
     if (error) {
-      console.log('  ❌ Attendance marking failed:', error.message);
+      console.log('  ❌ RPC Error:', error.message);
       
       // Parse error message to extract error code if available
       const errorCode = extractErrorCode(error.message);
@@ -47,11 +49,33 @@ export const markAttendance = async (
       };
     }
     
-    console.log('  ✅ Attendance marked successfully');
+    // The RPC function returns a JSON object
+    // Check if the function itself returned an error
+    if (data && typeof data === 'object') {
+      if (data.success === false) {
+        console.log('  ❌ Function returned error:', data.error);
+        return {
+          success: false,
+          error: data.error || 'Failed to mark attendance',
+          errorCode: data.errorCode || 'VALIDATION_FAILED',
+        };
+      }
+      
+      if (data.success === true) {
+        console.log('  ✅ Attendance marked successfully');
+        return {
+          success: true,
+          attendance: data.attendance as Attendance,
+        };
+      }
+    }
     
+    // Unexpected response format
+    console.log('  ⚠️  Unexpected response format:', data);
     return {
-      success: true,
-      attendance: data as Attendance,
+      success: false,
+      error: 'Unexpected response from server',
+      errorCode: 'VALIDATION_FAILED',
     };
   } catch (error) {
     console.error('  ❌ Attendance marking exception:', error);
@@ -175,6 +199,57 @@ export const getActiveWindow = async (): Promise<AttendanceWindow | null> => {
   } catch (error) {
     console.error('  ❌ Exception fetching attendance window:', error);
     return null;
+  }
+};
+
+/**
+ * Check if attendance window is currently open
+ */
+export const isWindowOpen = async (): Promise<{ isOpen: boolean; windowDisplay: string }> => {
+  try {
+    const window = await getActiveWindow();
+    
+    if (!window) {
+      return {
+        isOpen: false,
+        windowDisplay: 'Window not configured',
+      };
+    }
+
+    // Get current IST time
+    const now = new Date();
+    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    const currentHour = istTime.getUTCHours();
+    const currentMinute = istTime.getUTCMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+    // Parse window times
+    const [startHour, startMinute] = window.start_time.split(':').map(Number);
+    const [endHour, endMinute] = window.end_time.split(':').map(Number);
+    const startTimeInMinutes = startHour * 60 + startMinute;
+    const endTimeInMinutes = endHour * 60 + endMinute;
+
+    // Format time for display
+    const formatTime = (hour: number, minute: number) => {
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+      return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+    };
+
+    const windowDisplay = `${formatTime(startHour, startMinute)} - ${formatTime(endHour, endMinute)}`;
+
+    const isOpen = currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes;
+
+    return {
+      isOpen,
+      windowDisplay,
+    };
+  } catch (error) {
+    console.error('  ❌ Exception checking window status:', error);
+    return {
+      isOpen: false,
+      windowDisplay: 'Error checking window',
+    };
   }
 };
 

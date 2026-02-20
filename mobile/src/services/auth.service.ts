@@ -128,35 +128,71 @@ export const getProfile = async (userId: string): Promise<ProfileResponse> => {
   try {
     console.log('👤 Fetching profile for user:', userId);
     
-    const { data, error } = await supabase
+    // First, get the profile
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
     
-    if (error) {
-      console.log('  ❌ Profile fetch failed:', error.message);
+    if (profileError) {
+      console.log('  ❌ Profile fetch failed:', profileError.message);
       return {
         profile: null,
-        error: new Error(error.message),
+        error: new Error(profileError.message),
       };
     }
     
-    if (!data) {
+    if (!profileData) {
       console.log('  ❌ No profile found');
       return {
         profile: null,
         error: new Error('Profile not found'),
       };
     }
+
+    // If user has an office assigned, fetch the office name
+    let officeName = null;
+    if (profileData.office_location) {
+      console.log('  🏢 Fetching office name for:', profileData.office_location);
+      
+      const { data: officeData, error: officeError } = await supabase
+        .from('offices')
+        .select('name')
+        .eq('id', profileData.office_location)
+        .single();
+
+      if (officeError) {
+        console.warn('  ⚠️  Could not fetch office name:', officeError.message);
+        console.warn('  ⚠️  Error code:', officeError.code);
+        console.warn('  ⚠️  This usually means:');
+        console.warn('      - Office does not exist in offices table');
+        console.warn('      - RLS policy blocking access');
+        console.warn('      - offices table does not exist');
+      } else if (officeData) {
+        officeName = officeData.name;
+        console.log('  ✅ Office name fetched:', officeName);
+      } else {
+        console.warn('  ⚠️  Office query returned no data');
+      }
+    } else {
+      console.log('  ℹ️  No office assigned to user');
+    }
+
+    const profile: UserProfile = {
+      ...profileData,
+      office_name: officeName,
+    };
     
     console.log('  ✅ Profile fetched');
-    console.log('    Name:', data.full_name);
-    console.log('    Role:', data.role);
-    console.log('    Status:', data.status);
+    console.log('    Name:', profile.full_name);
+    console.log('    Role:', profile.role);
+    console.log('    Status:', profile.status);
+    console.log('    Office Location:', profile.office_location);
+    console.log('    Office Name:', profile.office_name);
     
     return {
-      profile: data as UserProfile,
+      profile,
       error: null,
     };
   } catch (error) {

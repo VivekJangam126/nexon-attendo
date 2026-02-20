@@ -34,15 +34,28 @@ export const getTodayDateIST = (): string => {
 
 /**
  * Format ISO timestamp to IST time (e.g., "09:30 AM")
+ * Times are stored in UTC in the database, so we convert to IST
  */
-export const formatTimeIST = (isoString: string): string => {
+export const formatTimeIST = (isoString: string | null): string => {
+  if (!isoString) return 'N/A';
+  
   try {
-    const date = parseISO(isoString);
-    // Convert to IST by adding 5.5 hours
-    const istDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
-    return format(istDate, 'hh:mm a');
+    // Parse the UTC time
+    const utcDate = new Date(isoString);
+    
+    // Convert to IST by adding 5 hours 30 minutes
+    const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
+    
+    // Format the time
+    const hours = istDate.getUTCHours();
+    const minutes = istDate.getUTCMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes.toString().padStart(2, '0');
+    
+    return `${displayHours}:${displayMinutes} ${ampm}`;
   } catch (error) {
-    console.error('Error formatting time:', error);
+    console.error('Error formatting time:', error, isoString);
     return '--:--';
   }
 };
