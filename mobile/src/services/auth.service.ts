@@ -103,6 +103,25 @@ export const getSession = async () => {
 };
 
 /**
+ * Get current user
+ */
+export const getCurrentUser = async () => {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error) {
+      console.error('Error getting current user:', error);
+      return null;
+    }
+    
+    return user;
+  } catch (error) {
+    console.error('Exception getting current user:', error);
+    return null;
+  }
+};
+
+/**
  * Get user profile from database
  */
 export const getProfile = async (userId: string): Promise<ProfileResponse> => {

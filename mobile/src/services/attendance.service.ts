@@ -182,11 +182,30 @@ export const getActiveWindow = async (): Promise<AttendanceWindow | null> => {
  * Helper: Get today's date in IST (YYYY-MM-DD)
  */
 const getTodayDateIST = (): string => {
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  try {
+    // Get current UTC time
+    const now = new Date();
+    
+    // Convert to IST by adding 5.5 hours (19800000 milliseconds)
+    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    
+    const year = istTime.getUTCFullYear();
+    const month = String(istTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(istTime.getUTCDate()).padStart(2, '0');
+    
+    const dateString = `${year}-${month}-${day}`;
+    console.log('  📅 Today\'s date (IST):', dateString);
+    
+    return dateString;
+  } catch (error) {
+    console.error('  ❌ Error getting today\'s date:', error);
+    // Fallback to simple date
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 };
 
 /**

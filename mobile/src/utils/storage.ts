@@ -4,10 +4,20 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import uuid from 'react-native-uuid';
 
 const DEVICE_ID_KEY = '@nexus_attendo:device_id';
 const USER_PREFERENCES_KEY = '@nexus_attendo:preferences';
+
+/**
+ * Generate a simple UUID v4
+ */
+const generateUUID = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
 /**
  * Get or generate device ID
@@ -19,7 +29,7 @@ export const getDeviceId = async (): Promise<string> => {
     
     if (!deviceId) {
       // Generate new UUID for this device
-      deviceId = uuid.v4() as string;
+      deviceId = generateUUID();
       await AsyncStorage.setItem(DEVICE_ID_KEY, deviceId);
       console.log('📱 Generated new device ID:', deviceId);
     } else {
@@ -30,7 +40,7 @@ export const getDeviceId = async (): Promise<string> => {
   } catch (error) {
     console.error('❌ Error getting device ID:', error);
     // Fallback to temporary UUID if storage fails
-    return uuid.v4() as string;
+    return generateUUID();
   }
 };
 
