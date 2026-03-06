@@ -262,7 +262,15 @@ export const pdfGenerationService = {
             data.cell.styles.textColor = [150, 150, 150];
           }
         }
-      }
+      },
+      didDrawPage: function(data) {
+        // Add header and footer to each new page
+        if (data.pageNumber > currentPage) {
+          currentPage = data.pageNumber;
+          addHeaderFooter();
+        }
+      },
+      margin: { top: headerHeight + 5, bottom: bottomMargin }
     });
     
     yPos = (doc as any).lastAutoTable.finalY + 14;
@@ -322,18 +330,19 @@ export const pdfGenerationService = {
         const statusCompare = statusOrder[a.status as keyof typeof statusOrder] - statusOrder[b.status as keyof typeof statusOrder];
         if (statusCompare !== 0) return statusCompare;
         return a.employeeName.localeCompare(b.employeeName);
-      }).slice(0, 20);
+      }); // Show all records - autoTable will handle pagination
       
       const tableData = sortedRecords.map(record => [
         record.employeeName,
         record.email,
         record.checkInTime,
+        record.checkOutTime || '-',
         record.status.toUpperCase()
       ]);
       
       autoTable.default(doc, {
         startY: yPos,
-        head: [['Employee Name', 'Email', 'Check-In', 'Status']],
+        head: [['Employee Name', 'Email', 'Check-In', 'Check-Out', 'Status']],
         body: tableData,
         theme: 'grid',
         headStyles: { 
@@ -353,13 +362,14 @@ export const pdfGenerationService = {
           fillColor: [248, 249, 250]
         },
         columnStyles: {
-          0: { cellWidth: 50, halign: 'left' },
-          1: { cellWidth: 60, halign: 'left' },
-          2: { cellWidth: 25, halign: 'center' },
-          3: { cellWidth: 25, halign: 'center', fontStyle: 'bold' },
+          0: { cellWidth: 45, halign: 'left' },
+          1: { cellWidth: 50, halign: 'left' },
+          2: { cellWidth: 22, halign: 'center' },
+          3: { cellWidth: 22, halign: 'center' },
+          4: { cellWidth: 21, halign: 'center', fontStyle: 'bold' },
         },
         didParseCell: function(data) {
-          if (data.column.index === 3 && data.section === 'body') {
+          if (data.column.index === 4 && data.section === 'body') {
             const status = data.cell.raw as string;
             if (status === 'PRESENT') {
               data.cell.styles.textColor = [22, 163, 74];
@@ -377,10 +387,13 @@ export const pdfGenerationService = {
           }
         },
         didDrawPage: function(data) {
+          // Add header and footer to each new page created by autoTable
           if (data.pageNumber > currentPage) {
             currentPage = data.pageNumber;
+            addHeaderFooter();
           }
-        }
+        },
+        margin: { top: headerHeight + 5, bottom: bottomMargin }
       });
       
       yPos = (doc as any).lastAutoTable.finalY + 12;
