@@ -76,8 +76,15 @@ const LoginScreen = () => {
           return;
         }
         
-        // Handle JWT/token errors that might indicate time issues
-        if (errorMsg.includes('jwt') || errorMsg.includes('token') || errorMsg.includes('expired') || errorMsg.includes('invalid')) {
+        // Handle credential errors (wrong email/password)
+        if (errorMsg.includes('invalid login credentials') || errorMsg.includes('email not confirmed') || errorMsg.includes('invalid email or password')) {
+          setError("Invalid email or password. Please check your credentials and try again.");
+          setIsLoading(false);
+          return;
+        }
+        
+        // Handle JWT/token errors that might indicate time issues (be more specific)
+        if (errorMsg.includes('jwt expired') || errorMsg.includes('token expired') || errorMsg.includes('jwt malformed')) {
           setError("Login failed. Please ensure your device date and time are correct and synced with network time, then try again.");
           setIsLoading(false);
           return;

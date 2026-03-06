@@ -42,7 +42,14 @@ const AdminLoginScreen = () => {
       const { error: loginError } = await login(email, password);
 
       if (loginError) {
-        setError(loginError.message);
+        const errorMsg = loginError.message.toLowerCase();
+        
+        // Handle credential errors (wrong email/password)
+        if (errorMsg.includes('invalid login credentials') || errorMsg.includes('email not confirmed') || errorMsg.includes('invalid email or password')) {
+          setError("Invalid email or password. Please check your credentials and try again.");
+        } else {
+          setError(loginError.message);
+        }
         setIsLoading(false);
         return;
       }
