@@ -1,12 +1,15 @@
 /**
  * Auto Check-Out Cron Job
- * Runs daily to automatically check out all employees
+ * Runs daily at 8:00 PM IST to automatically check out all employees
  * who checked in today but haven't checked out yet
  * 
  * Configuration:
  * - Reads default checkout time from attendance_settings table
  * - Respects auto_checkout_enabled flag
- * - Default fallback: 6:30 PM IST if settings not found
+ * - Sets checkout time to admin-configured time (not 8 PM)
+ * - Runs at 8 PM but sets checkout to configured time (e.g., 6:30 PM)
+ * 
+ * Schedule: Daily at 8:00 PM IST (14:30 UTC)
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
@@ -25,26 +28,20 @@ interface Attendance {
   status: string;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: { method: string; headers: { get: (arg0: string) => any; }; }) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  try {
-    console.log('🕐 [AUTO CHECK-OUT CRON] Starting automatic check-out process...');
+  const startTime = new Date();
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('🚀 [AUTO CHECK-OUT CRON] Function invoked at:', startTime.toISOString());
+  console.log('═══════════════════════════════════════════════════════════');
 
-    // Verify cron secret for security
-    const authHeader = req.headers.get('Authorization');
-    const cronSecret = Deno.env.get('CRON_SECRET');
-    
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      console.log('❌ Unauthorized: Invalid cron secret');
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+  try {
+    console.log('🕐 Starting automatic check-out process...');
+    console.log('✅ Request authenticated via Supabase JWT');
 
     // Initialize Supabase client with service role key
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -61,35 +58,35 @@ Deno.serve(async (req) => {
     const month = String(istTime.getMonth() + 1).padStart(2, '0');
     const day = String(istTime.getDate()).padStart(2, '0');
     const todayDate = `${year}-${month}-${day}`;
+    
+    // Get current time
+    const currentHour = istTime.getHours();
+    const currentMinute = istTime.getMinutes();
+    const currentSecond = istTime.getSeconds();
+    const currentTimeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}:${String(currentSecond).padStart(2, '0')}`;
 
     console.log(`📅 Processing date: ${todayDate} (IST)`);
-    console.log(`⏰ Current IST time: ${istTime.toISOString()}`);
+    console.log(`⏰ Current IST time: ${currentTimeStr}`);
 
     // Fetch checkout settings from database
     console.log('📋 Fetching checkout settings from database...');
     
-    // Get default checkout time
-    const { data: timeSettings, error: timeError } = await supabase
+    // Get settings from the attendance_settings table (stored as columns)
+    const { data: settings, error: settingsError } = await supabase
       .from('attendance_settings')
-      .select('setting_value')
-      .eq('setting_name', 'default_checkout_time')
+      .select('default_checkout_time, auto_checkout_enabled')
+      .eq('setting_name', 'default_attendance_window')
       .single();
 
-    // Get auto-checkout enabled flag
-    const { data: autoSettings, error: autoError } = await supabase
-      .from('attendance_settings')
-      .select('setting_value')
-      .eq('setting_name', 'auto_checkout_enabled')
-      .single();
-
-    if (timeError || !timeSettings) {
-      console.error('❌ Error fetching checkout time settings:', timeError);
-      // Fallback to default 6:30 PM if settings not found
+    if (settingsError || !settings) {
+      console.error('❌ Error fetching checkout settings:', settingsError);
       console.log('⚠️  Using fallback default: 18:30 (6:30 PM)');
     }
 
+    console.log('📋 Settings fetched:', JSON.stringify(settings));
+
     // Check if auto-checkout is enabled
-    const autoCheckoutEnabled = autoSettings?.setting_value === 'true' || autoSettings?.setting_value === true;
+    const autoCheckoutEnabled = settings?.auto_checkout_enabled ?? true;
     console.log(`⚙️  Auto-checkout enabled: ${autoCheckoutEnabled}`);
 
     if (!autoCheckoutEnabled) {
@@ -106,10 +103,14 @@ Deno.serve(async (req) => {
     }
 
     // Parse the default checkout time from settings (format: HH:MM:SS)
-    const defaultTime = timeSettings?.setting_value || '18:30:00';
+    const defaultTime = settings?.default_checkout_time || '18:30:00';
     const [hours, minutes] = defaultTime.split(':').map(Number);
+    const configuredTimeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     
-    console.log(`⚙️  Default checkout time from settings: ${hours}:${minutes.toString().padStart(2, '0')}`);
+    console.log(`⚙️  Configured checkout time: ${configuredTimeStr}`);
+    console.log(`⏰  Current time (HH:MM): ${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`);
+    console.log(`✅ Running daily auto-checkout at 8 PM IST`);
+    console.log(`📝 Will set checkout time to configured time: ${configuredTimeStr}`);
 
     // Set check-out time to configured time IST today
     const checkOutTime = new Date(istTime);
@@ -150,6 +151,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`📋 Found ${attendanceRecords.length} attendance records to check out`);
+    console.log(`🕕 Setting checkout time to: ${checkOutTimeISO} (UTC) = ${displayHour}:${minutes.toString().padStart(2, '0')} ${ampm} (IST)`);
 
     // Update all records with check-out time
     const { data: updatedRecords, error: updateError } = await supabase
@@ -164,6 +166,7 @@ Deno.serve(async (req) => {
 
     if (updateError) {
       console.error('❌ Error updating attendance records:', updateError);
+      console.error('Update error details:', JSON.stringify(updateError));
       throw new Error(`Failed to update attendance: ${updateError.message}`);
     }
 
@@ -171,10 +174,13 @@ Deno.serve(async (req) => {
     console.log(`✅ Successfully checked out ${processedCount} employees`);
 
     // Log details for each checked-out employee
-    if (updatedRecords) {
-      updatedRecords.forEach((record: Attendance) => {
-        console.log(`  ✓ User ${record.user_id}: ${record.status} → checked out at 6:00 PM`);
+    if (updatedRecords && updatedRecords.length > 0) {
+      console.log('📝 Checkout details:');
+      updatedRecords.forEach((record: Attendance, index: number) => {
+        console.log(`  ${index + 1}. User ${record.user_id}: ${record.status} → checked out`);
       });
+    } else {
+      console.log('⚠️  No records were updated (this might indicate a timing issue)');
     }
 
     return new Response(
