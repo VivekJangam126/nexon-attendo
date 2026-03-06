@@ -121,11 +121,10 @@ export const pdfGenerationService = {
     doc.text('Attendance Summary', 14, yPos);
     yPos += 10;
     
-    // Calculate correct percentages
-    const totalRecords = records.length;
-    const presentRecords = records.filter((r: any) => r.status === 'present').length;
-    const lateRecords = records.filter((r: any) => r.status === 'late').length;
-    const absentRecords = records.filter((r: any) => r.status === 'absent').length;
+    // CORRECT CALCULATION: Sum from daily breakdown (unique employees per day)
+    const presentRecords = breakdown.reduce((sum: number, day: any) => sum + day.present, 0);
+    const lateRecords = breakdown.reduce((sum: number, day: any) => sum + day.late, 0);
+    const absentRecords = breakdown.reduce((sum: number, day: any) => sum + day.absent, 0);
     
     const workingDays = breakdown.length;
     const totalPossibleAttendance = stats.totalEmployees * workingDays;
@@ -290,7 +289,7 @@ export const pdfGenerationService = {
       recordsByDate.get(record.date)!.push(record);
     });
     
-    const sortedDates = Array.from(recordsByDate.keys()).sort((a, b) => b.localeCompare(a)).slice(0, 3);
+    const sortedDates = Array.from(recordsByDate.keys()).sort((a, b) => b.localeCompare(a));
     
     sortedDates.forEach((date) => {
       if (yPos > pageHeight - bottomMargin - 50) {

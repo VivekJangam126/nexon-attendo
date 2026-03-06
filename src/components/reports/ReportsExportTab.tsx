@@ -448,14 +448,13 @@ export const ReportsExportTab = () => {
     doc.text('Attendance Summary', 14, yPos);
     yPos += 10;
     
-    // CRITICAL FIX: Calculate correct percentages
-    // Total records = all employee-day combinations
-    const totalRecords = records.length;
-    const presentRecords = records.filter((r: any) => r.status === 'present').length;
-    const lateRecords = records.filter((r: any) => r.status === 'late').length;
-    const absentRecords = records.filter((r: any) => r.status === 'absent').length;
+    // CORRECT CALCULATION: Sum from daily breakdown (unique employees per day)
+    // Each day has unique employee counts, so we sum across all days
+    const presentRecords = breakdown.reduce((sum: number, day: any) => sum + day.present, 0);
+    const lateRecords = breakdown.reduce((sum: number, day: any) => sum + day.late, 0);
+    const absentRecords = breakdown.reduce((sum: number, day: any) => sum + day.absent, 0);
     
-    // Correct calculation: based on total possible attendance (employees × days)
+    // Total possible attendance = employees × days
     const workingDays = breakdown.length;
     const totalPossibleAttendance = stats.totalEmployees * workingDays;
     const presentPercentage = totalPossibleAttendance > 0 ? Math.round((presentRecords / totalPossibleAttendance) * 100) : 0;
@@ -621,8 +620,8 @@ export const ReportsExportTab = () => {
       recordsByDate.get(record.date)!.push(record);
     });
     
-    // Sort dates in descending order and take first 3
-    const sortedDates = Array.from(recordsByDate.keys()).sort((a, b) => b.localeCompare(a)).slice(0, 3);
+    // Sort dates in descending order - show all dates
+    const sortedDates = Array.from(recordsByDate.keys()).sort((a, b) => b.localeCompare(a));
     
     sortedDates.forEach((date) => {
       // Check if we need a new page (with more space for footer)
@@ -796,10 +795,11 @@ export const ReportsExportTab = () => {
     const reportTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     const reportType = selectedRange.charAt(0).toUpperCase() + selectedRange.slice(1);
     
-    const totalRecords = records.length;
-    const presentRecords = records.filter((r: any) => r.status === 'present').length;
-    const lateRecords = records.filter((r: any) => r.status === 'late').length;
-    const absentRecords = records.filter((r: any) => r.status === 'absent').length;
+    // CORRECT CALCULATION: Sum from daily breakdown (unique employees per day)
+    const presentRecords = breakdown.reduce((sum: number, day: any) => sum + day.present, 0);
+    const lateRecords = breakdown.reduce((sum: number, day: any) => sum + day.late, 0);
+    const absentRecords = breakdown.reduce((sum: number, day: any) => sum + day.absent, 0);
+    const totalRecords = presentRecords + lateRecords + absentRecords;
 
     // Summary Sheet - Matching CSV/PDF format
     const summaryData = [
