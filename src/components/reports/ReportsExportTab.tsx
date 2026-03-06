@@ -131,6 +131,12 @@ export const ReportsExportTab = () => {
       setIsExporting(false);
       toast({
         title: "Export Failed",
+        description: error instanceof Error ? error.message : "Failed to generate report. Please try again.",
+        variant: "destructive",
+      });
+      setIsExporting(false);
+      toast({
+        title: "Export Failed",
         description: "Failed to generate report. Please try again.",
         variant: "destructive",
       });
@@ -362,14 +368,34 @@ export const ReportsExportTab = () => {
     const headerImg = new Image();
     const footerImg = new Image();
     
-    headerImg.src = '/src/assets/header.png';
-    footerImg.src = '/src/assets/footer.png';
+    headerImg.src = '/header.png';
+    footerImg.src = '/footer.png';
     
-    // Wait for images to load
-    await Promise.all([
-      new Promise((resolve) => { headerImg.onload = resolve; }),
-      new Promise((resolve) => { footerImg.onload = resolve; })
-    ]);
+    // Wait for images to load with error handling
+    try {
+      await Promise.all([
+        new Promise((resolve, reject) => { 
+          headerImg.onload = resolve;
+          headerImg.onerror = reject;
+          // Timeout after 5 seconds
+          setTimeout(() => reject(new Error('Header image load timeout')), 5000);
+        }),
+        new Promise((resolve, reject) => { 
+          footerImg.onload = resolve;
+          footerImg.onerror = reject;
+          // Timeout after 5 seconds
+          setTimeout(() => reject(new Error('Footer image load timeout')), 5000);
+        })
+      ]);
+    } catch (error) {
+      console.error('Error loading images:', error);
+      // Continue without images if they fail to load
+      toast({
+        title: "Warning",
+        description: "PDF generated without header/footer images",
+        variant: "default",
+      });
+    }
     
     // Constants for layout
     const pageWidth = doc.internal.pageSize.getWidth();

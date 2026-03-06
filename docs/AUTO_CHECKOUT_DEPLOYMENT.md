@@ -14,6 +14,25 @@ Before deploying, ensure you have:
 
 ---
 
+### Approach: Dynamic Execution with Frequent Checks
+
+The cron job runs **every minute** and checks if the current time matches the admin-configured checkout time. This allows the checkout time to be fully dynamic without needing to reschedule the cron job.
+
+**How it works:**
+1. Cron runs every minute (or every 5 minutes)
+2. Reads configured checkout time from database
+3. Compares current time with configured time
+4. If match: performs auto-checkout
+5. If no match: skips and waits for next run
+
+**Benefits:**
+- ✅ Admin can change checkout time anytime
+- ✅ No manual cron rescheduling needed
+- ✅ Works immediately after admin updates settings
+- ✅ Fully automated and dynamic
+
+---
+
 ## 🚀 Step 1: Install Supabase CLI
 
 ### Windows (PowerShell):
