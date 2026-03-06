@@ -22,3 +22,27 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * Used by all backend services
  */
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+
+/**
+ * Admin Supabase client with service role key
+ * Used for admin operations like password reset
+ */
+const getAdminClient = () => {
+  // Try to get service role key from environment
+  const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 
+                        import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!serviceRoleKey) {
+    console.warn('Service role key not found. Admin operations may fail.');
+    return supabase; // Fallback to regular client
+  }
+  
+  return createClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+};
+
+export const supabaseAdmin = getAdminClient();

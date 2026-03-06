@@ -33,7 +33,12 @@ const LoginScreen = () => {
         } else if (profile.status === 'rejected' || profile.status === 'blocked') {
           navigate("/account-blocked");
         } else if (profile.status === 'active') {
-          navigate("/dashboard");
+          // Check if password reset is required
+          if (profile.password_reset_required) {
+            navigate("/change-password");
+          } else {
+            navigate("/dashboard");
+          }
         }
       } else if (profile.role === 'admin') {
         // Admin trying to use employee login - redirect to admin login

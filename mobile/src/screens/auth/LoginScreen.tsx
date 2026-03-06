@@ -77,7 +77,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       // Navigate based on role and status
       if (profile.role === 'employee') {
         if (profile.status === 'active') {
-          navigation.replace('EmployeeApp', { profile });
+          // Check if password reset is required
+          if (profile.password_reset_required) {
+            navigation.replace('ChangePassword');
+          } else {
+            navigation.replace('EmployeeApp', { profile });
+          }
         } else if (profile.status === 'pending') {
           setError('Your account is pending approval. Please wait for admin approval.');
         } else if (profile.status === 'blocked' || profile.status === 'rejected') {

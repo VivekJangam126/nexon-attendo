@@ -14,6 +14,8 @@ export interface UserProfile {
   status: UserStatus;
   office_location: string | null;
   office_name?: string | null;
+  phone?: string | null;
+  password_reset_required?: boolean;
   created_at: string;
   updated_at: string;
 }

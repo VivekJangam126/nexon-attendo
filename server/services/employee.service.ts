@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '../supabase/client';
+import { supabaseAdmin } from '../supabase/client';
 import type { UserProfile } from '../types/profile';
 
 export interface EmployeeWithAttendance extends UserProfile {
@@ -11,6 +12,7 @@ export interface EmployeeWithAttendance extends UserProfile {
   check_in_time: string | null;
   office_name: string | null;
   department: string | null;
+  phone?: string | null;
 }
 
 export interface EmployeeDetailResponse {
@@ -404,6 +406,103 @@ export const employeeService = {
         error: err instanceof Error ? err : new Error('Failed to update office'),
       };
     }
+  },
+
+  /**
+   * Update employee profile information
+   */
+  async updateEmployee(
+    userId: string,
+    data: {
+      full_name?: string;
+      email?: string;
+      phone?: string;
+      office_location?: string;
+      role?: 'employee' | 'admin';
+      status?: 'active' | 'blocked' | 'pending';
+    }
+  ): Promise<{ success: boolean; error: Error | null }> {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(data)
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      return { success: true, error: null };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err : new Error('Failed to update employee'),
+      };
+    }
+  },
+
+  /**
+   * Reset employee password
+   * Generates a temporary password and updates Supabase Auth
+   */
+  async resetPassword(
+    userId: string,
+    newPassword: string
+  ): Promise<{ success: boolean; tempPassword?: string; error: Error | null }> {
+    try {
+      // Generate temporary password if not provided
+      const tempPassword = newPassword || this.generateTempPassword();
+
+      console.log('🔑 [RESET PASSWORD] Starting password reset for user:', userId);
+
+      // Update password in Supabase Auth using admin API
+      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
+        userId,
+        { password: tempPassword }
+      );
+
+      if (error) {
+        console.error('❌ [RESET PASSWORD] Supabase Auth error:', error);
+        throw error;
+      }
+
+      console.log('✅ [RESET PASSWORD] Password updated in Supabase Auth');
+
+      // Mark that password reset is required
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ 
+          password_reset_required: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (profileError) {
+        console.warn('⚠️ [RESET PASSWORD] Could not update profile flag:', profileError);
+        // Don't fail the whole operation for this
+      } else {
+        console.log('✅ [RESET PASSWORD] Profile updated with reset flag');
+      }
+
+      return { success: true, tempPassword, error: null };
+    } catch (err) {
+      console.error('❌ [RESET PASSWORD] Failed:', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err : new Error('Failed to reset password'),
+      };
+    }
+  },
+
+  /**
+   * Generate a temporary password
+   */
+  generateTempPassword(): string {
+    const length = 12;
+    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
   },
 
   /**

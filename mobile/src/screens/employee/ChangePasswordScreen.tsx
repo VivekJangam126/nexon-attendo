@@ -3,9 +3,10 @@
  * Allows users to update their password
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
-import { supabase } from '../../config/supabase';
+import { authService } from '../../services/auth.service';
+import { getProfile } from '../../services/profile.service';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { ErrorMessage } from '../../components/common/ErrorMessage';
@@ -23,6 +24,26 @@ export const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navi
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isPasswordResetRequired, setIsPasswordResetRequired] = useState(false);
+
+  // Check if password reset is required
+  useEffect(() => {
+    const checkPasswordResetStatus = async () => {
+      try {
+        const user = await authService.getCurrentUser();
+        if (user) {
+          const profile = await getProfile(user.id);
+          if (profile?.password_reset_required) {
+            setIsPasswordResetRequired(true);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking password reset status:', err);
+      }
+    };
+
+    checkPasswordResetStatus();
+  }, []);
 
   const handleSubmit = async () => {
     setError('');
@@ -46,28 +67,29 @@ export const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navi
     setLoading(true);
 
     try {
-      // Update password using Supabase
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      const result = await authService.changePassword(currentPassword, newPassword);
 
-      if (updateError) {
-        setError(updateError.message);
-        setLoading(false);
-        return;
+      if (result.success) {
+        Alert.alert(
+          'Password Changed',
+          'Your password has been updated successfully.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                if (isPasswordResetRequired) {
+                  // Navigate to dashboard if password reset was required
+                  navigation.navigate('Dashboard');
+                } else {
+                  navigation.goBack();
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        setError(result.error?.message || 'Failed to change password');
       }
-
-      // Success
-      Alert.alert(
-        'Password Changed',
-        'Your password has been updated successfully.',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
     } catch (err) {
       console.error('Change password error:', err);
       setError('An unexpected error occurred. Please try again.');
@@ -81,19 +103,36 @@ export const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navi
       <ScrollView contentContainerStyle={styles.content}>
         <Card>
           <Text style={styles.title}>Change Password</Text>
-          <Text style={styles.subtitle}>Update your account password</Text>
+          <Text style={styles.subtitle}>
+            {isPasswordResetRequired 
+              ? 'Your administrator has reset your password. Please create a new password to continue.'
+              : 'Update your account password'
+            }
+          </Text>
+
+          {/* Password Reset Required Notice */}
+          {isPasswordResetRequired && (
+            <View style={styles.noticeContainer}>
+              <Text style={styles.noticeTitle}>Password Reset Required</Text>
+              <Text style={styles.noticeText}>
+                Please use the temporary password provided by your administrator and create a new password.
+              </Text>
+            </View>
+          )}
 
           {error && <ErrorMessage message={error} />}
 
           {/* Current Password */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Current Password</Text>
+            <Text style={styles.label}>
+              {isPasswordResetRequired ? 'Temporary Password' : 'Current Password'}
+            </Text>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
-                placeholder="Enter current password"
+                placeholder={isPasswordResetRequired ? 'Enter temporary password' : 'Enter current password'}
                 secureTextEntry={!showCurrent}
                 autoCapitalize="none"
               />
@@ -130,14 +169,22 @@ export const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navi
           {/* Confirm Password */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Confirm New Password</Text>
-            <TextInput
-              style={styles.inputFull}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Re-enter new password"
-              secureTextEntry={!showConfirm}
-              autoCapitalize="none"
-            />
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Re-enter new password"
+                secureTextEntry={!showConfirm}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowConfirm(!showConfirm)}
+              >
+                <Text style={styles.eyeIcon}>{showConfirm ? '👁️' : '👁️‍🗨️'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <Button
@@ -171,6 +218,24 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginBottom: 24,
   },
+  noticeContainer: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#93c5fd',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  noticeTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e40af',
+    marginBottom: 4,
+  },
+  noticeText: {
+    fontSize: 14,
+    color: '#1e40af',
+  },
   inputGroup: {
     marginBottom: 20,
   },
@@ -190,16 +255,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingRight: 48,
-    fontSize: 16,
-    color: '#1e293b',
-    backgroundColor: '#ffffff',
-  },
-  inputFull: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
     fontSize: 16,
     color: '#1e293b',
     backgroundColor: '#ffffff',

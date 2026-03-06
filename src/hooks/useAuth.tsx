@@ -11,6 +11,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ error: Error | null }>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -92,6 +93,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      const result = await authService.changePassword(currentPassword, newPassword);
+      
+      if (result.success) {
+        // Refresh profile to clear password_reset_required flag
+        await refreshProfile();
+      }
+      
+      return result;
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err : new Error('Failed to change password'),
+      };
+    }
+  };
+
   const value = {
     user,
     session,
@@ -100,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     refreshProfile,
+    changePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

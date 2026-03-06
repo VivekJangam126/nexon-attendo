@@ -212,3 +212,90 @@ export const onAuthStateChange = (callback: (session: any) => void) => {
     callback(session);
   });
 };
+
+/**
+ * Change user password
+ * Validates current password and updates to new password
+ * Clears password_reset_required flag after successful change
+ */
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error: Error | null }> => {
+  try {
+    console.log('🔑 [CHANGE PASSWORD] Starting password change process');
+
+    // Get current user
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      console.error('❌ [CHANGE PASSWORD] No authenticated user');
+      return {
+        success: false,
+        error: new Error('Not authenticated'),
+      };
+    }
+
+    // Validate current password by attempting to sign in
+    const { error: validateError } = await supabase.auth.signInWithPassword({
+      email: user.email!,
+      password: currentPassword,
+    });
+
+    if (validateError) {
+      console.error('❌ [CHANGE PASSWORD] Current password validation failed:', validateError);
+      return {
+        success: false,
+        error: new Error('Current password is incorrect'),
+      };
+    }
+
+    console.log('✅ [CHANGE PASSWORD] Current password validated');
+
+    // Update to new password
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (updateError) {
+      console.error('❌ [CHANGE PASSWORD] Failed to update password:', updateError);
+      return {
+        success: false,
+        error: new Error('Failed to update password'),
+      };
+    }
+
+    console.log('✅ [CHANGE PASSWORD] Password updated successfully');
+
+    // Clear password_reset_required flag
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ 
+        password_reset_required: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.id);
+
+    if (profileError) {
+      console.warn('⚠️ [CHANGE PASSWORD] Could not clear reset flag:', profileError);
+      // Don't fail the whole operation for this
+    } else {
+      console.log('✅ [CHANGE PASSWORD] Reset flag cleared');
+    }
+
+    return { success: true, error: null };
+  } catch (err) {
+    console.error('❌ [CHANGE PASSWORD] Exception:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err : new Error('Failed to change password'),
+    };
+  }
+};
+
+export const authService = {
+  login,
+  logout,
+  getSession,
+  getCurrentUser,
+  getProfile,
+  onAuthStateChange,
+  changePassword,
+};
