@@ -147,32 +147,7 @@ export const attendanceService = {
         };
       }
 
-      // Validation 5: Check if yesterday's attendance was checked out
-      // This prevents employees from checking in today if they didn't check out yesterday
-      const yesterday = new Date(getCurrentISTTime());
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayDate = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
-      
-      const { data: yesterdayAttendance } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('user_id', userProfile.id)
-        .eq('date', yesterdayDate)
-        .maybeSingle();
-
-      // @ts-ignore - Supabase type inference issue
-      if (yesterdayAttendance && !yesterdayAttendance.check_out_time) {
-        console.log('  ❌ Yesterday check-out pending');
-        return {
-          success: false,
-          error: 'Previous day check-out is pending. Please contact admin to resolve this issue.',
-          errorCode: 'VALIDATION_FAILED',
-        };
-      }
-
-      console.log('  ✅ Yesterday check-out validation passed');
-
-      // Validation 6: Current time is within window (FROM DATABASE)
+      // Validation 5: Current time is within window (FROM DATABASE)
       const { isOpen, window, error: windowError } = await attendanceSettingsService.isAttendanceWindowOpen();
       
       if (windowError || !window) {
@@ -199,30 +174,6 @@ export const attendanceService = {
       // If strict mode is disabled, skip GPS/WiFi validation
       if (!strictMode) {
         console.log('  ⚠️  Strict mode disabled - skipping GPS/WiFi validation');
-        
-        // Validation: Check if yesterday's attendance was checked out
-        const yesterday = new Date(getCurrentISTTime());
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayDate = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
-        
-        const { data: yesterdayAttendance } = await supabase
-          .from('attendance')
-          .select('*')
-          .eq('user_id', userProfile.id)
-          .eq('date', yesterdayDate)
-          .maybeSingle();
-
-        // @ts-ignore - Supabase type inference issue
-        if (yesterdayAttendance && !yesterdayAttendance.check_out_time) {
-          console.log('  ❌ Yesterday check-out pending');
-          return {
-            success: false,
-            error: 'Previous day check-out is pending. Please contact admin to resolve this issue.',
-            errorCode: 'VALIDATION_FAILED',
-          };
-        }
-
-        console.log('  ✅ Yesterday check-out validation passed');
         
         // ============================================
         // DUPLICATE CHECK (EXPLICIT APP-LEVEL)

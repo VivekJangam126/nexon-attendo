@@ -35,7 +35,7 @@ export type { Database } from './types/database';
 export type { UserProfile, UserRole, UserStatus, ProfileResponse } from './types/profile';
 export type { AuthSession, AuthResponse, SessionResponse, UserResponse } from './types/auth';
 export type { RegistrationData, RegistrationResponse } from './types/registration';
-export type { Office, OfficeNetwork, OfficeResponse, OfficesListResponse } from './types/office';
+export type { Office, OfficeResponse, OfficesListResponse } from './types/office';
 export type {
   EmployeeRequest,
   EmployeeRequestWithOffice,

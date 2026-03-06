@@ -131,6 +131,12 @@ export const ReportsExportTab = () => {
       setIsExporting(false);
       toast({
         title: "Export Failed",
+        description: error instanceof Error ? error.message : "Failed to generate report. Please try again.",
+        variant: "destructive",
+      });
+      setIsExporting(false);
+      toast({
+        title: "Export Failed",
         description: "Failed to generate report. Please try again.",
         variant: "destructive",
       });
@@ -362,14 +368,34 @@ export const ReportsExportTab = () => {
     const headerImg = new Image();
     const footerImg = new Image();
     
-    headerImg.src = '/src/assets/header.png';
-    footerImg.src = '/src/assets/footer.png';
+    headerImg.src = '/header.png';
+    footerImg.src = '/footer.png';
     
-    // Wait for images to load
-    await Promise.all([
-      new Promise((resolve) => { headerImg.onload = resolve; }),
-      new Promise((resolve) => { footerImg.onload = resolve; })
-    ]);
+    // Wait for images to load with error handling
+    try {
+      await Promise.all([
+        new Promise((resolve, reject) => { 
+          headerImg.onload = resolve;
+          headerImg.onerror = reject;
+          // Timeout after 5 seconds
+          setTimeout(() => reject(new Error('Header image load timeout')), 5000);
+        }),
+        new Promise((resolve, reject) => { 
+          footerImg.onload = resolve;
+          footerImg.onerror = reject;
+          // Timeout after 5 seconds
+          setTimeout(() => reject(new Error('Footer image load timeout')), 5000);
+        })
+      ]);
+    } catch (error) {
+      console.error('Error loading images:', error);
+      // Continue without images if they fail to load
+      toast({
+        title: "Warning",
+        description: "PDF generated without header/footer images",
+        variant: "default",
+      });
+    }
     
     // Constants for layout
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -448,14 +474,13 @@ export const ReportsExportTab = () => {
     doc.text('Attendance Summary', 14, yPos);
     yPos += 10;
     
-    // CRITICAL FIX: Calculate correct percentages
-    // Total records = all employee-day combinations
-    const totalRecords = records.length;
-    const presentRecords = records.filter((r: any) => r.status === 'present').length;
-    const lateRecords = records.filter((r: any) => r.status === 'late').length;
-    const absentRecords = records.filter((r: any) => r.status === 'absent').length;
+    // CORRECT CALCULATION: Sum from daily breakdown (unique employees per day)
+    // Each day has unique employee counts, so we sum across all days
+    const presentRecords = breakdown.reduce((sum: number, day: any) => sum + day.present, 0);
+    const lateRecords = breakdown.reduce((sum: number, day: any) => sum + day.late, 0);
+    const absentRecords = breakdown.reduce((sum: number, day: any) => sum + day.absent, 0);
     
-    // Correct calculation: based on total possible attendance (employees × days)
+    // Total possible attendance = employees × days
     const workingDays = breakdown.length;
     const totalPossibleAttendance = stats.totalEmployees * workingDays;
     const presentPercentage = totalPossibleAttendance > 0 ? Math.round((presentRecords / totalPossibleAttendance) * 100) : 0;
@@ -593,7 +618,15 @@ export const ReportsExportTab = () => {
             data.cell.styles.textColor = [150, 150, 150];
           }
         }
-      }
+      },
+      didDrawPage: function(data) {
+        // Add header and footer to each new page
+        if (data.pageNumber > currentPage) {
+          currentPage = data.pageNumber;
+          addHeaderFooter();
+        }
+      },
+      margin: { top: headerHeight + 5, bottom: bottomMargin }
     });
     
     yPos = (doc as any).lastAutoTable.finalY + 14;
@@ -613,8 +646,8 @@ export const ReportsExportTab = () => {
       recordsByDate.get(record.date)!.push(record);
     });
     
-    // Sort dates in descending order and take first 3
-    const sortedDates = Array.from(recordsByDate.keys()).sort((a, b) => b.localeCompare(a)).slice(0, 3);
+    // Sort dates in descending order - show all dates
+    const sortedDates = Array.from(recordsByDate.keys()).sort((a, b) => b.localeCompare(a));
     
     sortedDates.forEach((date) => {
       // Check if we need a new page (with more space for footer)
@@ -656,7 +689,7 @@ export const ReportsExportTab = () => {
         const statusCompare = statusOrder[a.status as keyof typeof statusOrder] - statusOrder[b.status as keyof typeof statusOrder];
         if (statusCompare !== 0) return statusCompare;
         return a.employeeName.localeCompare(b.employeeName);
-      }).slice(0, 20); // Limit to 20 records per date for PDF
+      }); // Show all records - autoTable will handle pagination
       
       const tableData = sortedRecords.map(record => {
         let statusDisplay = record.status.toUpperCase();
@@ -664,13 +697,14 @@ export const ReportsExportTab = () => {
           record.employeeName,
           record.email,
           record.checkInTime,
+          record.checkOutTime || '-',
           statusDisplay
         ];
       });
       
       autoTable(doc, {
         startY: yPos,
-        head: [['Employee Name', 'Email', 'Check-In', 'Status']],
+        head: [['Employee Name', 'Email', 'Check-In', 'Check-Out', 'Status']],
         body: tableData,
         theme: 'grid',
         headStyles: { 
@@ -690,14 +724,15 @@ export const ReportsExportTab = () => {
           fillColor: [248, 249, 250]
         },
         columnStyles: {
-          0: { cellWidth: 50, halign: 'left' },
-          1: { cellWidth: 60, halign: 'left' },
-          2: { cellWidth: 25, halign: 'center' },
-          3: { cellWidth: 25, halign: 'center', fontStyle: 'bold' },
+          0: { cellWidth: 45, halign: 'left' },
+          1: { cellWidth: 50, halign: 'left' },
+          2: { cellWidth: 22, halign: 'center' },
+          3: { cellWidth: 22, halign: 'center' },
+          4: { cellWidth: 21, halign: 'center', fontStyle: 'bold' },
         },
         didParseCell: function(data) {
           // Color code status column with badge-like styling
-          if (data.column.index === 3 && data.section === 'body') {
+          if (data.column.index === 4 && data.section === 'body') {
             const status = data.cell.raw as string;
             if (status === 'PRESENT') {
               data.cell.styles.textColor = [22, 163, 74];
@@ -715,11 +750,13 @@ export const ReportsExportTab = () => {
           }
         },
         didDrawPage: function(data) {
-          // Update page number if table spans multiple pages
+          // Add header and footer to each new page created by autoTable
           if (data.pageNumber > currentPage) {
             currentPage = data.pageNumber;
+            addHeaderFooter();
           }
-        }
+        },
+        margin: { top: headerHeight + 5, bottom: bottomMargin }
       });
       
       yPos = (doc as any).lastAutoTable.finalY + 12;
@@ -784,10 +821,11 @@ export const ReportsExportTab = () => {
     const reportTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     const reportType = selectedRange.charAt(0).toUpperCase() + selectedRange.slice(1);
     
-    const totalRecords = records.length;
-    const presentRecords = records.filter((r: any) => r.status === 'present').length;
-    const lateRecords = records.filter((r: any) => r.status === 'late').length;
-    const absentRecords = records.filter((r: any) => r.status === 'absent').length;
+    // CORRECT CALCULATION: Sum from daily breakdown (unique employees per day)
+    const presentRecords = breakdown.reduce((sum: number, day: any) => sum + day.present, 0);
+    const lateRecords = breakdown.reduce((sum: number, day: any) => sum + day.late, 0);
+    const absentRecords = breakdown.reduce((sum: number, day: any) => sum + day.absent, 0);
+    const totalRecords = presentRecords + lateRecords + absentRecords;
 
     // Summary Sheet - Matching CSV/PDF format
     const summaryData = [
@@ -855,7 +893,7 @@ export const ReportsExportTab = () => {
       summaryData.push(['--------------------------------------------------------------------------------']);
       summaryData.push([`Summary: ${dayPresent} Present | ${dayLate} Late | ${dayAbsent} Absent | ${dayRate}% Attendance`]);
       summaryData.push([]);
-      summaryData.push(['Employee Name', 'Email', 'Date', 'Check-In Time', 'Status']);
+      summaryData.push(['Employee Name', 'Email', 'Date', 'Check-In Time', 'Check-Out Time', 'Status']);
       
       // Sort records by status then name
       const sortedRecords = dateRecords.sort((a, b) => {
@@ -873,6 +911,7 @@ export const ReportsExportTab = () => {
           record.email,
           recordFormattedDate,
           record.checkInTime,
+          record.checkOutTime || '-',
           record.status.toUpperCase()
         ]);
       });
@@ -893,6 +932,7 @@ export const ReportsExportTab = () => {
       { wch: 40 }, // Email
       { wch: 15 }, // Date
       { wch: 15 }, // Check-In Time
+      { wch: 15 }, // Check-Out Time
       { wch: 10 }  // Status
     ];
     
