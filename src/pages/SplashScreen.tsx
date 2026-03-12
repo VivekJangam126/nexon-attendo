@@ -25,13 +25,13 @@ const SplashScreen = () => {
 
         {/* Brand Text */}
         <div className="text-center animate-fade-in-up delay-200">
-          <h1 className="text-display text-foreground mb-2">Nexus Attendo</h1>
-          <p className="text-body-secondary">Employee Attendance System</p>
+          <h1 className="text-display text-foreground mb-2">Nexus Corporate Pvt Ltd</h1>
+          <p className="text-body-secondary">Enterprise HR Management Platform</p>
         </div>
 
         {/* Company Name */}
         <div className="mt-8 animate-fade-in-up delay-300">
-          <p className="text-overline">Nexus Pvt Ltd</p>
+          <p className="text-overline">© 2026 Nexus Corporate Pvt Ltd</p>
         </div>
 
         {/* Loading Indicator */}

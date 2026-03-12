@@ -159,29 +159,44 @@ export const dashboardService = {
   },
 
   /**
-   * Get recent attendance activity
+   * Get recent attendance activity with employee names
    */
   async getRecentActivity(limit: number = 10): Promise<{ activities: RecentActivity[]; error: Error | null }> {
     try {
       const today = new Date().toISOString().split('T')[0];
 
-      const { data, error } = await supabase
+      // Get today's attendance records
+      const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance')
-        .select(`
-          user_id,
-          check_in_time,
-          status,
-          profiles!inner(full_name)
-        `)
+        .select('user_id, check_in_time, status')
         .eq('date', today)
         .order('check_in_time', { ascending: false })
         .limit(limit);
 
-      if (error) throw error;
+      if (attendanceError) throw attendanceError;
 
-      const activities: RecentActivity[] = data?.map((item: any) => ({
+      if (!attendanceData || attendanceData.length === 0) {
+        return { activities: [], error: null };
+      }
+
+      // Get user IDs from attendance records
+      const userIds = attendanceData.map((item: any) => item.user_id);
+
+      // Fetch employee profiles for these user IDs
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Create a map of user_id to full_name
+      const profileMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name]));
+
+      // Build activities with employee names
+      const activities: RecentActivity[] = attendanceData.map((item: any) => ({
         user_id: item.user_id,
-        name: (item.profiles as any).full_name,
+        name: profileMap.get(item.user_id) || 'Unknown Employee',
         action: item.status === 'present' ? 'Marked Present' : item.status === 'late' ? 'Marked Late' : 'Marked Absent',
         time: new Date(item.check_in_time).toLocaleTimeString('en-US', {
           hour: 'numeric',
@@ -189,10 +204,11 @@ export const dashboardService = {
           hour12: true,
         }),
         status: item.status,
-      })) || [];
+      }));
 
       return { activities, error: null };
     } catch (err) {
+      console.error('Error fetching recent activity:', err);
       return {
         activities: [],
         error: err instanceof Error ? err : new Error('Failed to fetch recent activity'),

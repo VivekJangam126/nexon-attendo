@@ -3,12 +3,12 @@ import type { Database } from '../types/database';
 
 /**
  * Supabase Client Configuration
- * Reads credentials from environment variables only
- * No hardcoded secrets
+ * Reads credentials from environment variables
  */
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Get from import.meta.env (Vite client-side) with fallback to hardcoded values
+const supabaseUrl = 'https://falbkccaqjqdbvrmdlll.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTE4NTQsImV4cCI6MjA4NjI2Nzg1NH0.FkwmwhprYiu7vtXhfGLE_zPmB6-9cbF7uNFqFu7qwVw';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(

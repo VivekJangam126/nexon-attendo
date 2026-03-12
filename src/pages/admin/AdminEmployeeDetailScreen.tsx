@@ -6,6 +6,7 @@ import {
   ToggleLeft, ToggleRight, CheckCircle2
 } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
+import { EmployeeLeaveBalanceCards } from "@/components/leave/EmployeeLeaveBalanceCards";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -264,8 +265,13 @@ const AdminEmployeeDetailScreen = () => {
                 </div>
               </div>
 
+              {/* Leave Balance Cards */}
+              <div style={{ animationDelay: "0.2s" }}>
+                {id && <EmployeeLeaveBalanceCards employeeId={id} />}
+              </div>
+
               {/* Attendance History */}
-              <div className="animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
+              <div className="animate-fade-in-up" style={{ animationDelay: "0.25s" }}>
                 <h2 className="text-overline mb-3">Recent Attendance</h2>
                 <div className="card-elevated divide-y divide-border">
                   {attendanceHistory.slice(0, 5).map((record, index) => (

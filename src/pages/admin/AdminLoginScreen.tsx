@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, Eye, EyeOff, AlertCircle, Shield } from "lucide-react";
-import MobileContainer from "@/components/MobileContainer";
 import { useAuth } from "@/hooks/useAuth";
 
 const AdminLoginScreen = () => {
@@ -13,14 +12,11 @@ const AdminLoginScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Check if logged-in user is admin
   useEffect(() => {
     if (user && profile && !isLoading) {
       if (profile.role === 'admin') {
-        // User is admin - navigate to dashboard
         navigate("/admin/dashboard");
       } else if (profile.role === 'employee') {
-        // User is employee - logout and show error
         logout();
         setError("Access denied. This portal is for administrators only. Please use the employee login.");
       }
@@ -47,12 +43,7 @@ const AdminLoginScreen = () => {
         return;
       }
 
-      // Wait for profile to be loaded, then check role
-      // Using a small delay to ensure profile is fetched
       await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Profile should now be available from useAuth
-      // We'll check it in a useEffect instead
       setIsLoading(false);
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
@@ -61,42 +52,88 @@ const AdminLoginScreen = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-background rounded-2xl shadow-xl p-6 sm:p-8">
-        <div className="flex-1 flex flex-col justify-center">
+    <div className="min-h-screen flex">
+      {/* Left Side - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-gray-900 to-gray-800 flex-col items-center justify-center px-8 py-12">
+        <div className="text-center text-white max-w-md">
+          <div className="w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-8 backdrop-blur-sm border border-white/20">
+            <Shield className="w-10 h-10 text-orange-500" />
+          </div>
+          
+          <h1 className="text-4xl font-bold mb-4">Admin Portal</h1>
+          <p className="text-lg text-gray-300 mb-12">Nexus Corporate Pvt Ltd</p>
+          
+          <div className="space-y-6 text-left">
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0 mt-1">
+                <span className="text-sm font-bold text-orange-500">✓</span>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-1">Employee Management</h3>
+                <p className="text-sm text-gray-400">Manage all employees and their profiles</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0 mt-1">
+                <span className="text-sm font-bold text-orange-500">✓</span>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-1">Attendance Monitoring</h3>
+                <p className="text-sm text-gray-400">Track and monitor employee attendance</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0 mt-1">
+                <span className="text-sm font-bold text-orange-500">✓</span>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-1">Advanced Analytics</h3>
+                <p className="text-sm text-gray-400">Generate comprehensive reports and insights</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side - Login Form */}
+      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center px-6 py-12 bg-white">
+        <div className="w-full max-w-md">
+          {/* Mobile Logo */}
+          <div className="lg:hidden flex items-center justify-center mb-8">
+            <div className="w-12 h-12 bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl flex items-center justify-center">
+              <Shield className="w-6 h-6 text-orange-500" />
+            </div>
+          </div>
+
           {/* Admin Badge */}
-          <div className="flex items-center justify-center mb-6 animate-fade-in-up">
-            <div className="flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full">
+          <div className="flex items-center justify-center mb-6">
+            <div className="flex items-center gap-2 bg-orange-50 text-orange-700 px-4 py-2 rounded-full border border-orange-200">
               <Shield className="w-4 h-4" />
               <span className="text-sm font-medium">Admin Portal</span>
             </div>
           </div>
 
-          {/* Logo */}
-          <div className="flex items-center justify-center mb-8 animate-fade-in-up">
-            <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center shadow-md shadow-primary/20">
-              <Building2 className="w-8 h-8 text-primary-foreground" />
-            </div>
-          </div>
-
-          {/* Title */}
-          <div className="text-center mb-8 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-            <h1 className="text-title mb-1">Admin Login</h1>
-            <p className="text-caption">Manage employee attendance</p>
+          {/* Form Header */}
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Admin Login</h2>
+            <p className="text-gray-600">Sign in to manage the HR system</p>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="bg-destructive-muted border border-destructive/20 rounded-xl p-4 mb-6 flex items-start gap-3 animate-scale-in">
-              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-destructive">{error}</p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
 
           {/* Login Form */}
-          <form onSubmit={handleLogin} className="space-y-4 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
+          <form onSubmit={handleLogin} className="space-y-5">
+            {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-2">
                 Email Address
               </label>
               <input
@@ -104,14 +141,15 @@ const AdminLoginScreen = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@nexus.com"
-                className="input-field"
+                placeholder="admin@nexuscorporate.com"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                 autoComplete="email"
               />
             </div>
 
+            {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-900 mb-2">
                 Password
               </label>
               <div className="relative">
@@ -121,48 +159,50 @@ const AdminLoginScreen = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="input-field pr-12"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all pr-12"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
             </div>
 
+            {/* Login Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="btn-primary-large mt-6"
+              className="w-full py-3 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Signing in...
-                </span>
+                </>
               ) : (
                 "Sign In"
               )}
             </button>
           </form>
 
-          {/* Switch to Employee */}
-          <div className="text-center mt-6">
+          {/* Employee Link */}
+          <div className="mt-6 text-center">
             <button
               onClick={() => navigate("/login")}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
             >
               Employee Login →
             </button>
           </div>
-        </div>
 
-        <div className="text-center pt-4">
-          <p className="text-caption">Nexus Pvt Ltd</p>
+          {/* Footer */}
+          <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+            <p className="text-xs text-gray-500">© 2026 Nexus Corporate Pvt Ltd. All rights reserved.</p>
+          </div>
         </div>
       </div>
     </div>

@@ -57,7 +57,7 @@ const ForgotPasswordScreen = () => {
             <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Email Address</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@nexon.com" className="input-field" autoComplete="email" />
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@nexuscorporate.com" className="input-field" autoComplete="email" />
               </div>
 
               <button type="submit" disabled={isLoading} className="btn-primary-large mt-6">

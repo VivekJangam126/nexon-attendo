@@ -1,24 +1,21 @@
 import React from "react";
-import BottomNavigation from "@/components/BottomNavigation";
+import DashboardLayout from "./DashboardLayout";
 
 interface EmployeeLayoutProps {
   children: React.ReactNode;
+  title?: string;
   showNav?: boolean;
 }
 
-const EmployeeLayout: React.FC<EmployeeLayoutProps> = ({ children, showNav = true }) => {
+const EmployeeLayout: React.FC<EmployeeLayoutProps> = ({ children, title = "Dashboard", showNav = true }) => {
+  if (!showNav) {
+    return <>{children}</>;
+  }
+
   return (
-    <div className="min-h-screen bg-muted flex items-start md:items-center justify-center md:p-4">
-      <div
-        className="w-full bg-background md:shadow-2xl md:rounded-3xl relative flex flex-col mobile-container"
-        style={{ height: "100vh", maxHeight: "100vh" }}
-      >
-        <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0">
-          {children}
-        </div>
-        {showNav && <BottomNavigation />}
-      </div>
-    </div>
+    <DashboardLayout title={title} isAdmin={false}>
+      {children}
+    </DashboardLayout>
   );
 };
 

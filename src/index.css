@@ -15,33 +15,33 @@
 
 @layer base {
   :root {
-    /* Core brand - Deep corporate blue */
-    --background: 209 40% 96%;
+    /* Core brand - Professional Orange Theme */
+    --background: 0 0% 98%;
     --foreground: 222 47% 11%;
 
     /* Cards and elevated surfaces */
-    --card: 210 40% 98%;
+    --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
 
     /* Popovers and overlays */
-    --popover: 214 31% 91%;
+    --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Primary - Corporate Blue */
-    --primary: 200 98% 39%;
-    --primary-foreground: 204 100% 97%;
+    /* Primary - Lighter Professional Orange (#F59E0B) */
+    --primary: 38 92% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Slate */
-    --secondary: 215 24% 26%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secondary - Neutral Gray */
+    --secondary: 220 13% 95%;
+    --secondary-foreground: 222 47% 11%;
 
     /* Muted - Subtle backgrounds */
-    --muted: 215 20% 65%;
-    --muted-foreground: 222 47% 11%;
+    --muted: 220 13% 95%;
+    --muted-foreground: 220 9% 46%;
 
-    /* Accent - Light blue highlight */
-    --accent: 210 40% 98%;
-    --accent-foreground: 215 19% 34%;
+    /* Accent - Light orange highlight */
+    --accent: 38 92% 97%;
+    --accent-foreground: 38 92% 40%;
 
     /* Status Colors */
     --success: 142 71% 35%;
@@ -57,9 +57,9 @@
     --destructive-muted: 0 80% 96%;
 
     /* Borders and inputs */
-    --border: 212 26% 83%;
-    --input: 212 26% 83%;
-    --ring: 200 98% 39%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 38 92% 50%;
 
     --radius: 0.5rem;
 
@@ -75,15 +75,15 @@
     --status-absent: 0 72% 51%;
     --status-pending: 215 16% 47%;
 
-    /* Sidebar (inherited) */
-    --sidebar-background: 210 20% 98%;
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 200 98% 39%;
-    --sidebar-primary-foreground: 204 100% 97%;
-    --sidebar-accent: 215 24% 26%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 212 26% 83%;
-    --sidebar-ring: 200 98% 39%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 38 92% 97%;
+    --sidebar-accent-foreground: 38 92% 40%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 38 92% 50%;
     --chart-1: 198 93% 59%;
     --chart-2: 213 93% 67%;
     --chart-3: 215 20% 65%;
@@ -326,17 +326,17 @@
   /* Prevent body scroll when fixed elements are present on mobile */
   @media (max-width: 1023px) {
     html, body {
-      position: fixed;
-      overflow: hidden;
+      position: relative;
+      overflow: auto;
       width: 100%;
-      height: 100%;
+      height: auto;
     }
     
     #root {
-      position: fixed;
-      overflow: hidden;
+      position: relative;
+      overflow: auto;
       width: 100%;
-      height: 100%;
+      height: auto;
     }
   }
 

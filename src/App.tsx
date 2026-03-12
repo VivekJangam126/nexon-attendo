@@ -38,6 +38,11 @@ import HelpCenterScreen from "./pages/admin/settings/HelpCenterScreen";
 import TermsPoliciesScreen from "./pages/admin/settings/TermsPoliciesScreen";
 import NotificationSettingsScreen from "./pages/admin/settings/NotificationSettingsScreen";
 import EmployeeManagementScreen from "./pages/admin/settings/EmployeeManagementScreen";
+import LeaveManagementPage from "./pages/LeaveManagement";
+import AdminLeaveManagementPage from "./pages/admin/LeaveManagement";
+import PayrollPage from "./pages/admin/PayrollPage";
+import AdminAnalyticsScreen from "./pages/admin/AdminAnalyticsScreen";
+import AdminHelpScreen from "./pages/admin/AdminHelpScreen";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,6 +72,7 @@ const App = () => (
           <Route path="/attendance-error" element={<AttendanceErrorScreen />} />
           <Route path="/history" element={<HistoryScreen />} />
           <Route path="/profile" element={<ProfileScreen />} />
+          <Route path="/leave" element={<LeaveManagementPage />} />
           
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLoginScreen />} />
@@ -89,6 +95,10 @@ const App = () => (
           <Route path="/admin/settings/terms" element={<TermsPoliciesScreen />} />
           <Route path="/admin/settings/notifications" element={<NotificationSettingsScreen />} />
           <Route path="/admin/settings/employee-management" element={<EmployeeManagementScreen />} />
+          <Route path="/admin/leave" element={<AdminLeaveManagementPage />} />
+          <Route path="/admin/payroll" element={<PayrollPage />} />
+          <Route path="/admin/analytics" element={<AdminAnalyticsScreen />} />
+          <Route path="/admin/help" element={<AdminHelpScreen />} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

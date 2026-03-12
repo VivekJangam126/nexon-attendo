@@ -23,7 +23,8 @@ export { notificationSettingsService } from './services/notification-settings.se
 export { notificationTriggerService } from './services/notification-trigger.service';
 export { rateLimitService } from './services/rate-limit.service';
 export { auditLogService } from './services/audit-log.service';
-// NOTE: Email and PDF services are server-only and should NOT be imported in frontend
+export { payrollService } from './services/payroll.service';
+export { payrollCalculationService } from './services/payroll-calculation.service';
 // They are used only in API endpoints (server/api/send-report-email.ts)
 // export { emailReportService } from './services/email-report.service';
 // export { pdfGenerationService } from './services/pdf-generation.service';

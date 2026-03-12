@@ -1,0 +1,387 @@
+import { supabase } from '../supabase/client';
+import { LeaveRequest, EmployeeLeaveBalance, LeaveType, LeavePolicy, LeaveAnalytics } from '../types/leave';
+
+export class LeaveService {
+  // Get leave types
+  static async getLeaveTypes(): Promise<LeaveType[]> {
+    const { data, error } = await supabase
+      .from('leave_types')
+      .select('*')
+      .order('name');
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Get employee leave balance for current year
+  static async getEmployeeLeaveBalance(employeeId: string, year: number = new Date().getFullYear()): Promise<EmployeeLeaveBalance[]> {
+    try {
+      // First, try to get existing balance
+      const { data, error } = await supabase
+        .from('employee_leave_balance')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .eq('year', year);
+
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        return data;
+      }
+      
+      // If no balance exists, initialize it
+      return await this.initializeLeaveBalance(employeeId, year);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  // Initialize leave balance for employee
+  static async initializeLeaveBalance(employeeId: string, year: number): Promise<EmployeeLeaveBalance[]> {
+    try {
+      // Get all leave types
+      const { data: leaveTypes, error: typesError } = await supabase
+        .from('leave_types')
+        .select('*');
+
+      if (typesError) throw typesError;
+      if (!leaveTypes || leaveTypes.length === 0) {
+        return [];
+      }
+
+      const balances: any[] = [];
+      
+      // Create balance for each leave type
+      for (const type of leaveTypes) {
+        try {
+          const { data: balance, error: insertError } = await supabase
+            .from('employee_leave_balance')
+            .insert({
+              employee_id: employeeId,
+              leave_type_id: type.id,
+              total_leaves: type.max_per_year,
+              used_leaves: 0,
+              remaining_leaves: type.max_per_year,
+              year,
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            // If duplicate, try to fetch existing
+            if (insertError.code === 'PGRST116' || insertError.code === '23505') {
+              const { data: existing } = await supabase
+                .from('employee_leave_balance')
+                .select('*')
+                .eq('employee_id', employeeId)
+                .eq('leave_type_id', type.id)
+                .eq('year', year)
+                .single();
+              
+              if (existing) balances.push(existing);
+            }
+          } else if (balance) {
+            balances.push(balance);
+          }
+        } catch (err) {
+          // Silent fail
+        }
+      }
+
+      return balances;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  // Get leave policies
+  static async getLeavePolicies(): Promise<LeavePolicy[]> {
+    const { data, error } = await supabase
+      .from('leave_policies')
+      .select('*')
+      .order('created_at');
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Apply for leave
+  static async applyForLeave(
+    employeeId: string,
+    leaveTypeId: string,
+    startDate: string,
+    endDate: string,
+    reason: string
+  ): Promise<LeaveRequest> {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (start < today) {
+      throw new Error('Start date must be in the future');
+    }
+
+    if (end < start) {
+      throw new Error('End date must be after start date');
+    }
+
+    const { data: overlapping, error: overlapError } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .eq('status', 'approved')
+      .or(`and(start_date.lte.${endDate},end_date.gte.${startDate})`);
+
+    if (overlapError) throw overlapError;
+    if (overlapping && overlapping.length > 0) {
+      throw new Error('You already have an approved leave during this period');
+    }
+
+    const year = new Date().getFullYear();
+    const { data: balance, error: balanceError } = await supabase
+      .from('employee_leave_balance')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .eq('leave_type_id', leaveTypeId)
+      .eq('year', year)
+      .single();
+
+    if (balanceError && balanceError.code !== 'PGRST116') throw balanceError;
+
+    const leaveDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    if (balance && balance.remaining_leaves < leaveDays) {
+      throw new Error(`Insufficient leave balance. Available: ${balance.remaining_leaves} days`);
+    }
+
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .insert({
+        employee_id: employeeId,
+        leave_type_id: leaveTypeId,
+        start_date: startDate,
+        end_date: endDate,
+        reason,
+        status: 'pending',
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  // Get employee's leave requests
+  static async getEmployeeLeaveRequests(employeeId: string): Promise<LeaveRequest[]> {
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .select(`*`)
+      .eq('employee_id', employeeId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Get employees on leave today
+  static async getEmployeesOnLeaveToday(): Promise<any[]> {
+    const today = new Date().toISOString().split('T')[0];
+
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('status', 'approved')
+      .lte('start_date', today)
+      .gte('end_date', today)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      const employeeIds = [...new Set(data.map(r => r.employee_id))];
+      const { data: employees } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', employeeIds);
+
+      if (employees) {
+        const employeeMap = new Map(employees.map(e => [e.id, e]));
+        return data.map(request => ({
+          ...request,
+          employee: employeeMap.get(request.employee_id),
+        }));
+      }
+    }
+
+    return data || [];
+  }
+
+  // Admin: Get all leave requests
+  static async getAllLeaveRequests(filters?: {
+    status?: string;
+    employeeId?: string;
+  }): Promise<any[]> {
+    let query = supabase
+      .from('leave_requests')
+      .select('*');
+
+    if (filters?.status) {
+      query = query.eq('status', filters.status);
+    }
+
+    if (filters?.employeeId) {
+      query = query.eq('employee_id', filters.employeeId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      const employeeIds = [...new Set(data.map(r => r.employee_id))];
+      const { data: employees } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', employeeIds);
+
+      if (employees) {
+        const employeeMap = new Map(employees.map(e => [e.id, e]));
+        return data.map(request => ({
+          ...request,
+          employee: employeeMap.get(request.employee_id),
+        }));
+      }
+    }
+
+    return data || [];
+  }
+
+  // Admin: Approve leave request
+  static async approveLeaveRequest(leaveRequestId: string, adminComment?: string): Promise<void> {
+    const { data: leaveRequest, error: fetchError } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('id', leaveRequestId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const start = new Date(leaveRequest.start_date);
+    const end = new Date(leaveRequest.end_date);
+    // Calculate leave days correctly (inclusive of both start and end dates)
+    const leaveDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    // Use the year from the leave request start date
+    const year = start.getFullYear();
+
+    console.log('[approveLeaveRequest] Leave days:', leaveDays, 'Year:', year);
+
+    const { error: updateError } = await supabase
+      .from('leave_requests')
+      .update({
+        status: 'approved',
+        admin_comment: adminComment,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', leaveRequestId);
+
+    if (updateError) throw updateError;
+
+    if (leaveRequest.leave_type_id) {
+      const { data: balance, error: balanceError } = await supabase
+        .from('employee_leave_balance')
+        .select('*')
+        .eq('employee_id', leaveRequest.employee_id)
+        .eq('leave_type_id', leaveRequest.leave_type_id)
+        .eq('year', year)
+        .single();
+
+      if (balanceError && balanceError.code !== 'PGRST116') {
+        console.error('[approveLeaveRequest] Balance fetch error:', balanceError);
+        throw balanceError;
+      }
+
+      if (balance) {
+        const newUsedLeaves = balance.used_leaves + leaveDays;
+        const newRemainingLeaves = balance.total_leaves - newUsedLeaves;
+
+        console.log('[approveLeaveRequest] Updating balance:', {
+          old_used: balance.used_leaves,
+          new_used: newUsedLeaves,
+          old_remaining: balance.remaining_leaves,
+          new_remaining: newRemainingLeaves,
+          total: balance.total_leaves,
+        });
+
+        const { error: updateBalanceError } = await supabase
+          .from('employee_leave_balance')
+          .update({
+            used_leaves: newUsedLeaves,
+            remaining_leaves: newRemainingLeaves,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', balance.id);
+
+        if (updateBalanceError) {
+          console.error('[approveLeaveRequest] Balance update error:', updateBalanceError);
+          throw updateBalanceError;
+        }
+      }
+    }
+  }
+
+  // Admin: Reject leave request
+  static async rejectLeaveRequest(leaveRequestId: string, adminComment: string): Promise<void> {
+    const { error } = await supabase
+      .from('leave_requests')
+      .update({
+        status: 'rejected',
+        admin_comment: adminComment,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', leaveRequestId);
+
+    if (error) throw error;
+  }
+
+  // Admin: Get leave analytics
+  static async getLeaveAnalytics(): Promise<LeaveAnalytics> {
+    const today = new Date().toISOString().split('T')[0];
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    const monthStartStr = monthStart.toISOString().split('T')[0];
+
+    const { count: totalCount, error: totalError } = await supabase
+      .from('leave_requests')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: pendingCount, error: pendingError } = await supabase
+      .from('leave_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+
+    const { count: todayCount, error: todayError } = await supabase
+      .from('leave_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'approved')
+      .lte('start_date', today)
+      .gte('end_date', today);
+
+    const { count: monthCount, error: monthError } = await supabase
+      .from('leave_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'approved')
+      .gte('start_date', monthStartStr);
+
+    if (totalError || pendingError || todayError || monthError) {
+      throw new Error('Failed to fetch analytics');
+    }
+
+    return {
+      total_requests: totalCount || 0,
+      pending_requests: pendingCount || 0,
+      employees_on_leave_today: todayCount || 0,
+      leaves_this_month: monthCount || 0,
+    };
+  }
+}
