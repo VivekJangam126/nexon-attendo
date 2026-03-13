@@ -103,21 +103,18 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
       }
 
       console.log('Leave request submitted:', data);
-      setSuccess('✓ Leave request submitted successfully!');
       
-      // Invalidate queries to refresh data
-      await queryClient.invalidateQueries({ queryKey: ['employeeLeaveRequests'] });
-      await queryClient.invalidateQueries({ queryKey: ['leaveBalance'] });
+      // Close immediately for smooth UX
+      setStartDate('');
+      setEndDate('');
+      setLeaveTypeId('');
+      setDescription('');
+      onOpenChange(false);
+      if (onSuccess) onSuccess();
       
-      setTimeout(() => {
-        setStartDate('');
-        setEndDate('');
-        setLeaveTypeId('');
-        setDescription('');
-        setSuccess('');
-        onOpenChange(false);
-        if (onSuccess) onSuccess();
-      }, 2000);
+      // Invalidate queries in background (don't await)
+      queryClient.invalidateQueries({ queryKey: ['employeeLeaveRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['leaveBalance'] });
     } catch (err: any) {
       console.error('Error:', err);
       setError('Failed to submit leave request. Please try again.');
@@ -159,7 +156,7 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
                 <SelectValue placeholder="Select leave type" />
               </SelectTrigger>
               <SelectContent>
-                {leaveTypes.map((type) => {
+                {leaveTypes.filter(type => type.name !== 'Annual Leave').map((type) => {
                   const info = getLeaveTypeInfo(type.name);
                   return (
                     <SelectItem key={type.id} value={type.id}>
@@ -279,14 +276,6 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
             <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 flex gap-2">
               <AlertCircle className="w-3.5 h-3.5 text-red-600 flex-shrink-0 mt-0.5" />
               <p className="text-[10px] text-red-700">{error}</p>
-            </div>
-          )}
-
-          {/* Success Message */}
-          {success && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 flex gap-2">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
-              <p className="text-[10px] text-emerald-700">{success}</p>
             </div>
           )}
 

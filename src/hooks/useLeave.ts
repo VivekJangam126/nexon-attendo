@@ -25,6 +25,11 @@ export const useLeaveBalance = (year?: number) => {
   useEffect(() => {
     if (!user) return;
 
+    // TODO: Fix anniversary check endpoint and re-enable
+    // For now, just skip the anniversary check
+    // The backend services will still perform anniversary checks when needed
+    console.log('[useLeaveBalance] Anniversary check disabled - will be performed by backend');
+
     // Subscribe to balance changes using realtime
     const channel = supabase.channel(`balance_${user.id}`).on(
       'postgres_changes',

@@ -143,81 +143,66 @@ export function LeaveHistoryTable({ requests, isLoading }: LeaveHistoryTableProp
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      {/* Desktop View - Card Layout */}
-      <div className="hidden md:block space-y-3 sm:space-y-4">
-        {requests.map((request, index) => {
-          const config = getStatusConfig(request.status);
-          const StatusIcon = config.icon;
-          const days = calculateDays(request.start_date, request.end_date);
-          const leaveTypeName = getLeaveTypeName(request.leave_type_id);
+      {/* Desktop View - Table Layout */}
+      <div className="hidden md:block border border-gray-200 rounded-lg overflow-hidden">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-gray-100 border-b border-gray-200">
+              <th className="text-left py-3 px-4 font-semibold text-gray-700 w-12">#</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-700">Leave Type</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-700">From - To</th>
+              <th className="text-center py-3 px-4 font-semibold text-gray-700 w-16">Days</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-700">Reason</th>
+              <th className="text-center py-3 px-4 font-semibold text-gray-700 w-24">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requests.map((request, index) => {
+              const config = getStatusConfig(request.status);
+              const StatusIcon = config.icon;
+              const days = calculateDays(request.start_date, request.end_date);
+              const leaveTypeName = getLeaveTypeName(request.leave_type_id);
 
-          return (
-            <div
-              key={request.id}
-              className={`rounded-lg border ${config.border} ${config.bg} p-3 sm:p-4 lg:p-6 hover:shadow-md transition-all duration-300`}
-            >
-              <div className="flex items-start justify-between gap-2 sm:gap-4 mb-3 sm:mb-4">
-                {/* Left Section - Details */}
-                <div className="flex-1">
-                  <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
-                    <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${config.badge} flex items-center justify-center flex-shrink-0 font-bold text-xs sm:text-sm`}>
-                      {index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{request.reason || 'Leave Request'}</h3>
-                      <p className="text-xs text-gray-600 mt-0.5 sm:mt-1">
-                        {formatDate(request.start_date)} - {formatDate(request.end_date)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Leave Type and Duration */}
-                  <div className="flex items-center gap-2 sm:gap-4 mb-2 sm:mb-3 flex-wrap">
-                    <div className="flex items-center gap-1 sm:gap-2">
-                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
-                      <span className="text-xs font-medium text-gray-600">
-                        {leaveTypeName}
+              return (
+                <>
+                  <tr key={request.id} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                    <td className="py-3 px-4 text-center">
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${config.badge} text-xs font-bold`}>
+                        {index + 1}
                       </span>
-                    </div>
-                    <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-white rounded-full border border-gray-200">
-                      <span className="text-xs font-bold text-gray-900">{days}</span>
-                      <span className="text-xs text-gray-600">days</span>
-                    </div>
-                  </div>
-
-                  {/* Admin Comment */}
+                    </td>
+                    <td className="py-3 px-4 text-gray-900 font-medium">{leaveTypeName}</td>
+                    <td className="py-3 px-4 text-gray-600">{formatDate(request.start_date)} - {formatDate(request.end_date)}</td>
+                    <td className="py-3 px-4 text-center">
+                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded text-xs font-bold text-amber-700">
+                        {days}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-gray-700 truncate max-w-xs">{request.reason || '-'}</td>
+                    <td className="py-3 px-4 text-center">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${config.badge}`}>
+                        <StatusIcon className="w-3.5 h-3.5" />
+                        <span>{config.label}</span>
+                      </span>
+                    </td>
+                  </tr>
+                  
+                  {/* Manager's Note - Below this leave request */}
                   {request.admin_comment && (
-                    <div className="p-2 sm:p-3 bg-white rounded-lg border border-gray-200">
-                      <p className="text-xs font-medium text-gray-600 mb-0.5 sm:mb-1">Manager's Note</p>
-                      <p className="text-xs sm:text-sm text-gray-700">{request.admin_comment}</p>
-                    </div>
+                    <tr key={`comment-${request.id}`} className="border-b border-gray-200">
+                      <td colSpan={6} className="py-2 px-4">
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                          <p className="font-semibold text-blue-700 mb-1">📝 Manager's Note:</p>
+                          <p className="text-blue-800 text-xs">{request.admin_comment}</p>
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                </div>
-
-                {/* Right Section - Status Badge */}
-                <div className="flex-shrink-0">
-                  <span className={`inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1 sm:py-2 rounded-full text-xs sm:text-sm font-semibold ${config.badge}`}>
-                    <StatusIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="hidden sm:inline">{config.label}</span>
-                    <span className="sm:hidden">{config.label.substring(0, 3)}</span>
-                  </span>
-                </div>
-              </div>
-
-              {/* Timeline */}
-              <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-600 pt-2 sm:pt-3 border-t border-gray-200">
-                <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span>
-                  Submitted on {new Date(request.created_at).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}
-                </span>
-              </div>
-            </div>
-          );
-        })}
+                </>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       {/* Mobile View - Compact Card Layout */}

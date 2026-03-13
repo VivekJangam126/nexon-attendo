@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Clock, CheckCircle2, Building2, Calendar, AlertCircle, LogOut } from "lucide-react";
+import { MapPin, Clock, CheckCircle2, Building2, Calendar, AlertCircle, LogOut, TrendingUp, Zap, Award } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
@@ -199,155 +199,246 @@ const DashboardScreen = () => {
 
   return (
     <DashboardLayout title={`${getGreeting()}, ${profile.full_name.split(' ')[0]}`}>
-      <div className="space-y-2 sm:space-y-3 lg:space-y-4">
-        {/* Date & Office Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
-          <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-3 lg:p-4 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
-              <Calendar className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-amber-600" />
-              <p className="text-xs font-medium text-gray-600">Today's Date</p>
+      <div className="space-y-3 sm:space-y-4 lg:space-y-4">
+        
+        {/* Welcome Hero Section */}
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-amber-600 via-amber-500 to-amber-400 p-4 sm:p-5 lg:p-6 shadow-lg">
+          <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
+          <div className="absolute -bottom-3 -left-3 h-20 w-20 rounded-full bg-white/10" />
+          
+          <div className="relative z-10">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <div>
+                <h1 className="text-base sm:text-lg lg:text-xl font-bold text-white mb-0.5">
+                  {getGreeting()}, {profile.full_name.split(' ')[0]}! 👋
+                </h1>
+                <p className="text-amber-100 text-xs">
+                  {formattedDate} • Track attendance
+                </p>
+              </div>
+              <div className="mt-2 sm:mt-0 hidden sm:flex items-center justify-center w-14 h-14 bg-white/20 rounded-lg backdrop-blur-sm">
+                <Zap className="w-7 h-7 text-white" />
+              </div>
             </div>
-            <p className="text-sm sm:text-base font-semibold text-gray-900">{formattedDate}</p>
+          </div>
+        </div>
+
+        {/* Quick Stats Section */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-4">
+          {/* Today Status */}
+          <div className="bg-white rounded-lg border border-gray-100 p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-amber-200">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-green-50 rounded-lg">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Status</p>
+                <p className="text-sm font-bold text-gray-900">
+                  {todayAttendance ? "Present" : "Pending"}
+                </p>
+              </div>
+            </div>
           </div>
 
+          {/* Office Location */}
           {profile.office_location && (
-            <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-3 lg:p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
-                <Building2 className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-amber-600" />
-                <p className="text-xs font-medium text-gray-600">Office Location</p>
+            <div className="bg-white rounded-lg border border-gray-100 p-3 sm:p-4 shadow-sm hover:shadow-md transition-all duration-300 hover:border-blue-200">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <Building2 className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Location</p>
+                  <p className="text-sm font-bold text-gray-900">
+                    {profile.office_name || 'Assigned'}
+                  </p>
+                </div>
               </div>
-              <p className="text-sm sm:text-base font-semibold text-gray-900">{profile.office_name || 'Assigned Office'}</p>
             </div>
           )}
         </div>
 
-        {/* Attendance Status Card */}
-        <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 lg:p-6 shadow-sm">
-          <div className="flex items-start justify-between mb-3 sm:mb-4 gap-2">
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-gray-900 mb-0.5">Today's Attendance</h2>
-              <p className="text-xs text-gray-600">Track your check-in and check-out times</p>
+        {/* Main Attendance Card */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+          {/* Card Header */}
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-gray-100 p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h2 className="text-base sm:text-base font-bold text-gray-900 mb-0.5">Today's Attendance</h2>
+                <p className="text-xs text-gray-600">
+                  {todayAttendance 
+                    ? "Check-in and check-out times" 
+                    : "Mark to get started"}
+                </p>
+              </div>
+              <div className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                todayAttendance 
+                  ? "bg-green-100 text-green-700" 
+                  : "bg-gray-100 text-gray-700"
+              }`}>
+                {todayAttendance ? "✓ Present" : "Not Marked"}
+              </div>
             </div>
-            <span className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-              todayAttendance 
-                ? "bg-green-100 text-green-700" 
-                : "bg-gray-100 text-gray-700"
-            }`}>
-              {todayAttendance ? "✓ Present" : "Not Marked"}
-            </span>
           </div>
 
-          {todayAttendance ? (
-            <div className="space-y-2 sm:space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
-                <div className="bg-gray-50 rounded-lg p-2 sm:p-3">
-                  <p className="text-xs font-medium text-gray-600 mb-0.5">Check-in Time</p>
-                  <p className="text-base sm:text-lg font-bold text-gray-900">{formatTime(todayAttendance.check_in_time)}</p>
-                </div>
-
-                {todayAttendance.check_out_time ? (
-                  <>
-                    <div className="bg-gray-50 rounded-lg p-2 sm:p-3">
-                      <p className="text-xs font-medium text-gray-600 mb-0.5">Check-out Time</p>
-                      <p className="text-base sm:text-lg font-bold text-gray-900">{formatTime(todayAttendance.check_out_time)}</p>
+          {/* Card Content */}
+          <div className="p-5 sm:p-6">
+            {todayAttendance ? (
+              <div className="space-y-4">
+                {/* Time Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {/* Check-in Time */}
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 sm:p-5 border border-blue-200">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <div className="p-1.5 bg-blue-500/20 rounded">
+                        <Clock className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <p className="text-xs font-semibold text-blue-900 uppercase tracking-wide">Check-in</p>
                     </div>
-                    <div className="bg-green-50 rounded-lg p-2 sm:p-3 border border-green-200">
-                      <p className="text-xs font-medium text-green-700 mb-0.5">Work Duration</p>
-                      <p className="text-base sm:text-lg font-bold text-green-700">
-                        {(() => {
-                          const checkIn = new Date(todayAttendance.check_in_time);
-                          const checkOut = new Date(todayAttendance.check_out_time);
-                          const diffMs = checkOut.getTime() - checkIn.getTime();
-                          const hours = Math.floor(diffMs / (1000 * 60 * 60));
-                          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-                          return `${hours}h ${minutes}m`;
-                        })()}
-                      </p>
+                    <p className="text-lg sm:text-xl font-bold text-blue-900 mb-1">
+                      {formatTime(todayAttendance.check_in_time)}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-blue-600" />
+                      <p className="text-xs text-blue-700 font-medium">Marked</p>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="bg-amber-50 rounded-lg p-2 sm:p-3 border border-amber-200">
-                      <p className="text-xs font-medium text-amber-700 mb-0.5">Working Duration</p>
-                      <p className="text-base sm:text-lg font-bold text-amber-700">{workDuration}</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-2 sm:p-3">
-                      <p className="text-xs font-medium text-gray-600 mb-0.5">Auto Check-out</p>
-                      <p className="text-base sm:text-lg font-bold text-gray-900">{defaultCheckoutTime}</p>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Verification Status */}
-              <div className="border-t border-gray-200 pt-2 sm:pt-3">
-                <div className="flex items-center gap-2 p-2 sm:p-3 bg-gray-50 rounded-lg">
-                  <MapPin className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-amber-600 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-xs sm:text-sm font-medium text-gray-900">Location Verified</p>
-                    <p className="text-xs text-gray-600">GPS validation completed</p>
                   </div>
-                  <CheckCircle2 className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-green-600 flex-shrink-0" />
+
+                  {/* Check-out Time or Work Duration */}
+                  {todayAttendance.check_out_time ? (
+                    <>
+                      <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 sm:p-5 border border-red-200">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <div className="p-1.5 bg-red-500/20 rounded">
+                            <LogOut className="w-4 h-4 text-red-600" />
+                          </div>
+                          <p className="text-xs font-semibold text-red-900 uppercase tracking-wide">Check-out</p>
+                        </div>
+                        <p className="text-lg sm:text-xl font-bold text-red-900 mb-1">
+                          {formatTime(todayAttendance.check_out_time)}
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-red-600" />
+                          <p className="text-xs text-red-700 font-medium">Completed</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg p-4 sm:p-5 border border-green-200">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <div className="p-1.5 bg-green-500/20 rounded">
+                            <TrendingUp className="w-4 h-4 text-green-600" />
+                          </div>
+                          <p className="text-xs font-semibold text-green-900 uppercase tracking-wide">Duration</p>
+                        </div>
+                        <p className="text-lg sm:text-xl font-bold text-green-900 mb-1">
+                          {(() => {
+                            const checkIn = new Date(todayAttendance.check_in_time);
+                            const checkOut = new Date(todayAttendance.check_out_time);
+                            const diffMs = checkOut.getTime() - checkIn.getTime();
+                            const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                            const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                            return `${hours}h ${minutes}m`;
+                          })()}
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <Award className="w-3 h-3 text-green-600" />
+                          <p className="text-xs text-green-700 font-medium">Completed</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 sm:p-5 border border-gray-200">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <div className="p-1.5 bg-gray-500/20 rounded">
+                          <Clock className="w-4 h-4 text-gray-600" />
+                        </div>
+                        <p className="text-xs font-semibold text-gray-900 uppercase tracking-wide">Auto Check-out</p>
+                      </div>
+                      <p className="text-lg sm:text-xl font-bold text-gray-900 mb-1">{defaultCheckoutTime}</p>
+                      <div className="flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 text-gray-600" />
+                        <p className="text-xs text-gray-700 font-medium">System managed</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Verification Status */}
+                <div className="border-t border-gray-200 pt-3">
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3 sm:p-4 flex items-center gap-3">
+                    <div className="p-2 bg-green-500/20 rounded">
+                      <MapPin className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-green-900 text-xs">Location Verified</p>
+                      <p className="text-xs text-green-700">GPS validation completed</p>
+                    </div>
+                    <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="text-center py-4 sm:py-6">
-              <Clock className="w-8 sm:w-10 h-8 sm:h-10 text-gray-400 mx-auto mb-2 sm:mb-3" />
-              <p className="text-sm sm:text-base font-medium text-gray-900 mb-0.5">No attendance marked yet</p>
-              <p className="text-xs sm:text-sm text-gray-600">
-                {windowOpen 
-                  ? "Ready to mark your attendance" 
-                  : `Attendance window: ${windowDisplay}`
-                }
-              </p>
-            </div>
-          )}
+            ) : (
+              <div className="text-center py-8 sm:py-10">
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
+                  <Clock className="w-6 h-6 text-gray-400" />
+                </div>
+                <h3 className="text-xs font-bold text-gray-900 mb-1">No Attendance Marked</h3>
+                <p className="text-gray-600 text-xs">
+                  {windowOpen 
+                    ? "Ready to mark your attendance!" 
+                    : `Window: ${windowDisplay}`
+                  }
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Status Message */}
-        <div className={`rounded-lg p-3 sm:p-4 border ${
+        {/* Status Alert Banner */}
+        <div className={`rounded-lg p-4 sm:p-5 border-l-4 ${
           todayAttendance 
-            ? "bg-green-50 border-green-200" 
+            ? "bg-green-50 border-green-500 border" 
             : windowOpen 
-              ? "bg-amber-50 border-amber-200" 
-              : "bg-yellow-50 border-yellow-200"
+              ? "bg-blue-50 border-blue-500 border" 
+              : "bg-yellow-50 border-yellow-500 border"
         }`}>
-          <div className="flex items-start gap-2 sm:gap-3">
-            {todayAttendance ? (
-              <CheckCircle2 className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-green-600 flex-shrink-0 mt-0.5" />
-            ) : windowOpen ? (
-              <AlertCircle className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-            ) : (
-              <AlertCircle className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-            )}
-            <div>
-              <p className={`text-xs sm:text-sm font-medium ${
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 pt-0.5">
+              {todayAttendance ? (
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              ) : windowOpen ? (
+                <AlertCircle className="w-5 h-5 text-blue-600" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-yellow-600" />
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className={`text-xs font-semibold mb-0.5 ${
                 todayAttendance 
                   ? "text-green-900" 
                   : windowOpen 
-                    ? "text-amber-900" 
+                    ? "text-blue-900" 
                     : "text-yellow-900"
               }`}>
                 {todayAttendance 
-                  ? "Attendance recorded successfully" 
+                  ? "✓ Recorded" 
                   : windowOpen 
-                    ? "Ready to mark attendance" 
-                    : "Attendance window is closed"
+                    ? "Ready" 
+                    : "Closed"
                 }
-              </p>
-              <p className={`text-xs mt-0.5 ${
+              </h3>
+              <p className={`text-xs ${
                 todayAttendance 
                   ? "text-green-700" 
                   : windowOpen 
-                    ? "text-amber-700" 
+                    ? "text-blue-700" 
                     : "text-yellow-700"
               }`}>
                 {todayAttendance 
-                  ? "Your attendance for today has been marked." 
+                  ? "Marked successfully" 
                   : windowOpen 
-                    ? `Attendance window: ${windowDisplay}` 
-                    : `Window: ${windowDisplay}`
+                    ? `Mark now. ${windowDisplay}` 
+                    : `Window closed. ${windowDisplay}`
                 }
               </p>
             </div>
@@ -355,22 +446,25 @@ const DashboardScreen = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {/* Mark Attendance Button */}
           {!todayAttendance && (
             <button
               onClick={handleMarkAttendance}
               disabled={!canMarkAttendance || marking}
-              className="py-2 sm:py-3 px-3 sm:px-4 bg-amber-600 text-white rounded-lg font-semibold text-xs sm:text-sm hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+              className="group relative overflow-hidden py-2.5 sm:py-3 px-4 sm:px-5 bg-gradient-to-r from-amber-600 to-amber-500 text-white rounded-lg font-semibold text-xs hover:from-amber-700 hover:to-amber-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-amber-600 disabled:hover:to-amber-500 flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg"
             >
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-10 bg-white transition-opacity duration-300" />
               {marking ? (
                 <>
                   <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   <span className="hidden sm:inline">Processing...</span>
-                  <span className="sm:hidden">Wait...</span>
                 </>
               ) : (
-                "Mark Attendance"
+                <>
+                  <Zap className="w-4 h-4" />
+                  <span>Mark</span>
+                </>
               )}
             </button>
           )}
@@ -380,18 +474,18 @@ const DashboardScreen = () => {
             <button
               onClick={handleCheckOut}
               disabled={checkingOut}
-              className="py-2 sm:py-3 px-3 sm:px-4 bg-green-600 text-white rounded-lg font-semibold text-xs sm:text-sm hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+              className="group relative overflow-hidden py-2.5 sm:py-3 px-4 sm:px-5 bg-gradient-to-r from-green-600 to-emerald-500 text-white rounded-lg font-semibold text-xs hover:from-green-700 hover:to-emerald-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-green-600 disabled:hover:to-emerald-500 flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg"
             >
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-10 bg-white transition-opacity duration-300" />
               {checkingOut ? (
                 <>
                   <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span className="hidden sm:inline">Checking Out...</span>
-                  <span className="sm:hidden">Wait...</span>
+                  <span className="hidden sm:inline">Checking...</span>
                 </>
               ) : (
                 <>
-                  <LogOut className="w-3.5 h-3.5" />
-                  Check Out
+                  <LogOut className="w-4 h-4" />
+                  <span>Checkout</span>
                 </>
               )}
             </button>
@@ -399,13 +493,10 @@ const DashboardScreen = () => {
 
           {/* Already Checked Out */}
           {todayAttendance && todayAttendance.check_out_time && (
-            <button
-              disabled
-              className="py-2 sm:py-3 px-3 sm:px-4 bg-gray-200 text-gray-600 rounded-lg font-semibold text-xs sm:text-sm cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Checked Out
-            </button>
+            <div className="col-span-1 sm:col-span-2 py-2.5 sm:py-3 px-4 sm:px-5 bg-gradient-to-r from-gray-100 to-gray-50 text-gray-600 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 border border-gray-200">
+              <CheckCircle2 className="w-4 h-4 text-green-600" />
+              <span>Checked out</span>
+            </div>
           )}
         </div>
       </div>

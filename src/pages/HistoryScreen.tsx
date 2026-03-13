@@ -180,42 +180,42 @@ const HistoryScreen = () => {
 
   return (
     <DashboardLayout title="Attendance History">
-      <div className="space-y-2 sm:space-y-3 lg:space-y-4">
+      <div className="space-y-3 sm:space-y-4 lg:space-y-4">
         {/* Stats Summary */}
         <div>
-          <h2 className="text-base sm:text-lg font-bold text-gray-900 mb-1">Summary</h2>
-          <p className="text-xs text-gray-600 mb-2">
+          <h2 className="text-base font-bold text-gray-900 mb-1">Summary</h2>
+          <p className="text-xs text-gray-600 mb-3">
             {dateRange === "week" ? "Last 7 days" : "Last 30 days"} overview
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
-            <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-3 lg:p-4 shadow-sm">
-              <p className="text-xs font-medium text-gray-600 mb-0.5">Present</p>
-              <p className="text-lg sm:text-2xl font-bold text-green-600">{presentCount}</p>
-              <p className="text-xs text-gray-500 mt-0.5">On time</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+              <p className="text-xs font-medium text-gray-600 mb-1">Present</p>
+              <p className="text-lg font-bold text-green-600 mb-1">{presentCount}</p>
+              <p className="text-xs text-gray-500">On time</p>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-3 lg:p-4 shadow-sm">
-              <p className="text-xs font-medium text-gray-600 mb-0.5">Late</p>
-              <p className="text-lg sm:text-2xl font-bold text-amber-600">{lateCount}</p>
-              <p className="text-xs text-gray-500 mt-0.5">After grace period</p>
+            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+              <p className="text-xs font-medium text-gray-600 mb-1">Late</p>
+              <p className="text-lg font-bold text-amber-600 mb-1">{lateCount}</p>
+              <p className="text-xs text-gray-500">After grace period</p>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-3 lg:p-4 shadow-sm">
-              <p className="text-xs font-medium text-gray-600 mb-0.5">Absent</p>
-              <p className="text-lg sm:text-2xl font-bold text-red-600">{absentCount}</p>
-              <p className="text-xs text-gray-500 mt-0.5">Not marked</p>
+            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+              <p className="text-xs font-medium text-gray-600 mb-1">Absent</p>
+              <p className="text-lg font-bold text-red-600 mb-1">{absentCount}</p>
+              <p className="text-xs text-gray-500">Not marked</p>
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 lg:p-4 shadow-sm">
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            <div className="flex items-center gap-1 text-xs text-gray-600">
-              <Filter className="w-3 h-3 sm:w-4 sm:h-4" />
+        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+              <Filter className="w-4 h-4" />
               <span>Filter:</span>
             </div>
             
             <Select value={dateRange} onValueChange={(value: "week" | "month") => setDateRange(value)}>
-              <SelectTrigger className="w-[100px] sm:w-[120px] text-xs h-8">
+              <SelectTrigger className="w-[120px] text-xs h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -225,7 +225,7 @@ const HistoryScreen = () => {
             </Select>
 
             <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
-              <SelectTrigger className="w-[100px] sm:w-[120px] text-xs h-8">
+              <SelectTrigger className="w-[120px] text-xs h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -240,7 +240,7 @@ const HistoryScreen = () => {
 
         {/* Records List */}
         <div>
-          <h2 className="text-base sm:text-lg font-bold text-gray-900 mb-2">Attendance Records</h2>
+          <h2 className="text-base font-bold text-gray-900 mb-3">Attendance Records</h2>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="w-8 h-8 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin" />

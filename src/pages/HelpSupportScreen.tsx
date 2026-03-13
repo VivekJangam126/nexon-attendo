@@ -43,54 +43,54 @@ const HelpSupportScreen = () => {
 
   return (
     <DashboardLayout title="Help & Support">
-      <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+      <div className="space-y-3 sm:space-y-4 lg:space-y-4">
         {/* Quick Support Cards */}
         <div>
-          <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">Get Help</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+          <h2 className="text-base font-bold text-gray-900 mb-3">Get Help</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
             {/* Email Support */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-10 sm:w-12 h-10 sm:h-12 bg-amber-100 rounded-lg flex items-center justify-center mb-3 sm:mb-4">
-                <Mail className="w-5 sm:w-6 h-5 sm:h-6 text-amber-600" />
+            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center mb-3">
+                <Mail className="w-4 h-4 text-amber-600" />
               </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Email Support</h3>
-              <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">Send us an email and we'll respond within 24 hours</p>
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">Email Support</h3>
+              <p className="text-xs text-gray-600 mb-3">Response within 24 hours</p>
               <a 
                 href="mailto:hr@nexon.com"
-                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-amber-600 text-white rounded-lg font-medium text-xs sm:text-sm hover:bg-amber-700 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg font-medium text-xs hover:bg-amber-700 transition-colors"
               >
-                <Mail className="w-4 h-4" />
+                <Mail className="w-3 h-3" />
                 hr@nexon.com
               </a>
             </div>
 
             {/* Phone Support */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-10 sm:w-12 h-10 sm:h-12 bg-amber-100 rounded-lg flex items-center justify-center mb-3 sm:mb-4">
-                <Phone className="w-5 sm:w-6 h-5 sm:h-6 text-amber-600" />
+            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center mb-3">
+                <Phone className="w-4 h-4 text-amber-600" />
               </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Phone Support</h3>
-              <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">Call us during business hours (9 AM - 6 PM)</p>
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">Phone Support</h3>
+              <p className="text-xs text-gray-600 mb-3">9 AM - 6 PM weekdays</p>
               <a 
                 href="tel:+911800123456"
-                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-amber-600 text-white rounded-lg font-medium text-xs sm:text-sm hover:bg-amber-700 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg font-medium text-xs hover:bg-amber-700 transition-colors"
               >
-                <Phone className="w-4 h-4" />
+                <Phone className="w-3 h-3" />
                 +91 1800-123-4567
               </a>
             </div>
 
             {/* Live Chat */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-10 sm:w-12 h-10 sm:h-12 bg-amber-100 rounded-lg flex items-center justify-center mb-3 sm:mb-4">
-                <MessageCircle className="w-5 sm:w-6 h-5 sm:h-6 text-amber-600" />
+            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center mb-3">
+                <MessageCircle className="w-4 h-4 text-amber-600" />
               </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Live Chat</h3>
-              <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">Chat with our support team in real-time</p>
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">Live Chat</h3>
+              <p className="text-xs text-gray-600 mb-3">Real-time support available</p>
               <button 
-                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-amber-600 text-white rounded-lg font-medium text-xs sm:text-sm hover:bg-amber-700 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 bg-amber-600 text-white rounded-lg font-medium text-xs hover:bg-amber-700 transition-colors"
               >
-                <MessageCircle className="w-4 h-4" />
+                <MessageCircle className="w-3 h-3" />
                 Start Chat
               </button>
             </div>
@@ -99,7 +99,7 @@ const HelpSupportScreen = () => {
 
         {/* FAQ Section */}
         <div>
-          <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">Frequently Asked Questions</h2>
+          <h2 className="text-base font-bold text-gray-900 mb-3">Frequently Asked Questions</h2>
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
             <Accordion type="single" collapsible className="w-full">
               {faqs.map((faq, i) => (
@@ -108,17 +108,17 @@ const HelpSupportScreen = () => {
                   value={`faq-${i}`} 
                   className="border-b border-gray-200 last:border-0"
                 >
-                  <AccordionTrigger className="px-4 sm:px-6 py-3 sm:py-4 text-left hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start gap-2 sm:gap-3 text-left">
+                  <AccordionTrigger className="px-4 sm:px-5 py-3 text-left hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start gap-2 text-left">
                       <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <span className="text-xs font-semibold text-amber-600">{i + 1}</span>
                       </div>
-                      <span className="font-medium text-xs sm:text-base text-gray-900">{faq.q}</span>
+                      <span className="font-medium text-xs sm:text-sm text-gray-900">{faq.q}</span>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="px-4 sm:px-6 pb-3 sm:pb-4 text-gray-600">
-                    <div className="ml-7 sm:ml-8 space-y-2">
-                      <p className="text-xs sm:text-sm">{faq.a}</p>
+                  <AccordionContent className="px-4 sm:px-5 pb-3 text-gray-600">
+                    <div className="ml-6 sm:ml-7 space-y-2">
+                      <p className="text-xs">{faq.a}</p>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -128,23 +128,23 @@ const HelpSupportScreen = () => {
         </div>
 
         {/* Important Information */}
-        <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 sm:p-6">
-          <div className="flex gap-3 sm:gap-4">
-            <AlertCircle className="w-5 sm:w-6 h-5 sm:h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+        <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 sm:p-5">
+          <div className="flex gap-3">
+            <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="text-base sm:text-lg font-semibold text-amber-900 mb-2">Important Information</h3>
-              <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-amber-800">
+              <h3 className="text-sm font-semibold text-amber-900 mb-2">Important</h3>
+              <ul className="space-y-1.5 text-xs text-amber-800">
                 <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <span>Attendance must be marked within the designated time window</span>
+                  <CheckCircle className="w-3 h-3 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <span>Mark attendance within designated window</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <span>Leave requests should be submitted at least 5 days in advance</span>
+                  <CheckCircle className="w-3 h-3 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <span>Submit leave 5+ days in advance</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <span>For urgent issues, contact HR directly at hr@nexon.com</span>
+                  <CheckCircle className="w-3 h-3 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <span>Contact HR for urgent issues</span>
                 </li>
               </ul>
             </div>

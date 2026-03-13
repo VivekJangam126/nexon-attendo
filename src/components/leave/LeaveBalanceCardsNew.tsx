@@ -68,39 +68,20 @@ export function LeaveBalanceCards({ balances, isLoading }: LeaveBalanceCardsProp
         return (
           <div
             key={type.id}
-            className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300 group"
+            className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm hover:shadow-md transition-all duration-300 group"
           >
-            {/* Header with Icon and Title */}
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-3xl mb-2">{type.icon}</p>
-                <h3 className="text-sm font-semibold text-gray-900">{type.name}</h3>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-gray-600">Used</span>
-                <span className="text-xs font-semibold text-gray-900">{used} / {total}</span>
-              </div>
-              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className={`h-full bg-gradient-to-r ${type.color} transition-all duration-500`}
-                  style={{ width: `${(used / total) * 100}%` }}
-                />
-              </div>
-            </div>
+            {/* Header with Title */}
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">{type.name}</h3>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="text-xs text-gray-600 mb-1">Remaining</p>
                 <p className={`text-lg font-bold ${type.textColor}`}>{remaining}</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-600 mb-1">Usage</p>
-                <p className="text-lg font-bold text-gray-900">{percentage}%</p>
+                <p className="text-xs text-gray-600 mb-1">Total</p>
+                <p className="text-lg font-bold text-gray-900">{total}</p>
               </div>
             </div>
 

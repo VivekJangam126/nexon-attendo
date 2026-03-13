@@ -1,5 +1,6 @@
 import { supabase } from '../supabase/client';
 import { LeaveRequest, EmployeeLeaveBalance, LeaveType, LeavePolicy, LeaveAnalytics } from '../types/leave';
+import { LeaveAnniversaryService } from './leave-anniversary.service';
 
 export class LeaveService {
   // Get leave types
@@ -13,17 +14,14 @@ export class LeaveService {
     return data || [];
   }
 
-  // Get employee leave balance for current year
+  // Get employee leave balance for current employment year (with anniversary logic)
   static async getEmployeeLeaveBalance(employeeId: string, year: number = new Date().getFullYear()): Promise<EmployeeLeaveBalance[]> {
     try {
-      // First, try to get existing balance
-      const { data, error } = await supabase
-        .from('employee_leave_balance')
-        .select('*')
-        .eq('employee_id', employeeId)
-        .eq('year', year);
+      // Check if anniversary passed and create new balance if needed
+      await LeaveAnniversaryService.checkAndResetLeaveBalance(employeeId);
 
-      if (error) throw error;
+      // Get balance for current employment year using anniversary logic
+      const data = await LeaveAnniversaryService.getCurrentYearBalance(employeeId);
       
       if (data && data.length > 0) {
         return data;
@@ -32,13 +30,22 @@ export class LeaveService {
       // If no balance exists, initialize it
       return await this.initializeLeaveBalance(employeeId, year);
     } catch (error) {
+      console.error('[LeaveService] Error in getEmployeeLeaveBalance:', error);
       return [];
     }
   }
 
-  // Initialize leave balance for employee
+  // Initialize leave balance for employee with anniversary tracking
   static async initializeLeaveBalance(employeeId: string, year: number): Promise<EmployeeLeaveBalance[]> {
     try {
+      // Get employee's enrollment date and calculate employment year
+      const annoDate = new Date();
+      annoDate.setFullYear(year);
+
+      const employmentYear = LeaveAnniversaryService.calculateCurrentEmploymentYear(annoDate);
+      const yearStartStr = LeaveAnniversaryService.formatDateForDB(employmentYear.start);
+      const yearEndStr = LeaveAnniversaryService.formatDateForDB(employmentYear.end);
+
       // Get all leave types
       const { data: leaveTypes, error: typesError } = await supabase
         .from('leave_types')
@@ -62,7 +69,8 @@ export class LeaveService {
               total_leaves: type.max_per_year,
               used_leaves: 0,
               remaining_leaves: type.max_per_year,
-              year,
+              employment_year_start: yearStartStr,
+              employment_year_end: yearEndStr,
             })
             .select()
             .single();
@@ -75,7 +83,7 @@ export class LeaveService {
                 .select('*')
                 .eq('employee_id', employeeId)
                 .eq('leave_type_id', type.id)
-                .eq('year', year)
+                .eq('employment_year_start', yearStartStr)
                 .single();
               
               if (existing) balances.push(existing);
@@ -84,12 +92,13 @@ export class LeaveService {
             balances.push(balance);
           }
         } catch (err) {
-          // Silent fail
+          console.error('[LeaveService] Error creating balance for type:', type.name, err);
         }
       }
 
       return balances;
     } catch (error) {
+      console.error('[LeaveService] Error in initializeLeaveBalance:', error);
       return [];
     }
   }
@@ -138,13 +147,20 @@ export class LeaveService {
       throw new Error('You already have an approved leave during this period');
     }
 
-    const year = new Date().getFullYear();
+    // Check anniversary and get current employment year balance
+    await LeaveAnniversaryService.checkAndResetLeaveBalance(employeeId);
+    const currentYear = await LeaveAnniversaryService.getCurrentEmploymentYear(employeeId);
+    
+    if (!currentYear) {
+      throw new Error('Unable to determine employment year');
+    }
+
     const { data: balance, error: balanceError } = await supabase
       .from('employee_leave_balance')
       .select('*')
       .eq('employee_id', employeeId)
       .eq('leave_type_id', leaveTypeId)
-      .eq('year', year)
+      .eq('employment_year_start', currentYear.start)
       .single();
 
     if (balanceError && balanceError.code !== 'PGRST116') throw balanceError;
@@ -271,10 +287,8 @@ export class LeaveService {
     const end = new Date(leaveRequest.end_date);
     // Calculate leave days correctly (inclusive of both start and end dates)
     const leaveDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    // Use the year from the leave request start date
-    const year = start.getFullYear();
 
-    console.log('[approveLeaveRequest] Leave days:', leaveDays, 'Year:', year);
+    console.log('[approveLeaveRequest] Leave days:', leaveDays);
 
     const { error: updateError } = await supabase
       .from('leave_requests')
@@ -288,12 +302,20 @@ export class LeaveService {
     if (updateError) throw updateError;
 
     if (leaveRequest.leave_type_id) {
+      // Check anniversary and get current employment year
+      await LeaveAnniversaryService.checkAndResetLeaveBalance(leaveRequest.employee_id);
+      const currentYear = await LeaveAnniversaryService.getCurrentEmploymentYear(leaveRequest.employee_id);
+
+      if (!currentYear) {
+        throw new Error('Unable to determine employment year');
+      }
+
       const { data: balance, error: balanceError } = await supabase
         .from('employee_leave_balance')
         .select('*')
         .eq('employee_id', leaveRequest.employee_id)
         .eq('leave_type_id', leaveRequest.leave_type_id)
-        .eq('year', year)
+        .eq('employment_year_start', currentYear.start)
         .single();
 
       if (balanceError && balanceError.code !== 'PGRST116') {
