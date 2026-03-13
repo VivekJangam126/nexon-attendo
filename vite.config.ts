@@ -15,10 +15,12 @@ export default defineConfig(({ mode }) => {
   // Set environment variables globally
   process.env.VITE_SUPABASE_URL = env.VITE_SUPABASE_URL || 'https://falbkccaqjqdbvrmdlll.supabase.co';
   process.env.VITE_SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTE4NTQsImV4cCI6MjA4NjI2Nzg1NH0.FkwmwhprYiu7vtXhfGLE_zPmB6-9cbF7uNFqFu7qwVw';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDY5MTg1NCwiZXhwIjoyMDg2MjY3ODU0fQ.846KQ7v9nbH5-4COTqEgBGrboFFKrTG7w3AGPP4uIqk';
   process.env.RESEND_API_KEY = env.RESEND_API_KEY || 're_8Mrzs5LU_2KqbP99nDzBevCMUstapBqCE';
   process.env.TWILIO_ACCOUNT_SID = env.TWILIO_ACCOUNT_SID || 'AC83466c365ec477f3e45b636ae2f27b2c';
   process.env.TWILIO_AUTH_TOKEN = env.TWILIO_AUTH_TOKEN || '0003ee92846543982cde08a030533ef4';
   process.env.TWILIO_PHONE_NUMBER = env.TWILIO_PHONE_NUMBER || '+16509551246';
+  process.env.GOOGLE_CALENDAR_API_KEY = env.GOOGLE_CALENDAR_API_KEY || 'AIzaSyB0QifN28KLoh5Ige4X60Q0hY3F1iA__h0';
   
   return {
     server: {
@@ -35,6 +37,16 @@ export default defineConfig(({ mode }) => {
       {
         name: 'api-middleware',
         configureServer(server: any) {
+          // Initialize holiday sync on server start
+          (async () => {
+            try {
+              const { initializeHolidaySync } = await import('./server/startup/holiday-sync-startup.ts');
+              await initializeHolidaySync();
+            } catch (error) {
+              console.error('[Vite] Failed to initialize holiday sync:', error);
+            }
+          })();
+
           server.middlewares.use(async (req: any, res: any, next: any) => {
             // Handle all /api/ routes
             if (req.url?.startsWith('/api/')) {
@@ -82,6 +94,9 @@ export default defineConfig(({ mode }) => {
                   } else if (pathname.startsWith('send-notification')) {
                     console.log('[API Middleware] Loading send-notification handler');
                     handler = await import('./server/api/send-notification.ts');
+                  } else if (pathname.startsWith('holidays')) {
+                    console.log('[API Middleware] Loading holidays handler');
+                    handler = await import('./server/api/holidays.ts');
                   } else {
                     console.log('[API Middleware] No handler found for path:', pathname);
                     res.statusCode = 404;
@@ -99,13 +114,29 @@ export default defineConfig(({ mode }) => {
 
                 // Parse body
                 let body = '';
-                req.on('data', (chunk: any) => {
-                  body += chunk.toString();
-                });
                 
-                await new Promise(resolve => req.on('end', resolve));
+                // Only parse body for POST, PUT, PATCH requests
+                if (['POST', 'PUT', 'PATCH'].includes(req.method || '')) {
+                  await new Promise<void>((resolve) => {
+                    req.on('data', (chunk: any) => {
+                      body += chunk.toString();
+                    });
+                    req.on('end', () => {
+                      resolve();
+                    });
+                  });
+                }
                 
-                const requestData = body ? JSON.parse(body) : {};
+                let requestData = {};
+                if (body) {
+                  try {
+                    requestData = JSON.parse(body);
+                    console.log('[API Middleware] Parsed body:', requestData);
+                  } catch (parseError) {
+                    console.error('[API Middleware] Failed to parse body:', body);
+                    console.error('[API Middleware] Parse error:', parseError);
+                  }
+                }
 
                 // Convert URLSearchParams to object for query
                 const query: any = {};
@@ -120,6 +151,7 @@ export default defineConfig(({ mode }) => {
                   url: req.url,
                   query: query,
                   body: requestData,
+                  params: {}, // Add params for route parameters
                 } as any;
 
                 const mockRes = {

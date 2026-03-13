@@ -240,12 +240,102 @@ export interface Database {
           updated_at?: string
         }
       }
+      employee_recurring_holidays: {
+        Row: {
+          id: string
+          employee_id: string
+          day_of_week: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          day_of_week: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          day_of_week?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      employee_specific_holidays: {
+        Row: {
+          id: string
+          employee_id: string
+          holiday_date: string
+          holiday_type: 'public_holiday' | 'festival' | 'company_event' | 'other'
+          reason: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          holiday_date: string
+          holiday_type: 'public_holiday' | 'festival' | 'company_event' | 'other'
+          reason: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          holiday_date?: string
+          holiday_type?: 'public_holiday' | 'festival' | 'company_event' | 'other'
+          reason?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      master_public_holidays: {
+        Row: {
+          id: string
+          holiday_date: string
+          holiday_name: string
+          holiday_type: 'national' | 'festival' | 'state' | 'optional'
+          description: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          holiday_date: string
+          holiday_name: string
+          holiday_type: 'national' | 'festival' | 'state' | 'optional'
+          description?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          holiday_date?: string
+          holiday_name?: string
+          holiday_type?: 'national' | 'festival' | 'state' | 'optional'
+          description?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_employee_holiday: {
+        Args: {
+          p_employee_id: string
+          p_date: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

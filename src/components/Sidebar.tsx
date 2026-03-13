@@ -29,6 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isAdmin = false }) => {
     { icon: Users, label: 'Employees', path: '/admin/employees' },
     { icon: Clock, label: 'Attendance', path: '/admin/history' },
     { icon: Calendar, label: 'Leave Management', path: '/admin/leave' },
+    { icon: Calendar, label: 'Holiday Calendar', path: '/admin/calendar' },
     { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
     { icon: TrendingUp, label: 'Analytics', path: '/admin/analytics' },
     { icon: DollarSign, label: 'Payroll', path: '/admin/payroll' },
@@ -39,6 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isAdmin = false }) => {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Clock, label: 'Attendance', path: '/history' },
     { icon: Calendar, label: 'Leave', path: '/leave' },
+    { icon: Calendar, label: 'My Holidays', path: '/calendar' },
     { icon: HelpCircle, label: 'Help', path: '/help-support' },
   ];
 

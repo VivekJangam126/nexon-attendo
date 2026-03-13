@@ -25,6 +25,8 @@ export { rateLimitService } from './services/rate-limit.service';
 export { auditLogService } from './services/audit-log.service';
 export { payrollService } from './services/payroll.service';
 export { payrollCalculationService } from './services/payroll-calculation.service';
+export { holidayService } from './services/holiday.service';
+// Note: Google Calendar services are only used in API endpoints to avoid browser issues
 // They are used only in API endpoints (server/api/send-report-email.ts)
 // export { emailReportService } from './services/email-report.service';
 // export { pdfGenerationService } from './services/pdf-generation.service';
@@ -86,6 +88,16 @@ export type {
   NotificationContact,
   NotificationHistoryRecord,
 } from './services/notification-settings.service';
+
+export type {
+  RecurringHoliday,
+  SpecificHoliday,
+  EmployeeHolidaySummary,
+  CreateRecurringHolidayRequest,
+  CreateSpecificHolidayRequest,
+  EmployeeHolidayStatus,
+  HolidayType,
+} from './types/holiday';
 
 // NOTE: Notification types are NOT exported to avoid bundling Node.js-only packages
 // Import directly in backend: import type { AttendanceNotificationData } from './server/services/notification.service';

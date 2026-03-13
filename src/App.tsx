@@ -43,6 +43,8 @@ import AdminLeaveManagementPage from "./pages/admin/LeaveManagement";
 import PayrollPage from "./pages/admin/PayrollPage";
 import AdminAnalyticsScreen from "./pages/admin/AdminAnalyticsScreen";
 import AdminHelpScreen from "./pages/admin/AdminHelpScreen";
+import AdminHolidayCalendarScreen from "./pages/admin/AdminHolidayCalendarScreen";
+import HolidayCalendarScreen from "./pages/HolidayCalendarScreen";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -73,6 +75,7 @@ const App = () => (
           <Route path="/history" element={<HistoryScreen />} />
           <Route path="/profile" element={<ProfileScreen />} />
           <Route path="/leave" element={<LeaveManagementPage />} />
+          <Route path="/calendar" element={<HolidayCalendarScreen />} />
           
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLoginScreen />} />
@@ -99,6 +102,7 @@ const App = () => (
           <Route path="/admin/payroll" element={<PayrollPage />} />
           <Route path="/admin/analytics" element={<AdminAnalyticsScreen />} />
           <Route path="/admin/help" element={<AdminHelpScreen />} />
+          <Route path="/admin/calendar" element={<AdminHolidayCalendarScreen />} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

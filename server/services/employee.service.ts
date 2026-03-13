@@ -5,6 +5,7 @@
 
 import { supabase } from '../supabase/client';
 import type { UserProfile } from '../types/profile';
+import { holidayService } from './holiday.service';
 
 export interface EmployeeWithAttendance extends UserProfile {
   today_status: 'present' | 'late' | 'absent' | 'not_marked';
@@ -98,7 +99,7 @@ export const employeeService = {
       }
 
       // Combine profiles with attendance and office names
-      const employees: EmployeeWithAttendance[] = profiles?.map(profile => {
+      const employeesPromises = profiles?.map(async (profile) => {
         const attendance = attendanceMap.get(profile.id);
         
         // Determine today's status
@@ -129,7 +130,13 @@ export const employeeService = {
           }
         } else if (profile.status === 'active') {
           // Active employee with no attendance record
-          if (isAfterGracePeriod) {
+          // IMPORTANT: Check if today is a holiday for this employee
+          const holidayStatus = await holidayService.isEmployeeHoliday(profile.id, today);
+          
+          if (holidayStatus.is_holiday) {
+            // Today is a holiday for this employee - don't mark as absent
+            todayStatus = 'not_marked';
+          } else if (isAfterGracePeriod) {
             // Grace period has ended - mark as absent
             todayStatus = 'absent';
           } else {
@@ -150,6 +157,8 @@ export const employeeService = {
           department: null,
         };
       }) || [];
+
+      const employees = await Promise.all(employeesPromises);
 
       return { employees, error: null };
     } catch (err) {
