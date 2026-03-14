@@ -61,10 +61,6 @@ const AdminEmployeesScreen = () => {
     };
 
     fetchData();
-    
-    // Refresh every 90 seconds to reduce load
-    const interval = setInterval(fetchData, 90000);
-    return () => clearInterval(interval);
   }, []);
 
   const statuses = ['present', 'late', 'not_marked', 'absent'];

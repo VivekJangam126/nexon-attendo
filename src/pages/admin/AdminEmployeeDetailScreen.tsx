@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { 
   ArrowLeft, Mail, Phone, Building2, Briefcase, 
   UserCheck, Clock, UserX, Calendar, Edit, Shield, 
-  ToggleLeft, ToggleRight, CheckCircle2, Save, X
+  ToggleLeft, ToggleRight, CheckCircle2, Save, X, LogOut
 } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { EmployeeLeaveBalanceCards } from "@/components/leave/EmployeeLeaveBalanceCards";
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { employeeService, officeService } from "@server";
+import { employeeService, officeService, attendanceService } from "@server";
 import type { EmployeeWithAttendance, Office } from "@server";
 
 type AttendanceStatus = "present" | "late" | "absent" | "holiday" | "not_marked";
@@ -74,6 +74,9 @@ const AdminEmployeeDetailScreen = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [breakRefreshTrigger, setBreakRefreshTrigger] = useState(0); // Add refresh trigger
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
+  const [todayCheckoutTime, setTodayCheckoutTime] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchEmployeeData = async () => {
@@ -99,6 +102,13 @@ const AdminEmployeeDetailScreen = () => {
       }
       setAttendanceHistory(history);
       setStats(employeeStats);
+      
+      // Set today's checkout time if available
+      const todayRecord = history.find(r => r.date === new Date().toISOString().split('T')[0]);
+      if (todayRecord?.check_out_time) {
+        setTodayCheckoutTime(todayRecord.check_out_time);
+      }
+      
       setLoading(false);
     };
 
@@ -209,6 +219,53 @@ const AdminEmployeeDetailScreen = () => {
       }
     } else {
       toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
+    }
+  };
+
+  const handleManualCheckout = async () => {
+    if (!id || !adminProfile) return;
+    
+    setIsCheckingOut(true);
+    
+    try {
+      const result = await attendanceService.adminCheckOut(adminProfile, id);
+      
+      if (result.success) {
+        toast({ 
+          title: "Checkout Successful", 
+          description: `${employee?.full_name} has been checked out. Work hours: ${result.workHours?.toFixed(2)} hrs` 
+        });
+        setShowCheckoutDialog(false);
+        
+        // Refresh employee data to update attendance history
+        const { employee: employeeData, attendanceHistory: history } = 
+          await employeeService.getEmployeeDetail(id);
+        
+        if (employeeData) {
+          setEmployee(employeeData);
+          setAttendanceHistory(history);
+          
+          // Update today's checkout time
+          const todayRecord = history.find(r => r.date === new Date().toISOString().split('T')[0]);
+          if (todayRecord?.check_out_time) {
+            setTodayCheckoutTime(todayRecord.check_out_time);
+          }
+        }
+      } else {
+        toast({ 
+          title: "Checkout Failed", 
+          description: result.message || "Failed to check out employee", 
+          variant: "destructive" 
+        });
+      }
+    } catch (error) {
+      toast({ 
+        title: "Error", 
+        description: "An unexpected error occurred", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
@@ -358,12 +415,48 @@ const AdminEmployeeDetailScreen = () => {
                   <EmployeeTimeTracker
                     employeeId={id}
                     checkInTime={attendanceHistory.find(r => r.date === new Date().toISOString().split('T')[0])?.check_in_time || null}
-                    checkOutTime={attendanceHistory.find(r => r.date === new Date().toISOString().split('T')[0])?.check_out_time || null}
+                    checkOutTime={todayCheckoutTime}
                     isAdmin={true}
                     employeeName={employee.full_name}
                     currentUserId={adminProfile?.id}
                     onBreakUpdate={handleBreakUpdate}
                   />
+                </div>
+              </div>
+
+              {/* Manual Checkout Control */}
+              <div className="animate-fade-in-up" style={{ animationDelay: "0.26s" }}>
+                <h2 className="text-overline mb-2">Admin Controls</h2>
+                <div className="card-elevated p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <LogOut className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold mb-1">Manual Checkout</h3>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Check out employee manually if they left without checking out. Prevents gaming the auto-checkout system.
+                      </p>
+                      {todayCheckoutTime ? (
+                        <div className="flex items-center gap-2 text-xs text-success">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Already checked out today at {formatCheckInTime(todayCheckoutTime)}</span>
+                        </div>
+                      ) : attendanceHistory.find(r => r.date === new Date().toISOString().split('T')[0])?.check_in_time ? (
+                        <button
+                          onClick={() => setShowCheckoutDialog(true)}
+                          className="w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Check Out Employee
+                        </button>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">
+                          Employee has not checked in today
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -508,6 +601,35 @@ const AdminEmployeeDetailScreen = () => {
             <AlertDialogFooter className="flex-row gap-3">
               <AlertDialogCancel className="flex-1 mt-0">Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={confirmDeactivate} className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90">Deactivate</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Manual Checkout Confirm */}
+        <AlertDialog open={showCheckoutDialog} onOpenChange={setShowCheckoutDialog}>
+          <AlertDialogContent className="max-w-[340px] rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Manual Checkout</AlertDialogTitle>
+              <AlertDialogDescription>
+                Check out {employee?.full_name} now? This will record their checkout time and calculate work hours.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-row gap-3">
+              <AlertDialogCancel className="flex-1 mt-0" disabled={isCheckingOut}>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleManualCheckout} 
+                className="flex-1 bg-amber-600 text-white hover:bg-amber-700"
+                disabled={isCheckingOut}
+              >
+                {isCheckingOut ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                    Checking out...
+                  </>
+                ) : (
+                  'Check Out'
+                )}
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

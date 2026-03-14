@@ -818,4 +818,140 @@ export const attendanceService = {
     const hours = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
     return parseFloat(hours.toFixed(2));
   },
+
+  /**
+   * Admin manual checkout for an employee
+   * Allows admins to manually check out employees who left without checking out
+   * This prevents employees from gaming the auto-checkout system
+   * 
+   * @param adminProfile - Admin user profile (must be authenticated admin)
+   * @param employeeId - ID of the employee to check out
+   * @param checkoutDate - Date to check out (YYYY-MM-DD format, defaults to today)
+   * @returns AttendanceResult with success/error
+   */
+  async adminCheckOut(
+    adminProfile: UserProfile,
+    employeeId: string,
+    checkoutDate?: string
+  ): Promise<AttendanceResult> {
+    try {
+      console.log('🔐 [ADMIN CHECKOUT] Starting admin checkout process...');
+      console.log('  Admin:', adminProfile.email);
+      console.log('  Employee ID:', employeeId);
+
+      // Validation 1: Admin authentication
+      if (!adminProfile || !adminProfile.id) {
+        console.log('  ❌ Admin not authenticated');
+        return {
+          success: false,
+          errorCode: 'NOT_AUTHENTICATED',
+          message: 'Admin not authenticated',
+        };
+      }
+
+      // Validation 2: Admin role check
+      if (adminProfile.role !== 'admin') {
+        console.log('  ❌ User is not an admin');
+        return {
+          success: false,
+          errorCode: 'UNAUTHORIZED',
+          message: 'Only admins can perform manual checkout',
+        };
+      }
+
+      // Use provided date or today's date
+      const targetDate = checkoutDate || getTodayDateIST();
+      console.log('  📅 Target date:', targetDate);
+
+      // Get employee's attendance record for the date
+      const { data: attendance, error: fetchError } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', employeeId)
+        .eq('date', targetDate)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.log('  ❌ Database error:', fetchError);
+        return {
+          success: false,
+          errorCode: 'DATABASE_ERROR',
+          message: 'Failed to fetch attendance record',
+        };
+      }
+
+      // Validation 3: Employee must have checked in
+      if (!attendance) {
+        console.log('  ❌ No attendance record found');
+        return {
+          success: false,
+          errorCode: 'NOT_CHECKED_IN',
+          message: 'Employee has not checked in for this date',
+        };
+      }
+
+      const attendanceRecord = attendance as Attendance;
+
+      // Validation 4: Cannot checkout if already checked out
+      if (attendanceRecord.check_out_time) {
+        console.log('  ❌ Already checked out');
+        return {
+          success: false,
+          errorCode: 'ALREADY_CHECKED_OUT',
+          message: 'Employee has already checked out',
+        };
+      }
+
+      // Get current IST time for checkout
+      const now = getCurrentISTTime();
+      const checkOutTime = now.toISOString();
+
+      console.log('  ⏰ Check-out time (IST):', now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      console.log('  ⏰ Check-out time (UTC):', checkOutTime);
+
+      // Update attendance record with checkout time
+      const { error: updateError } = await supabase
+        .from('attendance')
+        .update({
+          check_out_time: checkOutTime,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', attendanceRecord.id);
+
+      if (updateError) {
+        console.log('  ❌ Failed to update checkout time:', updateError);
+        return {
+          success: false,
+          errorCode: 'DATABASE_ERROR',
+          message: 'Failed to record checkout',
+        };
+      }
+
+      // Calculate work hours
+      const checkInTime = new Date(attendanceRecord.check_in_time);
+      const checkOutTimeDate = new Date(checkOutTime);
+      const workHours = (checkOutTimeDate.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+
+      console.log('  ✅ Admin checkout successful');
+      console.log('  ⏱️  Work hours:', workHours.toFixed(2));
+      console.log('  👤 Checked out by admin:', adminProfile.email);
+
+      return {
+        success: true,
+        message: 'Employee checked out successfully by admin',
+        attendance: {
+          ...attendanceRecord,
+          check_out_time: checkOutTime,
+        },
+        workHours: parseFloat(workHours.toFixed(2)),
+      };
+    } catch (err) {
+      console.log('  ❌ Exception during admin checkout:', err);
+      return {
+        success: false,
+        errorCode: 'UNKNOWN_ERROR',
+        message: err instanceof Error ? err.message : 'Admin checkout failed',
+      };
+    }
+  },
 };

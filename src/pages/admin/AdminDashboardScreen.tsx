@@ -47,9 +47,6 @@ const AdminDashboardScreen = () => {
     };
 
     fetchDashboardData();
-    // Refresh every 60 seconds to reduce load
-    const interval = setInterval(fetchDashboardData, 60000);
-    return () => clearInterval(interval);
   }, []);
 
   if (loading) {

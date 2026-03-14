@@ -33,7 +33,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isAdmin = false }) => {
     { icon: TrendingUp, label: 'Performance', path: '/admin/performance' },
     { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
     { icon: DollarSign, label: 'Payroll', path: '/admin/payroll' },
-    { icon: HelpCircle, label: 'Help Desk', path: '/admin/help' },
   ];
 
   const employeeMenuItems = [
