@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { 
   ArrowLeft, Mail, Phone, Building2, Briefcase, 
   UserCheck, Clock, UserX, Calendar, Edit, Shield, 
-  ToggleLeft, ToggleRight, CheckCircle2, Save, X, LogOut, Upload, Camera
+  ToggleLeft, ToggleRight, CheckCircle2, Save, X, LogOut
 } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { EmployeeLeaveBalanceCards } from "@/components/leave/EmployeeLeaveBalanceCards";
@@ -78,47 +78,45 @@ const AdminEmployeeDetailScreen = () => {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
   const [todayCheckoutTime, setTodayCheckoutTime] = useState<string | null>(null);
-  const [showFaceRegistration, setShowFaceRegistration] = useState(false);
-
-  const fetchEmployeeData = async () => {
-    if (!id) return;
-    
-    setLoading(true);
-    const { employee: employeeData, attendanceHistory: history, stats: employeeStats } = 
-      await employeeService.getEmployeeDetail(id);
-    
-    if (employeeData) {
-      setEmployee(employeeData);
-      setIsActive(employeeData.status === 'active');
-      setUserRole(employeeData.role);
-      
-      // Initialize edit form with current values
-      setEditForm({
-        email: employeeData.email,
-        role: employeeData.role,
-        office_location: employeeData.office_location || "",
-        designation: employeeData.designation || "",
-        role_type: employeeData.role_type || "Employee",
-      });
-    }
-    setAttendanceHistory(history);
-    setStats(employeeStats);
-    
-    // Set today's checkout time if available
-    const todayRecord = history.find(r => r.date === new Date().toISOString().split('T')[0]);
-    if (todayRecord?.check_out_time) {
-      setTodayCheckoutTime(todayRecord.check_out_time);
-    }
-    
-    setLoading(false);
-  };
-
-  const fetchOffices = async () => {
-    const { offices: officeList } = await officeService.getActiveOffices();
-    setOffices(officeList);
-  };
 
   useEffect(() => {
+    const fetchEmployeeData = async () => {
+      if (!id) return;
+      
+      setLoading(true);
+      const { employee: employeeData, attendanceHistory: history, stats: employeeStats } = 
+        await employeeService.getEmployeeDetail(id);
+      
+      if (employeeData) {
+        setEmployee(employeeData);
+        setIsActive(employeeData.status === 'active');
+        setUserRole(employeeData.role);
+        
+        // Initialize edit form with current values
+        setEditForm({
+          email: employeeData.email,
+          role: employeeData.role,
+          office_location: employeeData.office_location || "",
+          designation: employeeData.designation || "",
+          role_type: employeeData.role_type || "Employee",
+        });
+      }
+      setAttendanceHistory(history);
+      setStats(employeeStats);
+      
+      // Set today's checkout time if available
+      const todayRecord = history.find(r => r.date === new Date().toISOString().split('T')[0]);
+      if (todayRecord?.check_out_time) {
+        setTodayCheckoutTime(todayRecord.check_out_time);
+      }
+      
+      setLoading(false);
+    };
+
+    const fetchOffices = async () => {
+      const { offices: officeList } = await officeService.getActiveOffices();
+      setOffices(officeList);
+    };
     fetchEmployeeData();
     fetchOffices();
   }, [id]);
@@ -269,12 +267,6 @@ const AdminEmployeeDetailScreen = () => {
     } finally {
       setIsCheckingOut(false);
     }
-  };
-
-  const handleFaceRegistrationComplete = () => {
-    setShowFaceRegistration(false);
-    // Refresh employee data to update face registration status
-    fetchEmployeeData();
   };
 
   if (loading) {
@@ -687,29 +679,6 @@ const AdminEmployeeDetailScreen = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
-        {/* Face Registration Modal */}
-        {showFaceRegistration && (
-          <Dialog open={showFaceRegistration} onOpenChange={setShowFaceRegistration}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Face Registration</DialogTitle>
-                <DialogDescription>
-                  Register face for {employee?.full_name}
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="py-4">
-                <AdminFaceRegistration
-                  employeeId={employee?.id || ''}
-                  employeeName={employee?.full_name || ''}
-                  employeeEmail={employee?.email || ''}
-                  onRegistrationComplete={handleFaceRegistrationComplete}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
       </div>
     </AdminLayout>
   );
