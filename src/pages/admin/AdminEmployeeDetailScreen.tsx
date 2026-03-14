@@ -8,6 +8,7 @@ import {
 import AdminLayout from "@/components/AdminLayout";
 import { EmployeeLeaveBalanceCards } from "@/components/leave/EmployeeLeaveBalanceCards";
 import { EmployeeTimeTracker } from "@/components/EmployeeTimeTracker";
+import { BreakLogsHistory } from "@/components/BreakLogsHistory";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -72,6 +73,7 @@ const AdminEmployeeDetailScreen = () => {
     role_type: "Employee" as 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern',
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [breakRefreshTrigger, setBreakRefreshTrigger] = useState(0); // Add refresh trigger
 
   useEffect(() => {
     const fetchEmployeeData = async () => {
@@ -117,6 +119,10 @@ const AdminEmployeeDetailScreen = () => {
       minute: '2-digit',
       hour12: true,
     });
+  };
+
+  const handleBreakUpdate = () => {
+    setBreakRefreshTrigger(prev => prev + 1);
   };
 
   const handleRoleChange = async (newRole: 'employee' | 'admin') => {
@@ -356,6 +362,19 @@ const AdminEmployeeDetailScreen = () => {
                     isAdmin={true}
                     employeeName={employee.full_name}
                     currentUserId={adminProfile?.id}
+                    onBreakUpdate={handleBreakUpdate}
+                  />
+                </div>
+              </div>
+
+              {/* Break Logs History */}
+              <div className="animate-fade-in-up" style={{ animationDelay: "0.275s" }}>
+                <h2 className="text-overline mb-2">Break History</h2>
+                <div className="card-elevated p-4">
+                  <BreakLogsHistory
+                    employeeId={id}
+                    employeeName={employee.full_name}
+                    refreshTrigger={breakRefreshTrigger}
                   />
                 </div>
               </div>

@@ -12,6 +12,11 @@ export const exportPerformanceToPDF = (employees: EmployeePerformanceCard[]) => 
     const doc = new jsPDF();
     const currentDate = new Date().toLocaleDateString();
     
+    // Sort employees alphabetically by name for consistent reporting
+    const sortedEmployees = [...employees].sort((a, b) => 
+      a.employee_name.localeCompare(b.employee_name)
+    );
+    
     // Header
     doc.setFontSize(20);
     doc.setTextColor(40, 40, 40);
@@ -20,15 +25,15 @@ export const exportPerformanceToPDF = (employees: EmployeePerformanceCard[]) => 
     doc.setFontSize(12);
     doc.setTextColor(100, 100, 100);
     doc.text(`Generated on: ${currentDate}`, 20, 30);
-    doc.text(`Total Employees: ${employees.length}`, 20, 38);
+    doc.text(`Total Employees: ${sortedEmployees.length}`, 20, 38);
     
     // Calculate summary statistics
-    const totalEmployees = employees.length;
-    const avgScore = employees.reduce((sum, emp) => 
+    const totalEmployees = sortedEmployees.length;
+    const avgScore = sortedEmployees.reduce((sum, emp) => 
       sum + (emp.current_month_metrics?.overall_score || 0), 0) / (totalEmployees || 1);
-    const highPerformers = employees.filter(emp => 
+    const highPerformers = sortedEmployees.filter(emp => 
       (emp.current_month_metrics?.overall_score || 0) >= 90).length;
-    const avgAttendance = employees.reduce((sum, emp) => 
+    const avgAttendance = sortedEmployees.reduce((sum, emp) => 
       sum + (emp.current_month_metrics?.attendance_rate || 0), 0) / (totalEmployees || 1);
     
     // Summary section
@@ -42,12 +47,16 @@ export const exportPerformanceToPDF = (employees: EmployeePerformanceCard[]) => 
     doc.text(`High Performers (90+): ${highPerformers}`, 20, 72);
     doc.text(`Average Attendance Rate: ${avgAttendance.toFixed(1)}%`, 20, 79);
     
-    // Prepare table data
-    const tableData = employees.map(emp => {
+    // Prepare table data (using sorted employees)
+    const tableData = sortedEmployees.map(emp => {
       const metrics = emp.current_month_metrics;
+      const roleDisplay = emp.role_type && emp.role_type !== 'Employee' 
+        ? `${emp.designation || 'Not Assigned'} (${emp.role_type})`
+        : emp.designation || 'Not Assigned';
+      
       return [
         emp.employee_name || 'Unknown',
-        emp.designation || 'Not Assigned',
+        roleDisplay,
         metrics ? `${Math.round(metrics.overall_score)}/100` : 'No Data',
         metrics ? `${metrics.attendance_rate.toFixed(1)}%` : 'No Data',
         metrics ? `${metrics.punctuality_score.toFixed(1)}%` : 'No Data',
@@ -59,7 +68,7 @@ export const exportPerformanceToPDF = (employees: EmployeePerformanceCard[]) => 
     // Employee performance table
     autoTable(doc, {
       startY: 90,
-      head: [['Employee Name', 'Designation', 'Score', 'Attendance', 'Punctuality', 'Avg Breaks', 'Days Present']],
+      head: [['Employee Name', 'Designation/Role', 'Score', 'Attendance', 'Punctuality', 'Avg Breaks', 'Days Present']],
       body: tableData,
       styles: {
         fontSize: 8,
@@ -75,12 +84,12 @@ export const exportPerformanceToPDF = (employees: EmployeePerformanceCard[]) => 
       },
       columnStyles: {
         0: { cellWidth: 35 }, // Employee Name
-        1: { cellWidth: 25 }, // Designation
-        2: { cellWidth: 20 }, // Score
-        3: { cellWidth: 22 }, // Attendance
-        4: { cellWidth: 22 }, // Punctuality
-        5: { cellWidth: 20 }, // Avg Breaks
-        6: { cellWidth: 25 }, // Days Present
+        1: { cellWidth: 30 }, // Designation/Role (increased width)
+        2: { cellWidth: 18 }, // Score
+        3: { cellWidth: 20 }, // Attendance
+        4: { cellWidth: 20 }, // Punctuality
+        5: { cellWidth: 18 }, // Avg Breaks
+        6: { cellWidth: 22 }, // Days Present
       },
     });
     
@@ -91,7 +100,7 @@ export const exportPerformanceToPDF = (employees: EmployeePerformanceCard[]) => 
       doc.setFontSize(8);
       doc.setTextColor(150, 150, 150);
       doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
-      doc.text('Nexus Corporate - Performance Dashboard', 20, doc.internal.pageSize.height - 10);
+      doc.text('Nexus Corporate - Performance Dashboard (Sorted Alphabetically)', 20, doc.internal.pageSize.height - 10);
     }
     
     // Save the PDF

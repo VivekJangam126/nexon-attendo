@@ -56,6 +56,7 @@ export interface EmployeePerformanceCard {
   employee_id: string;
   employee_name: string;
   designation: string;
+  role_type: string;
   status: string;
   current_month_metrics?: PerformanceMetrics;
   active_alerts: PerformanceAlert[];
@@ -443,6 +444,7 @@ class PerformanceAnalyticsService {
           id,
           full_name,
           designation,
+          role_type,
           status,
           role
         `)
@@ -489,6 +491,7 @@ class PerformanceAnalyticsService {
           employee_id: emp.id,
           employee_name: emp.full_name,
           designation: emp.designation || 'Employee',
+          role_type: emp.role_type || 'Employee',
           status: emp.status,
           current_month_metrics: metricsMap.get(emp.id) || null,
           active_alerts: employeeAlerts,

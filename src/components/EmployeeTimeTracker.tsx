@@ -18,6 +18,7 @@ interface EmployeeTimeTrackerProps {
   isAdmin?: boolean;
   employeeName?: string;
   currentUserId?: string; // For tracking who creates the break
+  onBreakUpdate?: () => void; // Callback to trigger refresh in parent components
 }
 
 export const EmployeeTimeTracker = ({
@@ -27,6 +28,7 @@ export const EmployeeTimeTracker = ({
   isAdmin = false,
   employeeName = "Employee",
   currentUserId,
+  onBreakUpdate,
 }: EmployeeTimeTrackerProps) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [breakLogs, setBreakLogs] = useState<BreakLog[]>([]);
@@ -42,10 +44,17 @@ export const EmployeeTimeTracker = ({
     return () => clearInterval(timer);
   }, []);
 
-  // Load break logs from database
+  // Load break logs from database (only today's logs)
   useEffect(() => {
     const fetchBreakLogs = async () => {
-      const { breakLogs: logs, error } = await breakLogsService.getTodayBreakLogs(employeeId);
+      // Always fetch only today's break logs for the timeline
+      const today = new Date().toISOString().split('T')[0];
+      const { breakLogs: logs, error } = await breakLogsService.getBreakLogsForDateRange(
+        employeeId, 
+        today, 
+        today
+      );
+      
       if (error) {
         console.error('Failed to fetch break logs:', error);
         return;
@@ -143,6 +152,11 @@ export const EmployeeTimeTracker = ({
         title: "Break Started", 
         description: isAdmin ? `Tea break started for ${employeeName}` : "Tea break has started" 
       });
+      
+      // Trigger refresh in parent components
+      if (onBreakUpdate) {
+        onBreakUpdate();
+      }
     } else {
       toast({
         title: "Error",
@@ -168,6 +182,11 @@ export const EmployeeTimeTracker = ({
         title: "Break Ended", 
         description: isAdmin ? `Break ended for ${employeeName}` : "Break has been completed" 
       });
+      
+      // Trigger refresh in parent components
+      if (onBreakUpdate) {
+        onBreakUpdate();
+      }
     } else {
       toast({
         title: "Error",
@@ -190,7 +209,7 @@ export const EmployeeTimeTracker = ({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* Real-Time Clock */}
       <div className="lg:col-span-2 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 p-6 shadow-sm">
-        <div className="text-center mb-4">
+        <div className="flex flex-col items-center justify-center text-center mb-4 pt-12">
           <div className="text-4xl sm:text-5xl font-bold text-gray-900 mb-2 font-mono">
             {formatCurrentTime(currentTime)}
           </div>

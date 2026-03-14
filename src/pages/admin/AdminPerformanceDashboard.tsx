@@ -171,8 +171,13 @@ const AdminPerformanceDashboard = () => {
       return matchesSearch && matchesStatus && matchesAlerts;
     });
 
+    // Sort alphabetically by employee name
+    const sorted = filtered.sort((a, b) => 
+      a.employee_name.localeCompare(b.employee_name)
+    );
+
     // Return only the first displayCount employees for better performance
-    return filtered.slice(0, displayCount);
+    return sorted.slice(0, displayCount);
   }, [employees, searchQuery, filterStatus, filterAlerts, displayCount]);
 
   // Memoize statistics to avoid recalculation
@@ -415,7 +420,14 @@ const EmployeePerformanceCard = ({ employee }: { employee: EmployeePerformanceCa
           </div>
           <div>
             <h3 className="font-semibold text-sm text-gray-900">{employee.employee_name}</h3>
-            <p className="text-xs text-gray-600">{employee.designation}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-gray-600">{employee.designation || 'Not Assigned'}</p>
+              {employee.role_type && employee.role_type !== 'Employee' && (
+                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                  {employee.role_type}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getScoreColor(score)}`}>

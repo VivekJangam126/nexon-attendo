@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { MapPin, Clock, CheckCircle2, Building2, Calendar, AlertCircle, LogOut, TrendingUp, Zap, Award } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { EmployeeTimeTracker } from "@/components/EmployeeTimeTracker";
+import { BreakLogsHistory } from "@/components/BreakLogsHistory";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { attendanceService, attendanceSettingsService } from "@server";
@@ -19,6 +20,7 @@ const DashboardScreen = () => {
   const [windowDisplay, setWindowDisplay] = useState<string>('Loading...');
   const [workDuration, setWorkDuration] = useState<string>('0h 0m');
   const [defaultCheckoutTime, setDefaultCheckoutTime] = useState<string>('6:30 PM');
+  const [breakRefreshTrigger, setBreakRefreshTrigger] = useState(0); // Add refresh trigger
 
   useEffect(() => {
     const fetchData = async () => {
@@ -80,6 +82,10 @@ const DashboardScreen = () => {
       }
     }
   }, [loading, user, profile, navigate]);
+
+  const handleBreakUpdate = () => {
+    setBreakRefreshTrigger(prev => prev + 1);
+  };
 
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
@@ -266,6 +272,16 @@ const DashboardScreen = () => {
             checkInTime={todayAttendance?.check_in_time || null}
             checkOutTime={todayAttendance?.check_out_time || null}
             currentUserId={profile.id}
+            onBreakUpdate={handleBreakUpdate}
+          />
+        </div>
+
+        {/* Break Logs History */}
+        <div className="animate-fade-in-up delay-175">
+          <BreakLogsHistory
+            employeeId={profile.id}
+            employeeName={profile.full_name}
+            refreshTrigger={breakRefreshTrigger}
           />
         </div>
 
