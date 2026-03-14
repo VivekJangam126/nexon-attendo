@@ -9,12 +9,25 @@ export const useLeaveTypes = () => {
   return useQuery({
     queryKey: ['leaveTypes'],
     queryFn: async () => {
+      // Check cache first
+      const cached = sessionStorage.getItem('leaveTypes');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+
       const response = await fetch(`${API_BASE}/leave/policies`);
       if (!response.ok) throw new Error('Failed to fetch leave types');
       const data = await response.json();
-      return data.types || [];
+      const types = data.types || [];
+      
+      // Cache for session
+      sessionStorage.setItem('leaveTypes', JSON.stringify(types));
+      return types;
     },
-    staleTime: 1000 * 60 * 60, // 1 hour
+    staleTime: 1000 * 60 * 60 * 24, // 24 hours
+    gcTime: 1000 * 60 * 60 * 24, // 24 hours
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 };
 
@@ -24,11 +37,6 @@ export const useLeaveBalance = (year?: number) => {
 
   useEffect(() => {
     if (!user) return;
-
-    // TODO: Fix anniversary check endpoint and re-enable
-    // For now, just skip the anniversary check
-    // The backend services will still perform anniversary checks when needed
-    console.log('[useLeaveBalance] Anniversary check disabled - will be performed by backend');
 
     // Subscribe to balance changes using realtime
     const channel = supabase.channel(`balance_${user.id}`).on(
@@ -63,8 +71,10 @@ export const useLeaveBalance = (year?: number) => {
       return Array.isArray(data) ? data : [];
     },
     enabled: !!user,
-    staleTime: 0, // Disable caching - always fetch fresh data
-    gcTime: 0, // Don't keep in garbage collection
+    staleTime: 1000 * 60 * 10, // Cache for 10 minutes
+    gcTime: 1000 * 60 * 30, // Keep in cache for 30 minutes
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnMount: false, // Don't refetch on component mount if data exists
   });
 };
 
@@ -85,15 +95,10 @@ export const useEmployeeLeaveRequests = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  console.log('[useEmployeeLeaveRequests] Hook called, user:', user?.id);
-
   useEffect(() => {
     if (!user) {
-      console.log('[useEmployeeLeaveRequests] No user, skipping subscription');
       return;
     }
-
-    console.log('[useEmployeeLeaveRequests] Setting up subscription for user:', user.id);
 
     // Subscribe to leave request changes
     const channel = supabase.channel(`requests_${user.id}`).on(
@@ -105,7 +110,6 @@ export const useEmployeeLeaveRequests = () => {
         filter: `employee_id=eq.${user.id}`,
       },
       () => {
-        console.log('[useEmployeeLeaveRequests] Realtime update received, invalidating query');
         queryClient.invalidateQueries({ queryKey: ['employeeLeaveRequests'] });
       }
     ).subscribe();
@@ -118,10 +122,7 @@ export const useEmployeeLeaveRequests = () => {
   return useQuery({
     queryKey: ['employeeLeaveRequests'],
     queryFn: async () => {
-      console.log('[useEmployeeLeaveRequests] queryFn called, user:', user?.id);
-      
       if (!user?.id) {
-        console.log('[useEmployeeLeaveRequests] No user ID, returning empty array');
         return [];
       }
       
@@ -131,8 +132,6 @@ export const useEmployeeLeaveRequests = () => {
         },
       });
       
-      console.log('[useEmployeeLeaveRequests] Response status:', response.status);
-      
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[useEmployeeLeaveRequests] API error:', errorText);
@@ -140,12 +139,13 @@ export const useEmployeeLeaveRequests = () => {
       }
       
       const data = await response.json();
-      console.log('[useEmployeeLeaveRequests] Fetched data:', data);
-      
       return Array.isArray(data) ? data : [];
     },
     enabled: !!user,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 10, // Cache for 10 minutes
+    gcTime: 1000 * 60 * 30, // Keep in cache for 30 minutes
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnMount: false, // Don't refetch on component mount if data exists
   });
 };
 
@@ -400,14 +400,10 @@ export const useEmployeeLeaveBalanceCards = (employeeId?: string) => {
     queryKey: ['employeeLeaveBalanceCards', employeeId],
     queryFn: async () => {
       if (!employeeId) {
-        console.log('[useEmployeeLeaveBalanceCards] No employeeId provided');
         return [];
       }
       
-      console.log('[useEmployeeLeaveBalanceCards] Fetching for employeeId:', employeeId);
-      
       const url = `${API_BASE}/leave/balance?employeeId=${employeeId}`;
-      console.log('[useEmployeeLeaveBalanceCards] URL:', url);
       
       const response = await fetch(url, {
         headers: {
@@ -416,8 +412,6 @@ export const useEmployeeLeaveBalanceCards = (employeeId?: string) => {
         },
       });
       
-      console.log('[useEmployeeLeaveBalanceCards] Response status:', response.status);
-      
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[useEmployeeLeaveBalanceCards] API error:', errorText);
@@ -425,12 +419,12 @@ export const useEmployeeLeaveBalanceCards = (employeeId?: string) => {
       }
       
       const data = await response.json();
-      console.log('[useEmployeeLeaveBalanceCards] Received data for', employeeId, ':', data);
-      
       return Array.isArray(data) ? data : [];
     },
     enabled: !!user && profile?.role === 'admin' && !!employeeId,
-    staleTime: 0, // Disable caching - always fetch fresh data
-    gcTime: 0, // Don't keep in garbage collection
+    staleTime: 1000 * 60 * 10, // Cache for 10 minutes
+    gcTime: 1000 * 60 * 30, // Keep in cache for 30 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 };

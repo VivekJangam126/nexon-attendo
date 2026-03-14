@@ -857,6 +857,61 @@ export const reportsService = {
         return date.toISOString().split('T')[0];
       });
 
+      // Get all holidays and approved leaves for the date range
+      const holidayMap = new Map<string, string>(); // key: employeeId_date, value: reason (holiday/leave)
+      
+      for (const date of allDates) {
+        const dayOfWeek = new Date(date).getDay();
+        
+        // Get recurring holidays for this day
+        const { data: recurringHolidays } = await supabase
+          .from('employee_recurring_holidays')
+          .select('employee_id')
+          .eq('day_of_week', dayOfWeek);
+        
+        if (recurringHolidays) {
+          recurringHolidays.forEach((h: any) => {
+            holidayMap.set(`${h.employee_id}_${date}`, 'Holiday');
+          });
+        }
+        
+        // Get specific holidays for this date
+        const { data: specificHolidays } = await supabase
+          .from('employee_specific_holidays')
+          .select('employee_id, reason')
+          .eq('holiday_date', date);
+        
+        if (specificHolidays) {
+          specificHolidays.forEach((h: any) => {
+            holidayMap.set(`${h.employee_id}_${date}`, `Holiday: ${h.reason}`);
+          });
+        }
+        
+        // Get approved leaves for this date
+        const { data: approvedLeaves } = await supabase
+          .from('leave_requests')
+          .select('employee_id, leave_type_id')
+          .eq('status', 'approved')
+          .lte('start_date', date)
+          .gte('end_date', date);
+        
+        if (approvedLeaves) {
+          // Get leave type names
+          const leaveTypeIds = [...new Set(approvedLeaves.map((l: any) => l.leave_type_id))];
+          const { data: leaveTypes } = await supabase
+            .from('leave_types')
+            .select('id, name')
+            .in('id', leaveTypeIds);
+          
+          const leaveTypeMap = new Map(leaveTypes?.map((lt: any) => [lt.id, lt.name]) || []);
+          
+          approvedLeaves.forEach((l: any) => {
+            const leaveTypeName = leaveTypeMap.get(l.leave_type_id) || 'Leave';
+            holidayMap.set(`${l.employee_id}_${date}`, `On Leave: ${leaveTypeName}`);
+          });
+        }
+      }
+
       // Create records for ALL employees for ALL dates
       const records: EmployeeAttendanceRecord[] = [];
       
@@ -864,6 +919,7 @@ export const reportsService = {
         allDates.forEach((date) => {
           const key = `${employee.id}_${date}`;
           const attendance = attendanceMap.get(key);
+          const holidayReason = holidayMap.get(key);
 
           if (attendance) {
             // Employee has attendance record
@@ -893,6 +949,18 @@ export const reportsService = {
               checkInTime: checkInFormatted,
               checkOutTime: checkOutFormatted,
               status: attendance.status,
+            });
+          } else if (holidayReason) {
+            // Employee has holiday or approved leave - don't mark as absent
+            // Determine if it's a holiday or leave based on the reason text
+            const isLeave = holidayReason.startsWith('On Leave:');
+            records.push({
+              employeeName: employee.full_name,
+              email: employee.email,
+              date: date,
+              checkInTime: holidayReason,
+              checkOutTime: null,
+              status: isLeave ? 'on_leave' as any : 'holiday' as any,
             });
           } else {
             // Employee has no attendance record - mark as absent

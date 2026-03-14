@@ -24,7 +24,6 @@ import AdminLoginScreen from "./pages/admin/AdminLoginScreen";
 import AdminDashboardScreen from "./pages/admin/AdminDashboardScreen";
 import AdminEmployeesScreen from "./pages/admin/AdminEmployeesScreen";
 import AdminEmployeeDetailScreen from "./pages/admin/AdminEmployeeDetailScreen";
-import AdminAddEmployeeScreen from "./pages/admin/AdminAddEmployeeScreen";
 import AdminPendingApprovalsScreen from "./pages/admin/AdminPendingApprovalsScreen";
 import AdminReportsScreen from "./pages/admin/AdminReportsScreen";
 import AdminHistoryReportsScreen from "./pages/admin/AdminHistoryReportsScreen";
@@ -82,7 +81,6 @@ const App = () => (
           <Route path="/admin/dashboard" element={<AdminDashboardScreen />} />
           <Route path="/admin/employees" element={<AdminEmployeesScreen />} />
           <Route path="/admin/employee/:id" element={<AdminEmployeeDetailScreen />} />
-          <Route path="/admin/add-employee" element={<AdminAddEmployeeScreen />} />
           <Route path="/admin/pending-approvals" element={<AdminPendingApprovalsScreen />} />
           <Route path="/admin/reports" element={<AdminReportsScreen />} />
           <Route path="/admin/history" element={<AdminHistoryReportsScreen />} />

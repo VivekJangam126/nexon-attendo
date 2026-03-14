@@ -76,18 +76,18 @@ const ProfileScreen = () => {
 
   return (
     <DashboardLayout title="My Profile">
-      <div className="space-y-8">
+      <div className="space-y-3">
         {/* Profile Header Card */}
-        <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg border border-amber-200 p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center text-white text-lg font-semibold">
+        <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg border border-amber-200 p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
               {getInitials(profile.full_name)}
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{profile.full_name}</h1>
-              <p className="text-sm text-amber-700 capitalize mt-1">{profile.role}</p>
-              <div className="flex items-center gap-2 mt-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+              <h1 className="text-base font-bold text-gray-900">{profile.full_name}</h1>
+              <p className="text-xs text-amber-700 capitalize mt-0.5">{profile.role_type || profile.role}</p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                   profile.status === 'active' ? 'bg-green-100 text-green-700' :
                   profile.status === 'pending' ? 'bg-amber-100 text-amber-700' :
                   'bg-red-100 text-red-700'
@@ -101,67 +101,67 @@ const ProfileScreen = () => {
 
         {/* Profile Information */}
         <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Profile Information</h2>
+          <h2 className="text-sm font-bold text-gray-900 mb-2">Profile Information</h2>
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm divide-y divide-gray-200">
-            <div className="flex items-center gap-4 p-4">
-              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                <User className="w-5 h-5 text-amber-600" />
+            <div className="flex items-center gap-3 p-3">
+              <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <User className="w-4 h-4 text-amber-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Full Name</p>
-                <p className="text-sm font-semibold text-gray-900 mt-1">{profile.full_name}</p>
+                <p className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">Full Name</p>
+                <p className="text-xs font-semibold text-gray-900 mt-0.5">{profile.full_name}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 p-4">
-              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Mail className="w-5 h-5 text-amber-600" />
+            <div className="flex items-center gap-3 p-3">
+              <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Mail className="w-4 h-4 text-amber-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Email</p>
-                <p className="text-sm font-semibold text-gray-900 mt-1 break-all">{profile.email}</p>
+                <p className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">Email</p>
+                <p className="text-xs font-semibold text-gray-900 mt-0.5 break-all">{profile.email}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 p-4">
-              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Briefcase className="w-5 h-5 text-amber-600" />
+            <div className="flex items-center gap-3 p-3">
+              <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Briefcase className="w-4 h-4 text-amber-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Role</p>
-                <p className="text-sm font-semibold text-gray-900 mt-1 capitalize">{profile.role}</p>
+                <p className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">Role</p>
+                <p className="text-xs font-semibold text-gray-900 mt-0.5 capitalize">{profile.role_type || profile.role}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 p-4">
-              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Shield className="w-5 h-5 text-amber-600" />
+            <div className="flex items-center gap-3 p-3">
+              <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Shield className="w-4 h-4 text-amber-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Account Status</p>
-                <p className={`text-sm font-semibold mt-1 capitalize ${getStatusColor(profile.status)}`}>
+                <p className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">Account Status</p>
+                <p className={`text-xs font-semibold mt-0.5 capitalize ${getStatusColor(profile.status)}`}>
                   {getStatusDisplay(profile.status)}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 p-4">
-              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Building2 className="w-5 h-5 text-amber-600" />
+            <div className="flex items-center gap-3 p-3">
+              <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Building2 className="w-4 h-4 text-amber-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Office Location</p>
-                <p className="text-sm font-semibold text-gray-900 mt-1">{profile.office_name || 'Not Assigned'}</p>
+                <p className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">Office Location</p>
+                <p className="text-xs font-semibold text-gray-900 mt-0.5">{profile.office_name || 'Not Assigned'}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 p-4">
-              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Calendar className="w-5 h-5 text-amber-600" />
+            <div className="flex items-center gap-3 p-3">
+              <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-4 h-4 text-amber-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Member Since</p>
-                <p className="text-sm font-semibold text-gray-900 mt-1">{formatDate(profile.created_at)}</p>
+                <p className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">Member Since</p>
+                <p className="text-xs font-semibold text-gray-900 mt-0.5">{formatDate(profile.created_at)}</p>
               </div>
             </div>
           </div>
@@ -169,50 +169,50 @@ const ProfileScreen = () => {
 
         {/* Account Options */}
         <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Account Settings</h2>
+          <h2 className="text-sm font-bold text-gray-900 mb-2">Account Settings</h2>
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm divide-y divide-gray-200">
-            <button onClick={() => navigate("/change-password")} className="flex items-center gap-4 p-4 w-full hover:bg-gray-50 transition-colors">
-              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Lock className="w-5 h-5 text-amber-600" />
+            <button onClick={() => navigate("/change-password")} className="flex items-center gap-3 p-3 w-full hover:bg-gray-50 transition-colors">
+              <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Lock className="w-4 h-4 text-amber-600" />
               </div>
               <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Change Password</p>
-                <p className="text-xs text-gray-600 mt-1">Update your account password</p>
+                <p className="text-xs font-semibold text-gray-900">Change Password</p>
+                <p className="text-[10px] text-gray-600 mt-0.5">Update your account password</p>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
             </button>
 
-            <button onClick={() => navigate("/help-support")} className="flex items-center gap-4 p-4 w-full hover:bg-gray-50 transition-colors">
-              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                <HelpCircle className="w-5 h-5 text-amber-600" />
+            <button onClick={() => navigate("/help-support")} className="flex items-center gap-3 p-3 w-full hover:bg-gray-50 transition-colors">
+              <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <HelpCircle className="w-4 h-4 text-amber-600" />
               </div>
               <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Help & Support</p>
-                <p className="text-xs text-gray-600 mt-1">Get assistance or report issues</p>
+                <p className="text-xs font-semibold text-gray-900">Help & Support</p>
+                <p className="text-[10px] text-gray-600 mt-0.5">Get assistance or report issues</p>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
             </button>
 
-            <button onClick={() => navigate("/attendance-rules")} className="flex items-center gap-4 p-4 w-full hover:bg-gray-50 transition-colors">
-              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Info className="w-5 h-5 text-amber-600" />
+            <button onClick={() => navigate("/attendance-rules")} className="flex items-center gap-3 p-3 w-full hover:bg-gray-50 transition-colors">
+              <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Info className="w-4 h-4 text-amber-600" />
               </div>
               <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Attendance Rules</p>
-                <p className="text-xs text-gray-600 mt-1">How attendance marking works</p>
+                <p className="text-xs font-semibold text-gray-900">Attendance Rules</p>
+                <p className="text-[10px] text-gray-600 mt-0.5">How attendance marking works</p>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
             </button>
 
-            <button onClick={() => navigate("/attendance-rules")} className="flex items-center gap-4 p-4 w-full hover:bg-gray-50 transition-colors">
-              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                <FileText className="w-5 h-5 text-amber-600" />
+            <button onClick={() => navigate("/attendance-rules")} className="flex items-center gap-3 p-3 w-full hover:bg-gray-50 transition-colors">
+              <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                <FileText className="w-4 h-4 text-amber-600" />
               </div>
               <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-semibold text-gray-900">Attendance Policy</p>
-                <p className="text-xs text-gray-600 mt-1">View company attendance rules</p>
+                <p className="text-xs font-semibold text-gray-900">Attendance Policy</p>
+                <p className="text-[10px] text-gray-600 mt-0.5">View company attendance rules</p>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+              <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
             </button>
           </div>
         </div>

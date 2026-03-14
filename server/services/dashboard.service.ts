@@ -34,6 +34,7 @@ export const dashboardService = {
    * Get dashboard statistics for admin
    * Includes logic to mark employees as absent after grace period
    * Uses same calculation logic as employee service for consistency
+   * EXCLUDES employees on holiday from absent count
    */
   async getDashboardStats(): Promise<{ stats: DashboardStats; error: Error | null }> {
     try {
@@ -66,6 +67,44 @@ export const dashboardService = {
         .eq('setting_name', 'default_attendance_window')
         .eq('is_active', true)
         .single();
+
+      // Check which employees have holidays or approved leaves today
+      const employeesNotRequired = new Set<string>(); // Employees who don't need to mark attendance
+      const dayOfWeek = new Date(today).getDay();
+
+      // Get employees with recurring holiday today
+      const { data: recurringHolidays } = await supabase
+        .from('employee_recurring_holidays')
+        .select('employee_id')
+        .eq('day_of_week', dayOfWeek);
+
+      if (recurringHolidays) {
+        recurringHolidays.forEach((h: any) => employeesNotRequired.add(h.employee_id));
+      }
+
+      // Get employees with specific holiday today
+      const { data: specificHolidays } = await supabase
+        .from('employee_specific_holidays')
+        .select('employee_id')
+        .eq('holiday_date', today);
+
+      if (specificHolidays) {
+        specificHolidays.forEach((h: any) => employeesNotRequired.add(h.employee_id));
+      }
+
+      // Get employees with approved leave today
+      const { data: approvedLeaves } = await supabase
+        .from('leave_requests')
+        .select('employee_id')
+        .eq('status', 'approved')
+        .lte('start_date', today)
+        .gte('end_date', today);
+
+      if (approvedLeaves) {
+        approvedLeaves.forEach((l: any) => employeesNotRequired.add(l.employee_id));
+      }
+
+      console.log(`[Dashboard] ${employeesNotRequired.size} employees have holiday/leave today`);
 
       // Filter attendance to only include active employees and recalculate status
       const activeAttendance = attendanceData?.filter((a: any) => activeEmployeeIds.has(a.user_id)) || [];
@@ -103,7 +142,16 @@ export const dashboardService = {
 
       const markedToday = presentToday + lateToday + absentToday;
       
-      let notMarkedToday = totalEmployees - markedToday;
+      // Calculate unmarked employees (excluding those on holiday/leave)
+      const markedEmployeeIds = new Set(activeAttendance.map((a: any) => a.user_id));
+      let notMarkedToday = 0;
+      
+      activeEmployeeIds.forEach(empId => {
+        if (!markedEmployeeIds.has(empId) && !employeesNotRequired.has(empId)) {
+          notMarkedToday++;
+        }
+      });
+
       let adjustedAbsentToday = absentToday;
 
       if (windowData) {
@@ -119,22 +167,24 @@ export const dashboardService = {
         const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
         const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
 
-        // If current time is after grace period, unmarked employees are considered absent
+        // If current time is after grace period, unmarked employees (excluding holidays/leaves) are considered absent
         if (currentTimeInMinutes > gracePeriodEndMinutes) {
           adjustedAbsentToday = absentToday + notMarkedToday;
           notMarkedToday = 0;
         }
       }
 
-      // Calculate attendance rate (present + late / total ACTIVE employees only)
-      // Note: totalEmployees already only includes active employees
-      const attendanceRate = totalEmployees > 0
-        ? Math.round(((presentToday + lateToday) / totalEmployees) * 100)
+      // Calculate total working employees (excluding those on holiday/leave)
+      const totalWorkingEmployees = totalEmployees - employeesNotRequired.size;
+
+      // Calculate attendance rate (present + late / total working employees)
+      const attendanceRate = totalWorkingEmployees > 0
+        ? Math.round(((presentToday + lateToday) / totalWorkingEmployees) * 100)
         : 0;
 
       return {
         stats: {
-          totalEmployees, // Only active employees
+          totalEmployees: totalWorkingEmployees, // Exclude employees on holiday
           presentToday,
           lateToday,
           absentToday: adjustedAbsentToday,

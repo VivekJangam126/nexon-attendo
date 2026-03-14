@@ -274,6 +274,7 @@ export class LeaveService {
   }
 
   // Admin: Approve leave request
+  // Admin: Approve leave request
   static async approveLeaveRequest(leaveRequestId: string, adminComment?: string): Promise<void> {
     const { data: leaveRequest, error: fetchError } = await supabase
       .from('leave_requests')
@@ -285,11 +286,14 @@ export class LeaveService {
 
     const start = new Date(leaveRequest.start_date);
     const end = new Date(leaveRequest.end_date);
-    // Calculate leave days correctly (inclusive of both start and end dates)
     const leaveDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
+    console.log('[approveLeaveRequest] Approving leave request');
     console.log('[approveLeaveRequest] Leave days:', leaveDays);
+    console.log('[approveLeaveRequest] Employee ID:', leaveRequest.employee_id);
+    console.log('[approveLeaveRequest] Leave Type ID:', leaveRequest.leave_type_id);
 
+    // Update request status
     const { error: updateError } = await supabase
       .from('leave_requests')
       .update({
@@ -299,35 +303,35 @@ export class LeaveService {
       })
       .eq('id', leaveRequestId);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('[approveLeaveRequest] Failed to update request:', updateError);
+      throw updateError;
+    }
 
+    // Update leave balance - simple approach
     if (leaveRequest.leave_type_id) {
-      // Check anniversary and get current employment year
-      await LeaveAnniversaryService.checkAndResetLeaveBalance(leaveRequest.employee_id);
-      const currentYear = await LeaveAnniversaryService.getCurrentEmploymentYear(leaveRequest.employee_id);
-
-      if (!currentYear) {
-        throw new Error('Unable to determine employment year');
-      }
-
-      const { data: balance, error: balanceError } = await supabase
+      // Get the balance record - just find ANY record for this employee and leave type
+      const { data: balances, error: balanceError } = await supabase
         .from('employee_leave_balance')
         .select('*')
         .eq('employee_id', leaveRequest.employee_id)
-        .eq('leave_type_id', leaveRequest.leave_type_id)
-        .eq('employment_year_start', currentYear.start)
-        .single();
+        .eq('leave_type_id', leaveRequest.leave_type_id);
 
-      if (balanceError && balanceError.code !== 'PGRST116') {
+      console.log('[approveLeaveRequest] Found balances:', balances?.length || 0);
+
+      if (balanceError) {
         console.error('[approveLeaveRequest] Balance fetch error:', balanceError);
         throw balanceError;
       }
 
-      if (balance) {
+      if (balances && balances.length > 0) {
+        // Use the first balance record found
+        const balance = balances[0];
         const newUsedLeaves = balance.used_leaves + leaveDays;
         const newRemainingLeaves = balance.total_leaves - newUsedLeaves;
 
         console.log('[approveLeaveRequest] Updating balance:', {
+          balance_id: balance.id,
           old_used: balance.used_leaves,
           new_used: newUsedLeaves,
           old_remaining: balance.remaining_leaves,
@@ -348,6 +352,12 @@ export class LeaveService {
           console.error('[approveLeaveRequest] Balance update error:', updateBalanceError);
           throw updateBalanceError;
         }
+
+        console.log('[approveLeaveRequest] Balance updated successfully!');
+      } else {
+        console.error('[approveLeaveRequest] No balance record found for employee');
+        console.error('[approveLeaveRequest] Employee ID:', leaveRequest.employee_id);
+        console.error('[approveLeaveRequest] Leave Type ID:', leaveRequest.leave_type_id);
       }
     }
   }

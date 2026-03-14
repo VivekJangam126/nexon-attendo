@@ -218,21 +218,8 @@ const LoginScreen = () => {
             </button>
           </form>
 
-          {/* Register Link */}
-          <div className="mt-6 text-center">
-            <p className="text-gray-600 text-sm">
-              New employee?{" "}
-              <button
-                onClick={() => navigate("/register")}
-                className="text-orange-600 hover:text-orange-700 font-semibold transition-colors"
-              >
-                Register here
-              </button>
-            </p>
-          </div>
-
           {/* Admin Link */}
-          <div className="mt-3 text-center">
+          <div className="mt-6 text-center">
             <button
               onClick={() => navigate("/admin/login")}
               className="text-sm text-gray-500 hover:text-gray-700 transition-colors"

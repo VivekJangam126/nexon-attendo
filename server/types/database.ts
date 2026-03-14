@@ -23,6 +23,8 @@ export interface Database {
           role: 'employee' | 'admin'
           status: 'pending' | 'active' | 'rejected' | 'blocked'
           office_location: string | null
+          designation: string | null
+          role_type: 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern' | null
           created_at: string
           updated_at: string
         }
@@ -33,6 +35,8 @@ export interface Database {
           role: 'employee' | 'admin'
           status?: 'pending' | 'active' | 'rejected' | 'blocked'
           office_location?: string | null
+          designation?: string | null
+          role_type?: 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern' | null
           created_at?: string
           updated_at?: string
         }
@@ -43,6 +47,8 @@ export interface Database {
           role?: 'employee' | 'admin'
           status?: 'pending' | 'active' | 'rejected' | 'blocked'
           office_location?: string | null
+          designation?: string | null
+          role_type?: 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern' | null
           created_at?: string
           updated_at?: string
         }

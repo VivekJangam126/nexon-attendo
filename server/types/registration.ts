@@ -8,6 +8,8 @@ export interface RegistrationData {
   password: string;
   full_name: string;
   office_id: string;
+  designation?: string;
+  role_type?: 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern';
 }
 
 export interface RegistrationResponse {

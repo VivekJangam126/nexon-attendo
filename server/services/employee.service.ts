@@ -8,10 +8,12 @@ import type { UserProfile } from '../types/profile';
 import { holidayService } from './holiday.service';
 
 export interface EmployeeWithAttendance extends UserProfile {
-  today_status: 'present' | 'late' | 'absent' | 'not_marked';
+  today_status: 'present' | 'late' | 'absent' | 'not_marked' | 'holiday';
   check_in_time: string | null;
   office_name: string | null;
   department: string | null;
+  designation?: string | null;
+  role_type?: 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern' | null;
 }
 
 export interface EmployeeDetailResponse {
@@ -103,7 +105,7 @@ export const employeeService = {
         const attendance = attendanceMap.get(profile.id);
         
         // Determine today's status
-        let todayStatus: 'present' | 'late' | 'absent' | 'not_marked';
+        let todayStatus: 'present' | 'late' | 'absent' | 'not_marked' | 'holiday';
         
         // If employee is pending approval, they shouldn't be marked absent
         if (profile.status === 'pending') {
@@ -126,7 +128,7 @@ export const employeeService = {
             todayStatus = checkInMinutes <= gracePeriodEndMinutes ? 'present' : 'late';
           } else {
             // If no check-in time or window data, use database status
-            todayStatus = attendance.status as 'present' | 'late' | 'absent' | 'not_marked';
+            todayStatus = attendance.status as 'present' | 'late' | 'absent' | 'not_marked' | 'holiday';
           }
         } else if (profile.status === 'active') {
           // Active employee with no attendance record
@@ -134,8 +136,8 @@ export const employeeService = {
           const holidayStatus = await holidayService.isEmployeeHoliday(profile.id, today);
           
           if (holidayStatus.is_holiday) {
-            // Today is a holiday for this employee - don't mark as absent
-            todayStatus = 'not_marked';
+            // Today is a holiday for this employee - mark as holiday
+            todayStatus = 'holiday';
           } else if (isAfterGracePeriod) {
             // Grace period has ended - mark as absent
             todayStatus = 'absent';
@@ -209,6 +211,44 @@ export const employeeService = {
 
       if (todayError) throw todayError;
 
+      // Recalculate today's status based on check-in time
+      let todayStatus: 'present' | 'late' | 'absent' | 'not_marked' | 'holiday' = 'not_marked';
+      
+      if (todayAttendance?.check_in_time) {
+        // Get attendance window settings
+        const { data: windowData } = await supabase
+          .from('attendance_settings')
+          .select('start_time, grace_period_minutes')
+          .eq('setting_name', 'default_attendance_window')
+          .eq('is_active', true)
+          .single();
+
+        if (windowData) {
+          const checkInDate = new Date(todayAttendance.check_in_time);
+          const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+          
+          const [startHour, startMinute] = windowData.start_time.split(':').map(Number);
+          const windowStartMinutes = startHour * 60 + startMinute;
+          const gracePeriodMinutes = windowData.grace_period_minutes || 15;
+          const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+          
+          // Recalculate correct status
+          todayStatus = checkInMinutes <= gracePeriodEndMinutes ? 'present' : 'late';
+        } else {
+          // Fallback to database status if no window data
+          todayStatus = todayAttendance.status as any;
+        }
+      } else if (profile.status === 'active') {
+        // No attendance record - check if it's a holiday
+        const holidayStatus = await holidayService.isEmployeeHoliday(userId, today);
+        if (holidayStatus.is_holiday) {
+          todayStatus = 'holiday';
+        } else {
+          todayStatus = 'absent';
+        }
+      }
+
       // Fetch attendance history (last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -223,16 +263,141 @@ export const employeeService = {
 
       if (historyError) throw historyError;
 
-      // Calculate stats
-      const presentCount = history?.filter(h => h.status === 'present').length || 0;
-      const lateCount = history?.filter(h => h.status === 'late').length || 0;
-      const absentCount = history?.filter(h => h.status === 'absent').length || 0;
-      const totalDays = history?.length || 0;
-      const attendanceRate = totalDays > 0 ? Math.round((presentCount / totalDays) * 100) : 0;
+      // Get attendance window settings to recalculate status
+      const { data: windowData } = await supabase
+        .from('attendance_settings')
+        .select('start_time, grace_period_minutes')
+        .eq('setting_name', 'default_attendance_window')
+        .eq('is_active', true)
+        .single();
+
+      // Recalculate status for each attendance record
+      const recalculatedHistory = history?.map((record: any) => {
+        if (!record.check_in_time || !windowData) {
+          return record; // Keep original status if no check-in time or window data
+        }
+
+        // Recalculate status based on check-in time
+        const checkInDate = new Date(record.check_in_time);
+        const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+        
+        const [startHour, startMinute] = windowData.start_time.split(':').map(Number);
+        const windowStartMinutes = startHour * 60 + startMinute;
+        const gracePeriodMinutes = windowData.grace_period_minutes || 15;
+        const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+        
+        // Recalculate correct status
+        const correctedStatus = checkInMinutes <= gracePeriodEndMinutes ? 'present' : 'late';
+        
+        return {
+          ...record,
+          status: correctedStatus,
+        };
+      }) || [];
+
+      // Get all dates in the last 30 days
+      const allDates: string[] = [];
+      for (let i = 0; i < 30; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        allDates.push(date.toISOString().split('T')[0]);
+      }
+
+      // Get holidays and leaves for this employee
+      const holidayDates = new Set<string>();
+      const leaveDates = new Map<string, string>(); // date -> leave type name
+
+      // Get recurring holidays
+      const { data: recurringHolidays } = await supabase
+        .from('employee_recurring_holidays')
+        .select('day_of_week')
+        .eq('employee_id', userId);
+
+      if (recurringHolidays) {
+        const holidayDays = new Set(recurringHolidays.map((h: any) => h.day_of_week));
+        allDates.forEach(date => {
+          const dayOfWeek = new Date(date).getDay();
+          if (holidayDays.has(dayOfWeek)) {
+            holidayDates.add(date);
+          }
+        });
+      }
+
+      // Get specific holidays
+      const { data: specificHolidays } = await supabase
+        .from('employee_specific_holidays')
+        .select('holiday_date')
+        .eq('employee_id', userId)
+        .gte('holiday_date', startDate);
+
+      if (specificHolidays) {
+        specificHolidays.forEach((h: any) => {
+          holidayDates.add(h.holiday_date);
+        });
+      }
+
+      // Get approved leaves
+      const { data: approvedLeaves } = await supabase
+        .from('leave_requests')
+        .select('start_date, end_date, leave_type_id')
+        .eq('employee_id', userId)
+        .eq('status', 'approved')
+        .gte('end_date', startDate);
+
+      if (approvedLeaves) {
+        // Get leave type names
+        const leaveTypeIds = [...new Set(approvedLeaves.map((l: any) => l.leave_type_id))];
+        const { data: leaveTypes } = await supabase
+          .from('leave_types')
+          .select('id, name')
+          .in('id', leaveTypeIds);
+
+        const leaveTypeMap = new Map(leaveTypes?.map((lt: any) => [lt.id, lt.name]) || []);
+
+        approvedLeaves.forEach((leave: any) => {
+          const start = new Date(leave.start_date);
+          const end = new Date(leave.end_date);
+          const leaveTypeName = leaveTypeMap.get(leave.leave_type_id) || 'Leave';
+
+          // Add all dates in the leave range
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+            if (allDates.includes(dateStr)) {
+              leaveDates.set(dateStr, leaveTypeName);
+            }
+          }
+        });
+      }
+
+      // Calculate stats (excluding holidays and leaves)
+      const presentCount = recalculatedHistory?.filter(h => h.status === 'present').length || 0;
+      const lateCount = recalculatedHistory?.filter(h => h.status === 'late').length || 0;
+      
+      // Count only actual absences (not holidays or leaves)
+      const attendanceDates = new Set(recalculatedHistory?.map(h => h.date) || []);
+      let absentCount = 0;
+      
+      allDates.forEach(date => {
+        const hasAttendance = attendanceDates.has(date);
+        const isHoliday = holidayDates.has(date);
+        const isOnLeave = leaveDates.has(date);
+        
+        // Only count as absent if no attendance AND not holiday AND not on leave
+        if (!hasAttendance && !isHoliday && !isOnLeave) {
+          absentCount++;
+        }
+      });
+
+      // Calculate attendance rate based on working days only
+      const workingDays = allDates.length - holidayDates.size - leaveDates.size;
+      const attendanceRate = workingDays > 0 
+        ? Math.round(((presentCount + lateCount) / workingDays) * 100) 
+        : 0;
 
       const employee: EmployeeWithAttendance = {
         ...profile,
-        today_status: todayAttendance?.status || 'not_marked',
+        today_status: todayStatus,
         check_in_time: todayAttendance?.check_in_time || null,
         office_name: officeName,
         department: null,
@@ -240,7 +405,7 @@ export const employeeService = {
 
       return {
         employee,
-        attendanceHistory: history || [],
+        attendanceHistory: recalculatedHistory || [],
         stats: {
           presentCount,
           lateCount,
@@ -411,6 +576,36 @@ export const employeeService = {
       return {
         success: false,
         error: err instanceof Error ? err : new Error('Failed to update office'),
+      };
+    }
+  },
+
+  /**
+   * Update employee profile (email, role, office, designation, role_type)
+   */
+  async updateEmployeeProfile(
+    userId: string,
+    updates: {
+      email?: string;
+      role?: 'employee' | 'admin';
+      office_location?: string;
+      designation?: string;
+      role_type?: 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern';
+    }
+  ): Promise<{ success: boolean; error: Error | null }> {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      return { success: true, error: null };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err : new Error('Failed to update employee profile'),
       };
     }
   },

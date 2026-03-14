@@ -19,11 +19,13 @@ export const registrationService = {
    */
   async registerEmployee(data: RegistrationData): Promise<RegistrationResponse> {
     try {
-      const { email, password, full_name, office_id } = data;
+      const { email, password, full_name, office_id, designation, role_type } = data;
 
       console.log('🔍 [REGISTRATION] Starting employee registration...');
       console.log('  Email:', email);
       console.log('  Office ID:', office_id);
+      console.log('  Designation:', designation);
+      console.log('  Role Type:', role_type);
 
       // Verify the selected office exists and is active
       const { data: selectedOffice, error: officeError } = await supabase
@@ -83,6 +85,8 @@ export const registrationService = {
           role: 'employee',
           status: 'pending', // ⚠️ User is pending approval
           office_location: office_id, // Auto-assigned to SmartMatrix
+          designation: designation || 'Not Assigned',
+          role_type: role_type || 'Employee',
         });
 
       if (profileError) {

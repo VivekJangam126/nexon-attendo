@@ -1,5 +1,5 @@
 import { Calendar, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -12,10 +12,19 @@ export function LeaveHistoryTable({ requests, isLoading }: LeaveHistoryTableProp
   const [leaveTypeMap, setLeaveTypeMap] = useState<Record<string, string>>({});
   const { user } = useAuth();
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     const fetchLeaveTypes = async () => {
       try {
+        // Check cache first
+        const cached = sessionStorage.getItem('leaveTypeMapById');
+        if (cached) {
+          setLeaveTypeMap(JSON.parse(cached));
+          setIsInitialLoad(false);
+          return;
+        }
+
         const { data: leaveTypes, error } = await supabase
           .from('leave_types')
           .select('id, name');
@@ -23,6 +32,7 @@ export function LeaveHistoryTable({ requests, isLoading }: LeaveHistoryTableProp
         if (error) {
           console.error('Error fetching leave types:', error);
           setDebugInfo(`Error fetching leave types: ${error.message}`);
+          setIsInitialLoad(false);
           return;
         }
 
@@ -32,9 +42,13 @@ export function LeaveHistoryTable({ requests, isLoading }: LeaveHistoryTableProp
             map[type.id] = type.name;
           });
           setLeaveTypeMap(map);
+          // Cache for session
+          sessionStorage.setItem('leaveTypeMapById', JSON.stringify(map));
         }
+        setIsInitialLoad(false);
       } catch (err) {
         console.error('Exception fetching leave types:', err);
+        setIsInitialLoad(false);
       }
     };
 
@@ -43,13 +57,10 @@ export function LeaveHistoryTable({ requests, isLoading }: LeaveHistoryTableProp
 
   // Debug: Log requests and user info
   useEffect(() => {
-    console.log('=== LeaveHistoryTable Debug ===');
-    console.log('User ID:', user?.id);
-    console.log('Requests count:', requests.length);
-    console.log('Requests data:', requests);
-    console.log('Is loading:', isLoading);
-    console.log('Leave type map:', leaveTypeMap);
-  }, [requests, user, isLoading, leaveTypeMap]);
+    if (requests.length === 0 && !isLoading) {
+      console.log('[LeaveHistoryTable] No requests found for user:', user?.id);
+    }
+  }, [requests, user, isLoading]);
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -117,7 +128,7 @@ export function LeaveHistoryTable({ requests, isLoading }: LeaveHistoryTableProp
     return leaveTypeMap[leaveTypeId] || 'Leave';
   };
 
-  if (isLoading) {
+  if (isLoading && isInitialLoad) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <div className="w-8 h-8 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin mb-3" />
@@ -266,3 +277,6 @@ export function LeaveHistoryTable({ requests, isLoading }: LeaveHistoryTableProp
     </div>
   );
 }
+
+// Memoize to prevent unnecessary re-renders
+export default memo(LeaveHistoryTable);

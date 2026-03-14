@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, ChevronRight, UserCheck, Clock, UserX, Plus, ClipboardList, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
+import { AddEmployeeModal } from "@/components/admin/AddEmployeeModal";
 import { employeeService, dashboardService } from "@server";
 import type { EmployeeWithAttendance } from "@server";
 
-type EmployeeStatus = "present" | "late" | "absent" | "not_marked";
+type EmployeeStatus = "present" | "late" | "absent" | "not_marked" | "holiday";
 type SortField = "name" | "email" | "role" | "check_in" | "status";
 type SortDirection = "asc" | "desc" | null;
 
@@ -15,6 +16,7 @@ const StatusBadge = ({ status }: { status: EmployeeStatus }) => {
     late: { label: "Late", icon: Clock, className: "bg-amber-100 text-amber-700" },
     absent: { label: "Absent", icon: UserX, className: "bg-red-100 text-red-700" },
     not_marked: { label: "Awaiting", icon: Clock, className: "bg-gray-100 text-gray-700" },
+    holiday: { label: "Holiday", icon: Clock, className: "bg-blue-100 text-blue-700" },
   };
   const config = configs[status];
   const Icon = config.icon;
@@ -34,16 +36,25 @@ const AdminEmployeesScreen = () => {
   const [pendingCount, setPendingCount] = useState(0);
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
+      // Only show loading on initial load
+      if (employees.length === 0) {
+        setLoading(true);
+      }
       
-      const { employees: employeeData } = await employeeService.getAllEmployees();
-      setEmployees(employeeData);
+      // Fetch data in parallel for faster loading
+      const [employeeResult, actionsResult] = await Promise.all([
+        employeeService.getAllEmployees(),
+        dashboardService.getPendingActions(),
+      ]);
       
-      const { actions } = await dashboardService.getPendingActions();
-      const pendingAction = actions.find(a => a.type === 'approval');
+      setEmployees(employeeResult.employees);
+      
+      const pendingAction = actionsResult.actions.find(a => a.type === 'approval');
       setPendingCount(pendingAction?.count || 0);
       
       setLoading(false);
@@ -51,7 +62,8 @@ const AdminEmployeesScreen = () => {
 
     fetchData();
     
-    const interval = setInterval(fetchData, 30000);
+    // Refresh every 90 seconds to reduce load
+    const interval = setInterval(fetchData, 90000);
     return () => clearInterval(interval);
   }, []);
 
@@ -144,11 +156,40 @@ const AdminEmployeesScreen = () => {
     }
   };
 
+  const handleAddEmployeeSuccess = () => {
+    // Refresh employee list
+    const fetchData = async () => {
+      const [employeeResult, actionsResult] = await Promise.all([
+        employeeService.getAllEmployees(),
+        dashboardService.getPendingActions(),
+      ]);
+      
+      setEmployees(employeeResult.employees);
+      
+      const pendingAction = actionsResult.actions.find(a => a.type === 'approval');
+      setPendingCount(pendingAction?.count || 0);
+    };
+    fetchData();
+  };
+
+  const handleAddSuccess = async () => {
+    // Refresh employee list
+    const [employeeResult, actionsResult] = await Promise.all([
+      employeeService.getAllEmployees(),
+      dashboardService.getPendingActions(),
+    ]);
+    
+    setEmployees(employeeResult.employees);
+    
+    const pendingAction = actionsResult.actions.find(a => a.type === 'approval');
+    setPendingCount(pendingAction?.count || 0);
+  };
+
   if (loading) {
     return (
       <AdminLayout title="Employees">
-        <div className="flex items-center justify-center min-h-full">
-          <div className="w-8 h-8 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin" />
+        <div className="flex items-center justify-center py-12">
+          <div className="w-6 h-6 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin" />
         </div>
       </AdminLayout>
     );
@@ -156,27 +197,50 @@ const AdminEmployeesScreen = () => {
 
   return (
     <AdminLayout title="Employees">
-      <div className="space-y-6">
+      <div className="space-y-3">
         {/* Header with Actions */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">{activeEmployees.length} Active Employees</h2>
-            <p className="text-sm text-gray-600 mt-1">Manage and monitor your workforce</p>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1">
+              <h2 className="text-base font-bold text-gray-900">{activeEmployees.length} Active Employees</h2>
+              <p className="text-xs text-gray-600 mt-0.5">Manage and monitor your workforce</p>
+            </div>
+            {/* Desktop buttons */}
+            <div className="hidden sm:flex gap-2">
+              <button 
+                onClick={() => setShowAddEmployeeModal(true)} 
+                className="flex items-center gap-1.5 py-2 px-3 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700 transition-colors shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Add Employee
+              </button>
+              {pendingCount > 0 && (
+                <button 
+                  onClick={() => navigate("/admin/pending-approvals")} 
+                  className="flex items-center gap-1.5 py-2 px-3 bg-amber-100 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-200 transition-colors"
+                >
+                  <ClipboardList className="w-4 h-4" />
+                  Pending ({pendingCount})
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex gap-3">
+          
+          {/* Mobile buttons */}
+          <div className="flex sm:hidden gap-2">
             <button 
-              onClick={() => navigate("/admin/add-employee")} 
-              className="flex items-center gap-2 py-2.5 px-4 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors shadow-sm"
+              onClick={() => setShowAddEmployeeModal(true)} 
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700 transition-colors shadow-sm"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
               Add Employee
             </button>
             {pendingCount > 0 && (
               <button 
                 onClick={() => navigate("/admin/pending-approvals")} 
-                className="flex items-center gap-2 py-2.5 px-4 bg-amber-100 text-amber-700 rounded-lg font-medium hover:bg-amber-200 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-amber-100 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-200 transition-colors"
               >
-                <ClipboardList className="w-5 h-5" />
+                <ClipboardList className="w-4 h-4" />
                 Pending ({pendingCount})
               </button>
             )}
@@ -184,22 +248,22 @@ const AdminEmployeesScreen = () => {
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm space-y-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm space-y-3">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input 
               type="text" 
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
               placeholder="Search by name or email..." 
-              className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" 
+              className="w-full pl-10 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" 
             />
           </div>
           
           <div className="flex gap-2 overflow-x-auto pb-2">
             <button 
               onClick={() => setFilterStatus(null)} 
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
                 !filterStatus 
                   ? "bg-amber-600 text-white shadow-sm" 
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -211,14 +275,14 @@ const AdminEmployeesScreen = () => {
               <button 
                 key={status} 
                 onClick={() => setFilterStatus(status)} 
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
                   filterStatus === status 
                     ? "bg-amber-600 text-white shadow-sm" 
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 {status === 'not_marked' ? 'Awaiting' : status.charAt(0).toUpperCase() + status.slice(1)}
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
                   filterStatus === status 
                     ? 'bg-white/30' 
                     : 'bg-gray-200/50'
@@ -230,7 +294,7 @@ const AdminEmployeesScreen = () => {
           </div>
 
           {filteredEmployees.length !== employees.length && (
-            <p className="text-sm text-gray-600">
+            <p className="text-xs text-gray-600">
               Showing {filteredEmployees.length} of {employees.length}
             </p>
           )}
@@ -244,45 +308,51 @@ const AdminEmployeesScreen = () => {
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th 
                     onClick={() => handleSort('name')}
-                    className="text-left text-xs font-semibold text-gray-700 uppercase tracking-wide px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                    className="text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wide px-4 py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       Employee
                       {getSortIcon('name')}
                     </div>
                   </th>
                   <th 
                     onClick={() => handleSort('email')}
-                    className="text-left text-xs font-semibold text-gray-700 uppercase tracking-wide px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                    className="text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wide px-4 py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       Email
                       {getSortIcon('email')}
                     </div>
                   </th>
                   <th 
                     onClick={() => handleSort('role')}
-                    className="text-left text-xs font-semibold text-gray-700 uppercase tracking-wide px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                    className="text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wide px-4 py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       Role
                       {getSortIcon('role')}
                     </div>
                   </th>
+                  <th className="text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wide px-4 py-3">
+                    Designation
+                  </th>
+                  <th className="text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wide px-4 py-3">
+                    Office
+                  </th>
                   <th 
                     onClick={() => handleSort('check_in')}
-                    className="text-left text-xs font-semibold text-gray-700 uppercase tracking-wide px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                    className="text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wide px-4 py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       Check-in
                       {getSortIcon('check_in')}
                     </div>
                   </th>
                   <th 
                     onClick={() => handleSort('status')}
-                    className="text-left text-xs font-semibold text-gray-700 uppercase tracking-wide px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                    className="text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wide px-4 py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       Status
                       {getSortIcon('status')}
                     </div>
@@ -303,22 +373,24 @@ const AdminEmployeesScreen = () => {
                           : 'hover:bg-gray-50'
                     }`}
                   >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-sm font-semibold text-amber-700">{employee.full_name.split(" ").map(n => n[0]).join("")}</span>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-semibold text-amber-700">{employee.full_name.split(" ").map(n => n[0]).join("")}</span>
                         </div>
                         <div>
-                          <p className="font-medium text-sm text-gray-900">{employee.full_name}</p>
+                          <p className="font-medium text-xs text-gray-900">{employee.full_name}</p>
                           <p className="text-xs text-gray-500">{employee.status}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{employee.email}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{employee.role}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{formatCheckInTime(employee.check_in_time) || "—"}</td>
-                    <td className="px-6 py-4"><StatusBadge status={employee.today_status} /></td>
-                    <td className="px-6 py-4"><ChevronRight className="w-4 h-4 text-gray-400" /></td>
+                    <td className="px-4 py-3 text-xs text-gray-600">{employee.email}</td>
+                    <td className="px-4 py-3 text-xs text-gray-600">{employee.role_type || 'Employee'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-600">{employee.designation || 'Not Assigned'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-600">{employee.office_name || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-600">{formatCheckInTime(employee.check_in_time) || "—"}</td>
+                    <td className="px-4 py-3"><StatusBadge status={employee.today_status} /></td>
+                    <td className="px-4 py-3"><ChevronRight className="w-4 h-4 text-gray-400" /></td>
                   </tr>
                 ))}
               </tbody>
@@ -326,12 +398,19 @@ const AdminEmployeesScreen = () => {
           </div>
 
           {filteredEmployees.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-600">No employees found</p>
+            <div className="text-center py-8">
+              <p className="text-xs text-gray-600">No employees found</p>
             </div>
           )}
         </div>
       </div>
+
+      {/* Add Employee Modal */}
+      <AddEmployeeModal 
+        open={showAddEmployeeModal}
+        onOpenChange={setShowAddEmployeeModal}
+        onSuccess={handleAddEmployeeSuccess}
+      />
     </AdminLayout>
   );
 };

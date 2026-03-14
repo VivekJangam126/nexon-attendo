@@ -9,7 +9,6 @@ import {
   BookOpen,
   DollarSign,
   HelpCircle,
-  TrendingUp,
   ChevronLeft,
   ChevronRight,
   Building2,
@@ -31,7 +30,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isAdmin = false }) => {
     { icon: Calendar, label: 'Leave Management', path: '/admin/leave' },
     { icon: Calendar, label: 'Holiday Calendar', path: '/admin/calendar' },
     { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
-    { icon: TrendingUp, label: 'Analytics', path: '/admin/analytics' },
     { icon: DollarSign, label: 'Payroll', path: '/admin/payroll' },
     { icon: HelpCircle, label: 'Help Desk', path: '/admin/help' },
   ];

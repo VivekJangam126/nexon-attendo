@@ -1,5 +1,5 @@
 import { AlertCircle, TrendingDown } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -17,17 +17,26 @@ interface LeaveBalanceCardsProps {
 }
 
 const LEAVE_TYPES = [
-  { id: 'sick', name: 'Sick Leave', icon: '🏥', color: 'from-red-500 to-red-600', bgColor: 'bg-red-50', textColor: 'text-red-700', max: 5 },
-  { id: 'paid', name: 'Paid Leave', icon: '💵', color: 'from-green-500 to-green-600', bgColor: 'bg-green-50', textColor: 'text-green-700', max: 10 },
-  { id: 'unpaid', name: 'Unpaid Leave', icon: '📄', color: 'from-gray-500 to-gray-600', bgColor: 'bg-gray-50', textColor: 'text-gray-700', max: 10 },
+  { id: 'sick', name: 'Sick Leave', icon: '🏥', color: 'from-red-500 to-red-600', bgColor: 'bg-red-50', textColor: 'text-gray-900', max: 5 },
+  { id: 'paid', name: 'Paid Leave', icon: '💵', color: 'from-green-500 to-green-600', bgColor: 'bg-green-50', textColor: 'text-gray-900', max: 10 },
+  { id: 'unpaid', name: 'Unpaid Leave', icon: '📄', color: 'from-gray-500 to-gray-600', bgColor: 'bg-gray-50', textColor: 'text-gray-900', max: 10 },
 ];
 
 export function LeaveBalanceCards({ balances, isLoading }: LeaveBalanceCardsProps) {
   const { user } = useAuth();
   const [leaveTypeMap, setLeaveTypeMap] = useState<Record<string, string>>({});
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     const fetchLeaveTypes = async () => {
+      // Check cache first
+      const cached = sessionStorage.getItem('leaveTypeMap');
+      if (cached) {
+        setLeaveTypeMap(JSON.parse(cached));
+        setIsInitialLoad(false);
+        return;
+      }
+
       const { data: leaveTypes } = await supabase
         .from('leave_types')
         .select('id, name');
@@ -39,15 +48,19 @@ export function LeaveBalanceCards({ balances, isLoading }: LeaveBalanceCardsProp
           map[key] = type.id;
         });
         setLeaveTypeMap(map);
+        // Cache for session
+        sessionStorage.setItem('leaveTypeMap', JSON.stringify(map));
       }
+      setIsInitialLoad(false);
     };
 
     fetchLeaveTypes();
   }, []);
 
-  if (isLoading) {
+  // Show skeleton only on initial load
+  if (isLoading && isInitialLoad) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[1, 2, 3].map((i) => (
           <div key={i} className="h-48 bg-gray-100 rounded-lg animate-pulse" />
         ))}
@@ -56,8 +69,8 @@ export function LeaveBalanceCards({ balances, isLoading }: LeaveBalanceCardsProp
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {LEAVE_TYPES.map((type) => {
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {LEAVE_TYPES.map((type, index) => {
         const typeId = leaveTypeMap[type.id];
         const balance = balances.find(b => b.leave_type_id === typeId);
         const total = balance?.total_leaves || type.max;
@@ -68,20 +81,36 @@ export function LeaveBalanceCards({ balances, isLoading }: LeaveBalanceCardsProp
         return (
           <div
             key={type.id}
-            className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm hover:shadow-md transition-all duration-300 group"
+            className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm hover:shadow-md transition-all duration-300 group animate-fade-in-up"
+            style={{ animationDelay: `${index * 100}ms` }}
           >
-            {/* Header with Title */}
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">{type.name}</h3>
+            {/* Header with Icon and Title */}
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">{type.icon}</span>
+              <h3 className="text-sm font-semibold text-gray-900">{type.name}</h3>
+            </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gray-50 rounded-lg p-3">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-3 border border-amber-200">
                 <p className="text-xs text-gray-600 mb-1">Remaining</p>
-                <p className={`text-lg font-bold ${type.textColor}`}>{remaining}</p>
+                <p className={`text-2xl font-bold ${type.textColor}`}>{remaining}</p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-3">
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                 <p className="text-xs text-gray-600 mb-1">Total</p>
-                <p className="text-lg font-bold text-gray-900">{total}</p>
+                <p className="text-2xl font-bold text-gray-900">{total}</p>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mb-4">
+              <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    percentage >= 50 ? 'bg-green-500' : percentage >= 25 ? 'bg-amber-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${percentage}%` }}
+                />
               </div>
             </div>
 
@@ -110,3 +139,6 @@ export function LeaveBalanceCards({ balances, isLoading }: LeaveBalanceCardsProp
     </div>
   );
 }
+
+// Memoize to prevent unnecessary re-renders
+export default memo(LeaveBalanceCards);

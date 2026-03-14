@@ -17,10 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertCircle, CheckCircle2, Calendar } from 'lucide-react';
+import { AlertCircle, Calendar } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { useLeaveBalance, useLeaveTypes } from '@/hooks/useLeave';
+import { useLeaveBalance } from '@/hooks/useLeave';
 
 interface ApplyLeaveModalProps {
   open: boolean;
@@ -28,12 +28,12 @@ interface ApplyLeaveModalProps {
   onSuccess?: () => void;
 }
 
-const LEAVE_TYPE_ICONS: Record<string, { icon: string; color: string }> = {
-  'Sick Leave': { icon: '🏥', color: 'text-red-600' },
-  'Annual Leave': { icon: '📅', color: 'text-blue-600' },
-  'Paid Leave': { icon: '💵', color: 'text-green-600' },
-  'Unpaid Leave': { icon: '📄', color: 'text-orange-600' },
-};
+// Hardcoded leave type IDs matching the database
+const LEAVE_TYPES = [
+  { id: '11111111-1111-1111-1111-111111111111', name: 'Paid Leave', icon: '💵', color: 'text-green-600', max: 10 },
+  { id: '22222222-2222-2222-2222-222222222222', name: 'Unpaid Leave', icon: '📄', color: 'text-orange-600', max: 10 },
+  { id: '33333333-3333-3333-3333-333333333333', name: 'Sick Leave', icon: '🏥', color: 'text-red-600', max: 5 },
+];
 
 export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveModalProps) {
   const [startDate, setStartDate] = useState<string>('');
@@ -41,27 +41,20 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
   const [leaveTypeId, setLeaveTypeId] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const [success, setSuccess] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const { data: balances = [] } = useLeaveBalance();
-  const { data: leaveTypes = [] } = useLeaveTypes();
   const queryClient = useQueryClient();
 
-  const selectedLeaveType = leaveTypes.find(t => t.id === leaveTypeId);
+  const selectedLeaveType = LEAVE_TYPES.find(t => t.id === leaveTypeId);
   const leaveBalance = balances.find(b => b.leave_type_id === leaveTypeId);
-  const remaining = leaveBalance?.remaining_leaves || 0;
+  const remaining = leaveBalance?.remaining_leaves || selectedLeaveType?.max || 0;
   const used = leaveBalance?.used_leaves || 0;
-  const total = leaveBalance?.total_leaves || 0;
-
-  const getLeaveTypeInfo = (name: string) => {
-    return LEAVE_TYPE_ICONS[name] || { icon: '📋', color: 'text-gray-600' };
-  };
+  const total = leaveBalance?.total_leaves || selectedLeaveType?.max || 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
 
     if (!startDate || !endDate || !leaveTypeId || !description) {
       setError('Please fill in all required fields');
@@ -133,7 +126,6 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
   };
 
   const requestedDays = calculateDays();
-  const typeInfo = selectedLeaveType ? getLeaveTypeInfo(selectedLeaveType.name) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -156,32 +148,29 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
                 <SelectValue placeholder="Select leave type" />
               </SelectTrigger>
               <SelectContent>
-                {leaveTypes.filter(type => type.name !== 'Annual Leave').map((type) => {
-                  const info = getLeaveTypeInfo(type.name);
-                  return (
-                    <SelectItem key={type.id} value={type.id}>
-                      <span className="flex items-center gap-2">
-                        <span>{info.icon}</span>
-                        <span>{type.name}</span>
-                      </span>
-                    </SelectItem>
-                  );
-                })}
+                {LEAVE_TYPES.map((type) => (
+                  <SelectItem key={type.id} value={type.id}>
+                    <span className="flex items-center gap-2">
+                      <span>{type.icon}</span>
+                      <span>{type.name}</span>
+                    </span>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
           {/* Leave Balance Info */}
-          {leaveTypeId && typeInfo && (
+          {leaveTypeId && selectedLeaveType && (
             <div className="bg-primary/5 border border-primary/10 rounded-lg p-3 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">
-                    {selectedLeaveType?.name}
+                    {selectedLeaveType.name}
                   </p>
                   <p className="text-xs font-semibold text-foreground">{total} days available</p>
                 </div>
-                <div className={`text-2xl font-bold ${typeInfo.color}`}>
+                <div className={`text-2xl font-bold ${selectedLeaveType.color}`}>
                   {remaining}
                 </div>
               </div>
@@ -204,7 +193,11 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
               {/* Progress Bar */}
               <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
                 <div
-                  className={`h-full bg-gradient-to-r ${typeInfo.color === 'text-red-600' ? 'from-red-500 to-red-600' : typeInfo.color === 'text-blue-600' ? 'from-blue-500 to-blue-600' : typeInfo.color === 'text-green-600' ? 'from-green-500 to-green-600' : 'from-orange-500 to-orange-600'} transition-all duration-500`}
+                  className={`h-full transition-all duration-500 ${
+                    selectedLeaveType.color === 'text-red-600' ? 'bg-gradient-to-r from-red-500 to-red-600' : 
+                    selectedLeaveType.color === 'text-green-600' ? 'bg-gradient-to-r from-green-500 to-green-600' : 
+                    'bg-gradient-to-r from-orange-500 to-orange-600'
+                  }`}
                   style={{ width: `${total > 0 ? (used / total) * 100 : 0}%` }}
                 />
               </div>

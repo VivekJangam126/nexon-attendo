@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const StatusIcon = ({ status }: { status: "present" | "late" | "absent" }) => {
+const StatusIcon = ({ status }: { status: "present" | "late" | "absent" | "holiday" | "on_leave" }) => {
   switch (status) {
     case "present":
       return (
@@ -32,17 +32,31 @@ const StatusIcon = ({ status }: { status: "present" | "late" | "absent" }) => {
           <XCircle className="w-3 h-3 sm:w-4 sm:h-4 text-red-600" />
         </div>
       );
+    case "holiday":
+      return (
+        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+        </div>
+      );
+    case "on_leave":
+      return (
+        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600" />
+        </div>
+      );
   }
 };
 
-const StatusBadge = ({ status }: { status: "present" | "late" | "absent" }) => {
+const StatusBadge = ({ status }: { status: "present" | "late" | "absent" | "holiday" | "on_leave" }) => {
   const configs = {
     present: { label: "Present", className: "bg-green-100 text-green-700" },
     late: { label: "Late", className: "bg-amber-100 text-amber-700" },
     absent: { label: "Absent", className: "bg-red-100 text-red-700" },
+    holiday: { label: "Holiday", className: "bg-blue-100 text-blue-700" },
+    on_leave: { label: "On Leave", className: "bg-purple-100 text-purple-700" },
   };
 
-  const config = configs[status];
+  const config = configs[status] || configs.absent;
 
   return (
     <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-medium ${config.className}`}>
@@ -59,7 +73,7 @@ const HistoryScreen = () => {
   const [error, setError] = useState<string | null>(null);
   
   const [dateRange, setDateRange] = useState<"week" | "month">("week");
-  const [statusFilter, setStatusFilter] = useState<"all" | "present" | "late" | "absent">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "present" | "late" | "absent" | "holiday" | "on_leave">("all");
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -76,7 +90,7 @@ const HistoryScreen = () => {
         return;
       }
 
-      const filledRecords = fillMissingDates(attendance, 30);
+      const filledRecords = await fillMissingDates(attendance, 30);
       setRecords(filledRecords);
       setLoading(false);
     };
@@ -97,10 +111,13 @@ const HistoryScreen = () => {
     setFilteredRecords(filtered);
   }, [records, dateRange, statusFilter]);
 
-  const fillMissingDates = (records: Attendance[], days: number): Attendance[] => {
+  const fillMissingDates = async (records: Attendance[], days: number): Promise<Attendance[]> => {
     const now = new Date();
-    const istDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    istDate.setHours(0, 0, 0, 0);
+    // Get today's date in YYYY-MM-DD format in local timezone
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayString = `${year}-${month}-${day}`;
 
     const recordMap = new Map<string, Attendance>();
     records.forEach(record => {
@@ -108,19 +125,141 @@ const HistoryScreen = () => {
       recordMap.set(normalizedDate, record);
     });
 
+    // Fetch holidays and leaves for this employee using Supabase directly
+    const holidayDates = new Set<string>();
+    const leaveDates = new Map<string, string>(); // date -> leave type
+
+    if (profile?.id) {
+      try {
+        // Import supabase client
+        const { supabase } = await import('@/lib/supabase');
+
+        // Fetch recurring holidays
+        const { data: recurringHolidays } = await supabase
+          .from('employee_recurring_holidays')
+          .select('day_of_week')
+          .eq('employee_id', profile.id);
+
+        if (recurringHolidays) {
+          const holidayDays = new Set(recurringHolidays.map((h: any) => h.day_of_week));
+          
+          for (let i = 0; i < days; i++) {
+            const date = new Date(now);
+            date.setDate(date.getDate() - i);
+            // Use local day of week, not UTC
+            const dayOfWeek = date.getDay();
+            const dateYear = date.getFullYear();
+            const dateMonth = String(date.getMonth() + 1).padStart(2, '0');
+            const dateDay = String(date.getDate()).padStart(2, '0');
+            const dateString = `${dateYear}-${dateMonth}-${dateDay}`;
+            
+            if (holidayDays.has(dayOfWeek)) {
+              holidayDates.add(dateString);
+            }
+          }
+        }
+
+        // Fetch specific holidays
+        const thirtyDaysAgo = new Date(now);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - days);
+        const startYear = thirtyDaysAgo.getFullYear();
+        const startMonth = String(thirtyDaysAgo.getMonth() + 1).padStart(2, '0');
+        const startDay = String(thirtyDaysAgo.getDate()).padStart(2, '0');
+        const startDate = `${startYear}-${startMonth}-${startDay}`;
+
+        const { data: specificHolidays } = await supabase
+          .from('employee_specific_holidays')
+          .select('holiday_date')
+          .eq('employee_id', profile.id)
+          .gte('holiday_date', startDate);
+
+        if (specificHolidays) {
+          specificHolidays.forEach((h: any) => {
+            holidayDates.add(h.holiday_date);
+          });
+        }
+
+        // Fetch approved leaves
+        const { data: approvedLeaves } = await supabase
+          .from('leave_requests')
+          .select('start_date, end_date, leave_type_id')
+          .eq('employee_id', profile.id)
+          .eq('status', 'approved')
+          .gte('end_date', startDate);
+
+        if (approvedLeaves) {
+          // Get leave type names
+          const leaveTypeIds = [...new Set(approvedLeaves.map((l: any) => l.leave_type_id))];
+          if (leaveTypeIds.length > 0) {
+            const { data: leaveTypes } = await supabase
+              .from('leave_types')
+              .select('id, name')
+              .in('id', leaveTypeIds);
+
+            const leaveTypeMap = new Map(leaveTypes?.map((lt: any) => [lt.id, lt.name]) || []);
+
+            approvedLeaves.forEach((leave: any) => {
+              const start = new Date(leave.start_date + 'T00:00:00');
+              const end = new Date(leave.end_date + 'T00:00:00');
+              const leaveTypeName = leaveTypeMap.get(leave.leave_type_id) || 'Leave';
+
+              // Add all dates in the leave range
+              for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                const dYear = d.getFullYear();
+                const dMonth = String(d.getMonth() + 1).padStart(2, '0');
+                const dDay = String(d.getDate()).padStart(2, '0');
+                const dateStr = `${dYear}-${dMonth}-${dDay}`;
+                leaveDates.set(dateStr, leaveTypeName);
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching holidays/leaves:', err);
+      }
+    }
+
     const allRecords: Attendance[] = [];
     for (let i = 0; i < days; i++) {
-      const date = new Date(istDate);
+      const date = new Date(now);
       date.setDate(date.getDate() - i);
       
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const dateString = `${year}-${month}-${day}`;
+      const dateYear = date.getFullYear();
+      const dateMonth = String(date.getMonth() + 1).padStart(2, '0');
+      const dateDay = String(date.getDate()).padStart(2, '0');
+      const dateString = `${dateYear}-${dateMonth}-${dateDay}`;
 
       if (recordMap.has(dateString)) {
         allRecords.push(recordMap.get(dateString)!);
+      } else if (holidayDates.has(dateString)) {
+        // Holiday - don't mark as absent
+        allRecords.push({
+          id: `holiday-${dateString}`,
+          user_id: profile?.id || '',
+          date: dateString,
+          check_in_time: 'Holiday',
+          check_out_time: null,
+          status: 'holiday' as any,
+          office_id: profile?.office_location || '',
+          created_at: dateString,
+          updated_at: dateString,
+        } as any);
+      } else if (leaveDates.has(dateString)) {
+        // On leave - don't mark as absent
+        const leaveType = leaveDates.get(dateString);
+        allRecords.push({
+          id: `leave-${dateString}`,
+          user_id: profile?.id || '',
+          date: dateString,
+          check_in_time: `On Leave: ${leaveType}`,
+          check_out_time: null,
+          status: 'on_leave' as any,
+          office_id: profile?.office_location || '',
+          created_at: dateString,
+          updated_at: dateString,
+        } as any);
       } else {
+        // Absent
         allRecords.push({
           id: `absent-${dateString}`,
           user_id: profile?.id || '',
@@ -286,6 +425,10 @@ const HistoryScreen = () => {
                       </div>
                       {record.status === 'absent' ? (
                         <p className="text-xs text-gray-600">No attendance marked</p>
+                      ) : record.status === 'holiday' ? (
+                        <p className="text-xs text-gray-600">{record.check_in_time}</p>
+                      ) : record.status === 'on_leave' ? (
+                        <p className="text-xs text-gray-600">{record.check_in_time}</p>
                       ) : (
                         <div className="space-y-0.5">
                           {record.check_in_time && (
