@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { EmployeeLeaveBalanceCards } from "@/components/leave/EmployeeLeaveBalanceCards";
+import { EmployeeTimeTracker } from "@/components/EmployeeTimeTracker";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -20,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { employeeService, officeService } from "@server";
 import type { EmployeeWithAttendance, Office } from "@server";
@@ -42,6 +44,7 @@ const StatusBadge = ({ status }: { status: AttendanceStatus }) => {
 const AdminEmployeeDetailScreen = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { profile: adminProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [employee, setEmployee] = useState<EmployeeWithAttendance | null>(null);
   const [attendanceHistory, setAttendanceHistory] = useState<Array<{
@@ -342,8 +345,23 @@ const AdminEmployeeDetailScreen = () => {
                 {id && <EmployeeLeaveBalanceCards employeeId={id} />}
               </div>
 
-              {/* Attendance History */}
+              {/* Time Tracker */}
               <div className="animate-fade-in-up" style={{ animationDelay: "0.25s" }}>
+                <h2 className="text-overline mb-2">Time Tracking</h2>
+                <div className="card-elevated p-4">
+                  <EmployeeTimeTracker
+                    employeeId={id}
+                    checkInTime={attendanceHistory.find(r => r.date === new Date().toISOString().split('T')[0])?.check_in_time || null}
+                    checkOutTime={attendanceHistory.find(r => r.date === new Date().toISOString().split('T')[0])?.check_out_time || null}
+                    isAdmin={true}
+                    employeeName={employee.full_name}
+                    currentUserId={adminProfile?.id}
+                  />
+                </div>
+              </div>
+
+              {/* Attendance History */}
+              <div className="animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
                 <h2 className="text-overline mb-2">Recent Attendance</h2>
                 <div className="card-elevated divide-y divide-border">
                   {attendanceHistory.slice(0, 5).map((record, index) => (

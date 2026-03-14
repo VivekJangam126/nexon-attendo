@@ -41,6 +41,7 @@ import LeaveManagementPage from "./pages/LeaveManagement";
 import AdminLeaveManagementPage from "./pages/admin/LeaveManagement";
 import PayrollPage from "./pages/admin/PayrollPage";
 import AdminAnalyticsScreen from "./pages/admin/AdminAnalyticsScreen";
+import AdminPerformanceDashboard from "./pages/admin/AdminPerformanceDashboard";
 import AdminHelpScreen from "./pages/admin/AdminHelpScreen";
 import AdminHolidayCalendarScreen from "./pages/admin/AdminHolidayCalendarScreen";
 import HolidayCalendarScreen from "./pages/HolidayCalendarScreen";
@@ -99,6 +100,7 @@ const App = () => (
           <Route path="/admin/leave" element={<AdminLeaveManagementPage />} />
           <Route path="/admin/payroll" element={<PayrollPage />} />
           <Route path="/admin/analytics" element={<AdminAnalyticsScreen />} />
+          <Route path="/admin/performance" element={<AdminPerformanceDashboard />} />
           <Route path="/admin/help" element={<AdminHelpScreen />} />
           <Route path="/admin/calendar" element={<AdminHolidayCalendarScreen />} />
           

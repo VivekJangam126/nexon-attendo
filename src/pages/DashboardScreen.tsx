@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapPin, Clock, CheckCircle2, Building2, Calendar, AlertCircle, LogOut, TrendingUp, Zap, Award } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { EmployeeTimeTracker } from "@/components/EmployeeTimeTracker";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { attendanceService, attendanceSettingsService } from "@server";
@@ -256,6 +257,16 @@ const DashboardScreen = () => {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Real-Time Clock & Break Management */}
+        <div className="animate-fade-in-up delay-150">
+          <EmployeeTimeTracker
+            employeeId={profile.id}
+            checkInTime={todayAttendance?.check_in_time || null}
+            checkOutTime={todayAttendance?.check_out_time || null}
+            currentUserId={profile.id}
+          />
         </div>
 
         {/* Main Attendance Card */}

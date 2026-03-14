@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Building2,
+  TrendingUp,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -29,6 +30,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isAdmin = false }) => {
     { icon: Clock, label: 'Attendance', path: '/admin/history' },
     { icon: Calendar, label: 'Leave Management', path: '/admin/leave' },
     { icon: Calendar, label: 'Holiday Calendar', path: '/admin/calendar' },
+    { icon: TrendingUp, label: 'Performance', path: '/admin/performance' },
     { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
     { icon: DollarSign, label: 'Payroll', path: '/admin/payroll' },
     { icon: HelpCircle, label: 'Help Desk', path: '/admin/help' },

@@ -26,6 +26,8 @@ export { auditLogService } from './services/audit-log.service';
 export { payrollService } from './services/payroll.service';
 export { payrollCalculationService } from './services/payroll-calculation.service';
 export { holidayService } from './services/holiday.service';
+export { breakLogsService } from './services/break-logs.service';
+export { performanceAnalyticsService } from './services/performance-analytics.service';
 // Note: Google Calendar services are only used in API endpoints to avoid browser issues
 // They are used only in API endpoints (server/api/send-report-email.ts)
 // export { emailReportService } from './services/email-report.service';
@@ -98,6 +100,18 @@ export type {
   EmployeeHolidayStatus,
   HolidayType,
 } from './types/holiday';
+
+export type {
+  BreakLog,
+  BreakLogResult,
+  BreakLogsResponse,
+} from './services/break-logs.service';
+
+export type {
+  PerformanceMetrics,
+  PerformanceAlert,
+  EmployeePerformanceCard,
+} from './services/performance-analytics.service';
 
 // NOTE: Notification types are NOT exported to avoid bundling Node.js-only packages
 // Import directly in backend: import type { AttendanceNotificationData } from './server/services/notification.service';
