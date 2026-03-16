@@ -4,6 +4,7 @@ import { MapPin, Clock, CheckCircle2, Building2, Calendar, AlertCircle, LogOut, 
 import DashboardLayout from "@/components/DashboardLayout";
 import { EmployeeTimeTracker } from "@/components/EmployeeTimeTracker";
 import { BreakLogsHistory } from "@/components/BreakLogsHistory";
+import FaceVerificationModal from "@/components/face/FaceVerificationModal";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { attendanceService, attendanceSettingsService } from "@server";
@@ -21,6 +22,9 @@ const DashboardScreen = () => {
   const [workDuration, setWorkDuration] = useState<string>('0h 0m');
   const [defaultCheckoutTime, setDefaultCheckoutTime] = useState<string>('6:30 PM');
   const [breakRefreshTrigger, setBreakRefreshTrigger] = useState(0); // Add refresh trigger
+  const [showFaceVerification, setShowFaceVerification] = useState(false);
+  const [faceRegistered, setFaceRegistered] = useState(false);
+  const [checkingFaceRegistration, setCheckingFaceRegistration] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -107,8 +111,71 @@ const DashboardScreen = () => {
 
   const handleMarkAttendance = async () => {
     if (!profile || marking) return;
+    
     setMarking(true);
-    navigate("/attendance-processing");
+    setCheckingFaceRegistration(true);
+
+    try {
+      // Check if employee has face registered via API
+      const response = await fetch('/api/face-recognition', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'check-registration',
+          employee_id: profile.id,
+        }),
+      });
+
+      const faceStatus = await response.json();
+      setFaceRegistered(faceStatus.registered);
+      setCheckingFaceRegistration(false);
+
+      console.log('Face registration check:', faceStatus);
+
+      if (faceStatus.registered && faceStatus.mlServiceAvailable) {
+        // Face is registered and ML service is available - show face verification
+        console.log('Showing face verification modal');
+        setShowFaceVerification(true);
+        setMarking(false); // Reset marking state, will be set again in face verification
+      } else {
+        // No face registration or ML service unavailable - proceed with standard attendance
+        console.log('Proceeding with standard attendance - Face registered:', faceStatus.registered, 'ML available:', faceStatus.mlServiceAvailable);
+        navigate("/attendance-processing");
+      }
+    } catch (error) {
+      console.error('Face registration check failed:', error);
+      setCheckingFaceRegistration(false);
+      // Fallback to standard attendance
+      navigate("/attendance-processing");
+    }
+  };
+
+  const handleFaceVerificationComplete = async (success: boolean, confidence?: number) => {
+    setShowFaceVerification(false);
+    
+    if (success) {
+      toast({
+        title: "Face Verified",
+        description: `Identity confirmed (${confidence?.toFixed(1)}% confidence)`,
+      });
+      // Proceed to attendance processing with face verification data
+      navigate("/attendance-processing", { 
+        state: { 
+          faceVerified: true, 
+          faceConfidence: confidence,
+          selfieData: null // Will be handled by the face verification modal
+        } 
+      });
+    } else {
+      toast({
+        title: "Face Verification Failed",
+        description: "Please try again or contact admin for assistance",
+        variant: "destructive",
+      });
+      setMarking(false);
+    }
   };
 
   const handleCheckOut = async () => {
@@ -529,6 +596,18 @@ const DashboardScreen = () => {
           </div>
         </div>
       </div>
+
+      {/* Face Verification Modal */}
+      <FaceVerificationModal
+        isOpen={showFaceVerification}
+        onClose={() => {
+          setShowFaceVerification(false);
+          setMarking(false);
+        }}
+        onVerificationComplete={handleFaceVerificationComplete}
+        employeeName={profile?.full_name || 'Employee'}
+        employeeId={profile?.id || ''}
+      />
     </DashboardLayout>
   );
 };

@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { CheckCircle2, Calendar, Clock, MapPin } from "lucide-react";
+import { CheckCircle2, Calendar, Clock, MapPin, Camera, Shield } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import type { Attendance } from "@server";
 
@@ -7,6 +7,8 @@ const AttendanceSuccessScreen = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const attendance = location.state?.attendance as Attendance | undefined;
+  const faceVerified = location.state?.faceVerified || false;
+  const faceConfidence = location.state?.faceConfidence || 0;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -54,13 +56,25 @@ const AttendanceSuccessScreen = () => {
         {/* Success Message */}
         <div className="text-center mb-4 animate-fade-in-up">
           <h1 className="text-2xl font-bold mb-1">Attendance Marked</h1>
-          <p className="text-sm text-body-secondary">Successfully recorded for today</p>
+          <p className="text-sm text-body-secondary">
+            {faceVerified ? "Face verified and attendance recorded" : "Successfully recorded for today"}
+          </p>
         </div>
 
         {/* Status Badge */}
         <div className={`status-badge text-sm mb-4 animate-fade-in-up ${getStatusColor()}`} style={{ animationDelay: "0.1s" }}>
           {getStatusLabel()}
         </div>
+
+        {/* Face Verification Badge */}
+        {faceVerified && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-4 animate-fade-in-up flex items-center gap-2" style={{ animationDelay: "0.15s" }}>
+            <Shield className="w-4 h-4 text-blue-600" />
+            <span className="text-sm font-medium text-blue-900">
+              Face Verified ({faceConfidence.toFixed(1)}%)
+            </span>
+          </div>
+        )}
 
         {/* Details Card */}
         <div className="card-elevated w-full max-w-sm p-4 space-y-3 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
@@ -97,6 +111,19 @@ const AttendanceSuccessScreen = () => {
               <p className="text-sm font-medium">Office Location</p>
             </div>
           </div>
+
+          {/* Face Verification Details */}
+          {faceVerified && (
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center">
+                <Camera className="w-4 h-4 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs text-body-secondary">Identity</p>
+                <p className="text-sm font-medium text-blue-900">Face Verified</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Motivational Message */}
@@ -111,7 +138,9 @@ const AttendanceSuccessScreen = () => {
             </p>
             <p className="text-xs text-center leading-relaxed">
               {attendance.status === 'present' 
-                ? "You're on time today. Keep up the excellent work!"
+                ? faceVerified 
+                  ? "You're on time and identity verified. Excellent security compliance!"
+                  : "You're on time today. Keep up the excellent work!"
                 : "You're marked late today. Try to arrive before the grace period tomorrow!"}
             </p>
           </div>
@@ -120,7 +149,10 @@ const AttendanceSuccessScreen = () => {
         {/* Confirmation Note */}
         <div className="bg-accent rounded-xl p-3 mt-3 w-full max-w-sm animate-fade-in-up" style={{ animationDelay: "0.35s" }}>
           <p className="text-xs text-center text-accent-foreground">
-            Your attendance has been recorded. View your history anytime.
+            {faceVerified 
+              ? "Your attendance and identity have been securely recorded."
+              : "Your attendance has been recorded. View your history anytime."
+            }
           </p>
         </div>
 

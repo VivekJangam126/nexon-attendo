@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, Eye, EyeOff, AlertCircle, ArrowLeft } from "lucide-react";
+import { Building2, Eye, EyeOff, AlertCircle, ArrowLeft, Upload, X, Camera } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import { registrationService, officeService } from "@server";
 import type { Office } from "@server";
@@ -13,6 +13,8 @@ const RegisterScreen = () => {
     officeId: "",
     password: "",
     confirmPassword: "",
+    roleType: "Employee" as 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern',
+    designation: "",
   });
   const [offices, setOffices] = useState<Office[]>([]);
   const [showPassword, setShowPassword] = useState(false);
@@ -20,6 +22,8 @@ const RegisterScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingOffices, setLoadingOffices] = useState(true);
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   // Fetch offices on mount
   useEffect(() => {
@@ -39,12 +43,54 @@ const RegisterScreen = () => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file (JPG, PNG)');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image size must be less than 5MB');
+      return;
+    }
+
+    setProfilePhoto(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    setError(null);
+  };
+
+  const removePhoto = () => {
+    setProfilePhoto(null);
+    setPhotoPreview(null);
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (!form.fullName || !form.email || !form.officeId || !form.password || !form.confirmPassword) {
       setError("Please fill in all required fields.");
+      return;
+    }
+
+    if (!form.designation) {
+      setError("Please select a designation.");
+      return;
+    }
+
+    if (!profilePhoto) {
+      setError("Please upload a profile photo for face recognition.");
       return;
     }
 
@@ -61,11 +107,50 @@ const RegisterScreen = () => {
     setIsLoading(true);
 
     try {
+      // Step 1: Upload photo to Supabase Storage first (client-side)
+      let profilePhotoUrl: string | null = null;
+      
+      if (profilePhoto) {
+        // Import supabase client
+        const { supabase } = await import('@/lib/supabase');
+        
+        // Generate unique filename
+        const fileExt = profilePhoto.name.split('.').pop();
+        const tempUserId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const fileName = `${tempUserId}.${fileExt}`;
+        const filePath = `profile-photos/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('profile-photos')
+          .upload(filePath, profilePhoto, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error('Photo upload failed:', uploadError);
+          setError(`Photo upload failed: ${uploadError.message}`);
+          setIsLoading(false);
+          return;
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('profile-photos')
+          .getPublicUrl(filePath);
+        
+        profilePhotoUrl = publicUrl;
+      }
+
+      // Step 2: Register employee with photo URL
       const { success, error: regError } = await registrationService.registerEmployee({
         email: form.email,
         password: form.password,
         full_name: form.fullName,
         office_id: form.officeId,
+        role_type: form.roleType,
+        designation: form.designation,
+        profile_photo_url: profilePhotoUrl, // Send URL instead of File
       });
 
       if (regError || !success) {
@@ -113,7 +198,7 @@ const RegisterScreen = () => {
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Email Address *</label>
-              <input type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} placeholder="you@example.com" className="input-field" />
+              <input type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} placeholder="you@example.com" className="input-field" autoComplete="off" />
             </div>
 
             <div>
@@ -133,6 +218,89 @@ const RegisterScreen = () => {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Role *</label>
+              <select 
+                value={form.roleType} 
+                onChange={(e) => updateField("roleType", e.target.value)} 
+                className="input-field"
+              >
+                <option value="Employee">Employee</option>
+                <option value="Intern">Intern</option>
+                <option value="Unpaid Intern">Unpaid Intern</option>
+                <option value="Paid Intern">Paid Intern</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Designation *</label>
+              <select 
+                value={form.designation} 
+                onChange={(e) => updateField("designation", e.target.value)} 
+                className="input-field"
+              >
+                <option value="">Select designation</option>
+                <option value="Software Developer">Software Developer</option>
+                <option value="Frontend Developer">Frontend Developer</option>
+                <option value="Backend Developer">Backend Developer</option>
+                <option value="Full Stack Developer">Full Stack Developer</option>
+                <option value="HR Executive">HR Executive</option>
+                <option value="Project Manager">Project Manager</option>
+                <option value="UI/UX Designer">UI/UX Designer</option>
+                <option value="Business Analyst">Business Analyst</option>
+                <option value="Quality Assurance">Quality Assurance</option>
+                <option value="DevOps Engineer">DevOps Engineer</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Profile Photo *</label>
+              <p className="text-xs text-muted-foreground mb-3">
+                Upload a clear, front-facing photo for face recognition verification
+              </p>
+              
+              {photoPreview ? (
+                <div className="relative">
+                  <div className="w-full aspect-video bg-muted rounded-xl overflow-hidden border-2 border-border">
+                    <img 
+                      src={photoPreview} 
+                      alt="Profile preview" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removePhoto}
+                    className="absolute top-2 right-2 p-2 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors shadow-lg"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <div className="mt-2 flex items-center gap-2 text-xs text-success">
+                    <Camera className="w-4 h-4" />
+                    <span>Photo uploaded successfully</span>
+                  </div>
+                </div>
+              ) : (
+                <label className="block">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg"
+                    onChange={handlePhotoSelect}
+                    className="hidden"
+                  />
+                  <div className="w-full aspect-video bg-muted rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors cursor-pointer flex flex-col items-center justify-center gap-3">
+                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                      <Upload className="w-6 h-6 text-primary" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-foreground">Click to upload photo</p>
+                      <p className="text-xs text-muted-foreground mt-1">JPG or PNG, max 5MB</p>
+                    </div>
+                  </div>
+                </label>
+              )}
             </div>
 
             <div>

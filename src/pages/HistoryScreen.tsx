@@ -75,26 +75,38 @@ const HistoryScreen = () => {
   const [dateRange, setDateRange] = useState<"week" | "month">("week");
   const [statusFilter, setStatusFilter] = useState<"all" | "present" | "late" | "absent" | "holiday" | "on_leave">("all");
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      if (!profile) {
-        setLoading(false);
-        return;
-      }
-
-      const { attendance, error: fetchError } = await attendanceService.getAttendanceHistory(profile, 30);
-      
-      if (fetchError) {
-        setError(fetchError.message);
-        setLoading(false);
-        return;
-      }
-
-      const filledRecords = await fillMissingDates(attendance, 30);
-      setRecords(filledRecords);
+  const fetchHistory = async () => {
+    if (!profile) {
       setLoading(false);
-    };
+      return;
+    }
 
+    console.log('🔍 Fetching history for profile:', profile);
+    setLoading(true);
+    const { attendance, error: fetchError } = await attendanceService.getAttendanceHistory(profile, 30);
+    
+    console.log('📊 Attendance service response:', { attendance, error: fetchError });
+    console.log('📈 Number of records returned:', attendance?.length || 0);
+    if (attendance && attendance.length > 0) {
+      console.log('📅 First 5 records:', attendance.slice(0, 5));
+    }
+    
+    if (fetchError) {
+      console.error('❌ Fetch error:', fetchError);
+      setError(fetchError.message);
+      setLoading(false);
+      return;
+    }
+
+    const filledRecords = await fillMissingDates(attendance, 30);
+    console.log('📋 Filled records count:', filledRecords.length);
+    console.log('📋 First 5 filled records:', filledRecords.slice(0, 5));
+    
+    setRecords(filledRecords);
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchHistory();
   }, [profile]);
 
@@ -118,6 +130,12 @@ const HistoryScreen = () => {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     const todayString = `${year}-${month}-${day}`;
+
+    // Get employee registration date to avoid showing absences before joining
+    let registrationDate: Date | null = null;
+    if (profile?.created_at) {
+      registrationDate = new Date(profile.created_at);
+    }
 
     const recordMap = new Map<string, Attendance>();
     records.forEach(record => {
@@ -146,6 +164,12 @@ const HistoryScreen = () => {
           for (let i = 0; i < days; i++) {
             const date = new Date(now);
             date.setDate(date.getDate() - i);
+            
+            // Skip dates before registration
+            if (registrationDate && date < registrationDate) {
+              continue;
+            }
+            
             // Use local day of week, not UTC
             const dayOfWeek = date.getDay();
             const dateYear = date.getFullYear();
@@ -228,6 +252,12 @@ const HistoryScreen = () => {
       const dateMonth = String(date.getMonth() + 1).padStart(2, '0');
       const dateDay = String(date.getDate()).padStart(2, '0');
       const dateString = `${dateYear}-${dateMonth}-${dateDay}`;
+      
+      // Skip dates before employee registration, BUT allow existing attendance records
+      // This allows copied historical data to show even if it's before registration
+      if (registrationDate && date < registrationDate && !recordMap.has(dateString)) {
+        continue;
+      }
 
       if (recordMap.has(dateString)) {
         allRecords.push(recordMap.get(dateString)!);
@@ -259,7 +289,7 @@ const HistoryScreen = () => {
           updated_at: dateString,
         } as any);
       } else {
-        // Absent
+        // Only mark as absent if it's a working day after registration
         allRecords.push({
           id: `absent-${dateString}`,
           user_id: profile?.id || '',

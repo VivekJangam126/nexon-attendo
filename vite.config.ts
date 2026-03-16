@@ -94,6 +94,12 @@ export default defineConfig(({ mode }) => {
                   } else if (pathname.startsWith('send-notification')) {
                     console.log('[API Middleware] Loading send-notification handler');
                     handler = await import('./server/api/send-notification.ts');
+                  } else if (pathname.startsWith('upload-photo')) {
+                    console.log('[API Middleware] Loading upload-photo handler');
+                    handler = await import('./server/api/upload-photo.ts');
+                  } else if (pathname.startsWith('face-recognition')) {
+                    console.log('[API Middleware] Loading face-recognition handler');
+                    handler = await import('./server/api/face-recognition.ts');
                   } else if (pathname.startsWith('holidays')) {
                     console.log('[API Middleware] Loading holidays handler');
                     handler = await import('./server/api/holidays.ts');

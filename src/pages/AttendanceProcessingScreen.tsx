@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { MapPin, ShieldCheck, Loader2 } from "lucide-react";
+import { MapPin, ShieldCheck, Loader2, Camera } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import { useAuth } from "@/hooks/useAuth";
 import { attendanceService, attendanceSettingsService } from "@server";
 import { getDeviceFingerprint, getUserAgent } from "@/utils/device-fingerprint";
 
-type ProcessingStep = "location" | "verifying" | "complete";
-
-const steps: { key: ProcessingStep; icon: typeof MapPin; label: string; description: string }[] = [
-  { key: "location", icon: MapPin, label: "Checking your location", description: "Verifying GPS coordinates" },
-  { key: "verifying", icon: ShieldCheck, label: "Recording attendance", description: "Saving your attendance record" },
-];
+type ProcessingStep = "location" | "face" | "verifying" | "complete";
 
 const AttendanceProcessingScreen = () => {
   const navigate = useNavigate();
@@ -19,6 +14,26 @@ const AttendanceProcessingScreen = () => {
   const { profile } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [steps, setSteps] = useState<{ key: ProcessingStep; icon: typeof MapPin; label: string; description: string }[]>([]);
+
+  // Get face verification data from navigation state
+  const faceVerified = location.state?.faceVerified || false;
+  const faceConfidence = location.state?.faceConfidence || 0;
+
+  useEffect(() => {
+    // Set up steps based on whether face verification was performed
+    const baseSteps = [
+      { key: "location" as ProcessingStep, icon: MapPin, label: "Checking your location", description: "Verifying GPS coordinates" },
+    ];
+
+    if (faceVerified) {
+      baseSteps.push({ key: "face" as ProcessingStep, icon: Camera, label: "Face verified", description: `Identity confirmed (${faceConfidence?.toFixed(1)}% confidence)` });
+    }
+
+    baseSteps.push({ key: "verifying" as ProcessingStep, icon: ShieldCheck, label: "Recording attendance", description: "Saving your attendance record" });
+
+    setSteps(baseSteps);
+  }, [faceVerified, faceConfidence]);
 
   useEffect(() => {
     const processAttendance = async () => {
@@ -61,12 +76,22 @@ const AttendanceProcessingScreen = () => {
         await new Promise((resolve) => setTimeout(resolve, 800));
         setCompletedSteps((prev) => [...prev, 0]);
 
+        // Step 2: Show face verification step if it was performed
+        if (faceVerified) {
+          setCurrentStep(1);
+          console.log('👤 Face verification completed');
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          setCompletedSteps((prev) => [...prev, 1]);
+          setCurrentStep(2); // Move to verifying step
+        } else {
+          setCurrentStep(1); // Move directly to verifying step
+        }
+
         // Check strict mode
         const { strictMode } = await attendanceSettingsService.getStrictMode();
         console.log('🔒 Strict mode:', strictMode);
 
-        // Step 2: Mark attendance
-        setCurrentStep(1);
+        // Final step: Mark attendance
         console.log('💾 Marking attendance...');
 
         // Get device fingerprint and user agent for tracking
@@ -84,14 +109,16 @@ const AttendanceProcessingScreen = () => {
         );
         
         await new Promise((resolve) => setTimeout(resolve, 500));
-        setCompletedSteps((prev) => [...prev, 1]);
+        setCompletedSteps((prev) => [...prev, faceVerified ? 2 : 1]);
 
         // Navigate based on result
         setTimeout(() => {
           if (result.success) {
             navigate("/attendance-success", { 
               state: { 
-                attendance: result.attendance 
+                attendance: result.attendance,
+                faceVerified,
+                faceConfidence
               } 
             });
           } else {
@@ -114,8 +141,10 @@ const AttendanceProcessingScreen = () => {
       }
     };
 
-    processAttendance();
-  }, [navigate, profile]);
+    if (steps.length > 0) {
+      processAttendance();
+    }
+  }, [navigate, profile, steps, faceVerified, faceConfidence]);
 
   return (
     <MobileContainer>
@@ -133,7 +162,9 @@ const AttendanceProcessingScreen = () => {
 
         {/* Title */}
         <h1 className="text-title text-center mb-2">Marking Attendance</h1>
-        <p className="text-body-secondary text-center mb-12">Please wait while we verify your attendance</p>
+        <p className="text-body-secondary text-center mb-12">
+          {faceVerified ? "Face verified! Processing your attendance..." : "Please wait while we verify your attendance"}
+        </p>
 
         {/* Steps */}
         <div className="w-full max-w-sm space-y-4">

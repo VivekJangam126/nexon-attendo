@@ -15,6 +15,7 @@ import type {
 } from '../types/attendance';
 import { attendanceSettingsService } from './attendance-settings.service';
 import { rateLimitService } from './rate-limit.service';
+import { faceRecognitionService } from './face-recognition.service';
 
 /**
  * Get current IST time
@@ -951,6 +952,135 @@ export const attendanceService = {
         success: false,
         errorCode: 'UNKNOWN_ERROR',
         message: err instanceof Error ? err.message : 'Admin checkout failed',
+      };
+    }
+  },
+
+  /**
+   * Mark attendance with face verification
+   * Combines GPS validation with face recognition for enhanced security
+   * 
+   * @param userProfile - User profile (must be authenticated)
+   * @param latitude - GPS latitude
+   * @param longitude - GPS longitude
+   * @param selfieBase64 - Base64 encoded selfie for face verification
+   * @param ipAddress - Client IP address (optional)
+   * @param deviceId - Device fingerprint (optional)
+   * @param userAgent - User agent string (optional)
+   * @returns AttendanceResult with success/error
+   */
+  async markAttendanceWithFaceVerification(
+    userProfile: UserProfile,
+    latitude?: number,
+    longitude?: number,
+    selfieBase64?: string,
+    ipAddress?: string,
+    deviceId?: string,
+    userAgent?: string
+  ): Promise<AttendanceResult & { faceVerified?: boolean; faceConfidence?: number }> {
+    try {
+      console.log('🔍 [FACE ATTENDANCE] Starting face-verified attendance...');
+      console.log('  User:', userProfile.email);
+      console.log('  Has selfie:', !!selfieBase64);
+
+      // First, perform standard attendance validation (GPS, time window, etc.)
+      const standardResult = await this.markAttendance(
+        userProfile,
+        latitude,
+        longitude,
+        ipAddress,
+        deviceId,
+        userAgent
+      );
+
+      // If standard validation failed, return early
+      if (!standardResult.success) {
+        return {
+          ...standardResult,
+          faceVerified: false,
+        };
+      }
+
+      // Standard validation passed, now verify face if selfie provided
+      let faceVerified = false;
+      let faceConfidence = 0;
+
+      if (selfieBase64) {
+        console.log('🔍 [FACE VERIFICATION] Verifying face...');
+        
+        const faceResult = await faceRecognitionService.verifyFace(
+          userProfile.id,
+          selfieBase64,
+          standardResult.attendance?.id
+        );
+
+        faceVerified = faceResult.verified;
+        faceConfidence = faceResult.confidence;
+
+        console.log(`  Face verification result: ${faceVerified ? 'PASSED' : 'FAILED'} (${faceConfidence}%)`);
+
+        // Update attendance record with face verification results
+        if (standardResult.attendance?.id) {
+          await supabase
+            .from('attendance')
+            .update({
+              face_verified: faceVerified,
+              face_confidence: faceConfidence,
+              selfie_url: selfieBase64.startsWith('data:') ? selfieBase64 : `data:image/jpeg;base64,${selfieBase64}`,
+            })
+            .eq('id', standardResult.attendance.id);
+        }
+
+        // If face verification is required but failed, we could optionally reject attendance
+        // For now, we'll allow attendance but mark face verification status
+        if (!faceVerified) {
+          console.log('  ⚠️  Face verification failed, but attendance allowed');
+        }
+      } else {
+        console.log('  ⚠️  No selfie provided for face verification');
+      }
+
+      return {
+        ...standardResult,
+        faceVerified,
+        faceConfidence,
+      };
+    } catch (err) {
+      console.log('  ❌ Exception in face-verified attendance:', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Face-verified attendance failed',
+        errorCode: 'VALIDATION_FAILED',
+        faceVerified: false,
+      };
+    }
+  },
+
+  /**
+   * Check if employee has face registered for verification
+   * 
+   * @param employeeId - UUID of employee
+   * @returns Face registration status
+   */
+  async checkFaceRegistration(employeeId: string): Promise<{
+    registered: boolean;
+    message: string;
+    mlServiceAvailable: boolean;
+  }> {
+    try {
+      const result = await faceRecognitionService.checkFaceRegistration(employeeId);
+      const serviceStatus = await faceRecognitionService.isMLServiceAvailable();
+
+      return {
+        registered: result.registered,
+        message: result.message,
+        mlServiceAvailable: serviceStatus,
+      };
+    } catch (err) {
+      return {
+        registered: false,
+        message: 'Failed to check face registration',
+        mlServiceAvailable: false,
       };
     }
   },

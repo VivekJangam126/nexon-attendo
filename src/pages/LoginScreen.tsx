@@ -218,14 +218,25 @@ const LoginScreen = () => {
             </button>
           </form>
 
-          {/* Admin Link */}
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => navigate("/admin/login")}
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              Admin Login →
-            </button>
+          {/* Registration and Admin Links */}
+          <div className="mt-6 text-center space-y-3">
+            <div>
+              <span className="text-sm text-gray-500">New employee? </span>
+              <button
+                onClick={() => navigate("/register")}
+                className="text-sm text-orange-600 hover:text-orange-700 font-medium transition-colors"
+              >
+                Register here
+              </button>
+            </div>
+            <div>
+              <button
+                onClick={() => navigate("/admin/login")}
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Admin Login →
+              </button>
+            </div>
           </div>
 
           {/* Footer */}

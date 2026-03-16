@@ -14,6 +14,11 @@ export interface UserProfile {
   status: UserStatus;
   office_location: string | null;
   office_name?: string | null;
+  designation?: string | null;
+  role_type?: string | null;
+  profile_photo_url?: string | null;
+  face_registered?: boolean;
+  face_registered_at?: string | null;
   created_at: string;
   updated_at: string;
 }

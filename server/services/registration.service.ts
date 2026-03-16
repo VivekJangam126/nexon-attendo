@@ -19,13 +19,15 @@ export const registrationService = {
    */
   async registerEmployee(data: RegistrationData): Promise<RegistrationResponse> {
     try {
-      const { email, password, full_name, office_id, designation, role_type } = data;
+      const { email, password, full_name, office_id, designation, role_type, profile_photo, profile_photo_url } = data;
 
       console.log('🔍 [REGISTRATION] Starting employee registration...');
       console.log('  Email:', email);
       console.log('  Office ID:', office_id);
       console.log('  Designation:', designation);
       console.log('  Role Type:', role_type);
+      console.log('  Profile Photo File:', profile_photo ? 'Provided' : 'Not provided');
+      console.log('  Profile Photo URL:', profile_photo_url ? 'Provided' : 'Not provided');
 
       // Verify the selected office exists and is active
       const { data: selectedOffice, error: officeError } = await supabase
@@ -75,7 +77,97 @@ export const registrationService = {
 
       const userId = authData.user.id;
 
-      // Step 2: Create profile record with status = 'pending'
+      // Step 2: Handle profile photo and rename if needed
+      let profilePhotoUrl: string | null = null;
+      
+      // Option 1: Photo URL provided (client-side registration)
+      if (profile_photo_url) {
+        // Check if this is a temporary file that needs renaming
+        if (profile_photo_url.includes('temp-')) {
+          try {
+            // Extract the temporary file path from URL
+            const urlParts = profile_photo_url.split('/');
+            const tempFileName = urlParts[urlParts.length - 1];
+            const fileExt = tempFileName.split('.').pop();
+            const tempFilePath = `profile-photos/${tempFileName}`;
+            const newFileName = `${userId}-${Date.now()}.${fileExt}`;
+            const newFilePath = `profile-photos/${newFileName}`;
+
+            // Move/copy the file to the new location with proper user ID
+            const { data: fileData } = await supabase.storage
+              .from('profile-photos')
+              .download(tempFilePath);
+
+            if (fileData) {
+              const { error: uploadError } = await supabase.storage
+                .from('profile-photos')
+                .upload(newFilePath, fileData, {
+                  cacheControl: '3600',
+                  upsert: false
+                });
+
+              if (!uploadError) {
+                // Delete the temporary file
+                await supabase.storage
+                  .from('profile-photos')
+                  .remove([tempFilePath]);
+
+                // Get new public URL
+                const { data: { publicUrl } } = supabase.storage
+                  .from('profile-photos')
+                  .getPublicUrl(newFilePath);
+                
+                profilePhotoUrl = publicUrl;
+                console.log('  📸 Photo renamed and moved successfully');
+              } else {
+                // If rename fails, use the original URL
+                profilePhotoUrl = profile_photo_url;
+                console.log('  ⚠️  Photo rename failed, using original URL');
+              }
+            } else {
+              profilePhotoUrl = profile_photo_url;
+            }
+          } catch (renameError) {
+            console.error('  ⚠️  Photo rename error:', renameError);
+            profilePhotoUrl = profile_photo_url;
+          }
+        } else {
+          profilePhotoUrl = profile_photo_url;
+          console.log('  📸 Using provided photo URL');
+        }
+      }
+      // Option 2: Photo File provided (admin/server-side registration)  
+      else if (profile_photo) {
+        try {
+          const fileExt = profile_photo.name.split('.').pop();
+          const fileName = `${userId}-${Date.now()}.${fileExt}`;
+          const filePath = `profile-photos/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('profile-photos')
+            .upload(filePath, profile_photo, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (uploadError) {
+            console.error('  ⚠️  Photo upload failed:', uploadError);
+            // Continue registration even if photo upload fails
+          } else {
+            const { data: { publicUrl } } = supabase.storage
+              .from('profile-photos')
+              .getPublicUrl(filePath);
+            
+            profilePhotoUrl = publicUrl;
+            console.log('  📸 Profile photo uploaded');
+          }
+        } catch (photoError) {
+          console.error('  ⚠️  Photo upload error:', photoError);
+          // Continue registration even if photo upload fails
+        }
+      }
+
+      // Step 3: Create profile record with status = 'pending'
       const { error: profileError } = await supabase
         .from('profiles')
         .insert({
@@ -87,6 +179,7 @@ export const registrationService = {
           office_location: office_id, // Auto-assigned to SmartMatrix
           designation: designation || 'Not Assigned',
           role_type: role_type || 'Employee',
+          profile_photo_url: profilePhotoUrl,
         });
 
       if (profileError) {
@@ -99,7 +192,7 @@ export const registrationService = {
         };
       }
 
-      // Step 3: Create employee_request record
+      // Step 4: Create employee_request record
       const { error: requestError } = await supabase
         .from('employee_requests')
         .insert({
@@ -116,7 +209,7 @@ export const registrationService = {
         console.error('Employee request creation failed:', requestError);
       }
 
-      // Step 4: Immediately sign out the user (they cannot login until approved)
+      // Step 5: Immediately sign out the user (they cannot login until approved)
       await supabase.auth.signOut();
 
       console.log('  ✅ Registration successful, assigned to:', selectedOffice.name);

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { 
   ArrowLeft, Mail, Phone, Building2, Briefcase, 
   UserCheck, Clock, UserX, Calendar, Edit, Shield, 
-  ToggleLeft, ToggleRight, CheckCircle2, Save, X, LogOut
+  ToggleLeft, ToggleRight, CheckCircle2, Save, X, LogOut, Upload, Camera
 } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { EmployeeLeaveBalanceCards } from "@/components/leave/EmployeeLeaveBalanceCards";
@@ -77,46 +77,50 @@ const AdminEmployeeDetailScreen = () => {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
   const [todayCheckoutTime, setTodayCheckoutTime] = useState<string | null>(null);
+  const [showPhotoUploadDialog, setShowPhotoUploadDialog] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+
+  const fetchEmployeeData = async () => {
+    if (!id) return;
+    
+    setLoading(true);
+    const { employee: employeeData, attendanceHistory: history, stats: employeeStats } = 
+      await employeeService.getEmployeeDetail(id);
+    
+    if (employeeData) {
+      setEmployee(employeeData);
+      setIsActive(employeeData.status === 'active');
+      setUserRole(employeeData.role);
+      
+      // Initialize edit form with current values
+      setEditForm({
+        email: employeeData.email,
+        role: employeeData.role,
+        office_location: employeeData.office_location || "",
+        designation: employeeData.designation || "",
+        role_type: employeeData.role_type || "Employee",
+      });
+    }
+    setAttendanceHistory(history);
+    setStats(employeeStats);
+    
+    // Set today's checkout time if available
+    const todayRecord = history.find(r => r.date === new Date().toISOString().split('T')[0]);
+    if (todayRecord?.check_out_time) {
+      setTodayCheckoutTime(todayRecord.check_out_time);
+    }
+    
+    setLoading(false);
+  };
+
+  const fetchOffices = async () => {
+    const { offices: officeList } = await officeService.getActiveOffices();
+    setOffices(officeList);
+  };
 
   useEffect(() => {
-    const fetchEmployeeData = async () => {
-      if (!id) return;
-      
-      setLoading(true);
-      const { employee: employeeData, attendanceHistory: history, stats: employeeStats } = 
-        await employeeService.getEmployeeDetail(id);
-      
-      if (employeeData) {
-        setEmployee(employeeData);
-        setIsActive(employeeData.status === 'active');
-        setUserRole(employeeData.role);
-        
-        // Initialize edit form with current values
-        setEditForm({
-          email: employeeData.email,
-          role: employeeData.role,
-          office_location: employeeData.office_location || "",
-          designation: employeeData.designation || "",
-          role_type: employeeData.role_type || "Employee",
-        });
-      }
-      setAttendanceHistory(history);
-      setStats(employeeStats);
-      
-      // Set today's checkout time if available
-      const todayRecord = history.find(r => r.date === new Date().toISOString().split('T')[0]);
-      if (todayRecord?.check_out_time) {
-        setTodayCheckoutTime(todayRecord.check_out_time);
-      }
-      
-      setLoading(false);
-    };
-
-    const fetchOffices = async () => {
-      const { offices: officeList } = await officeService.getActiveOffices();
-      setOffices(officeList);
-    };
-
     fetchEmployeeData();
     fetchOffices();
   }, [id]);
@@ -269,6 +273,107 @@ const AdminEmployeeDetailScreen = () => {
     }
   };
 
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "Invalid File", description: "Please select an image file (JPG, PNG)", variant: "destructive" });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File Too Large", description: "Image size must be less than 5MB", variant: "destructive" });
+      return;
+    }
+
+    setSelectedPhoto(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUploadPhoto = async () => {
+    if (!selectedPhoto || !id) return;
+
+    setUploadingPhoto(true);
+
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64Data = reader.result as string;
+          
+          // Upload photo via API
+          const response = await fetch('/api/upload-photo', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              employeeId: id,
+              photoData: base64Data,
+              fileName: selectedPhoto.name,
+            }),
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            toast({ 
+              title: "Photo Uploaded", 
+              description: "Profile photo uploaded successfully. Face recognition will be available once ML service is configured." 
+            });
+            
+            setShowPhotoUploadDialog(false);
+            setSelectedPhoto(null);
+            setPhotoPreview(null);
+            
+            // Refresh employee data
+            const { employee: employeeData } = await employeeService.getEmployeeDetail(id);
+            if (employeeData) {
+              setEmployee(employeeData);
+            }
+          } else {
+            throw new Error(result.error || 'Upload failed');
+          }
+        } catch (error) {
+          console.error('Upload error:', error);
+          toast({ 
+            title: "Upload Failed", 
+            description: "Failed to upload photo. Please try again.", 
+            variant: "destructive" 
+          });
+        } finally {
+          setUploadingPhoto(false);
+        }
+      };
+      
+      reader.readAsDataURL(selectedPhoto);
+    } catch (error) {
+      console.error('Photo processing error:', error);
+      toast({ 
+        title: "Upload Failed", 
+        description: "Failed to process photo. Please try again.", 
+        variant: "destructive" 
+      });
+      setUploadingPhoto(false);
+    }
+  };
+
+  const cancelPhotoUpload = () => {
+    setShowPhotoUploadDialog(false);
+    setSelectedPhoto(null);
+    setPhotoPreview(null);
+  };
+
   if (loading) {
     return (
       <AdminLayout>
@@ -344,6 +449,46 @@ const AdminEmployeeDetailScreen = () => {
                     <button onClick={handleToggleActive} className="text-primary">
                       {isActive ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
                     </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Profile Photo */}
+              <div className="animate-fade-in-up" style={{ animationDelay: "0.025s" }}>
+                <h2 className="text-overline mb-2">Profile Photo & Face Recognition</h2>
+                <div className="card-elevated p-4">
+                  <div className="flex items-start gap-3">
+                    {employee.profile_photo_url ? (
+                      <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-border flex-shrink-0">
+                        <img 
+                          src={employee.profile_photo_url} 
+                          alt={employee.full_name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Camera className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold mb-1">
+                        {employee.profile_photo_url ? 'Photo Uploaded' : 'No Photo'}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        {employee.profile_photo_url 
+                          ? 'Face recognition enabled for attendance verification'
+                          : 'Upload a photo to enable face recognition'
+                        }
+                      </p>
+                      <button
+                        onClick={() => setShowPhotoUploadDialog(true)}
+                        className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex items-center gap-2"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        {employee.profile_photo_url ? 'Update Photo' : 'Upload Photo'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -633,6 +778,97 @@ const AdminEmployeeDetailScreen = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Photo Upload Dialog */}
+        <Dialog open={showPhotoUploadDialog} onOpenChange={setShowPhotoUploadDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Upload Profile Photo</DialogTitle>
+              <DialogDescription>
+                Upload a clear, front-facing photo for face recognition verification
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4">
+              {photoPreview ? (
+                <div className="relative">
+                  <div className="w-full aspect-square bg-muted rounded-xl overflow-hidden border-2 border-border">
+                    <img 
+                      src={photoPreview} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPhoto(null);
+                      setPhotoPreview(null);
+                    }}
+                    className="absolute top-2 right-2 p-2 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors shadow-lg"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="block cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg"
+                    onChange={handlePhotoSelect}
+                    className="hidden"
+                  />
+                  <div className="w-full aspect-square bg-muted rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors flex flex-col items-center justify-center gap-3">
+                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                      <Upload className="w-8 h-8 text-primary" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-foreground">Click to select photo</p>
+                      <p className="text-xs text-muted-foreground mt-1">JPG or PNG, max 5MB</p>
+                    </div>
+                  </div>
+                </label>
+              )}
+              
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs text-blue-800">
+                  <strong>Tips for best results:</strong><br />
+                  • Face should be clearly visible and front-facing<br />
+                  • Good lighting with no shadows<br />
+                  • Remove sunglasses or hats<br />
+                  • Neutral expression works best
+                </p>
+              </div>
+            </div>
+            
+            <DialogFooter className="flex gap-3">
+              <button 
+                onClick={cancelPhotoUpload} 
+                className="flex-1 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+                disabled={uploadingPhoto}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleUploadPhoto} 
+                className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+                disabled={!selectedPhoto || uploadingPhoto}
+              >
+                {uploadingPhoto ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Upload Photo
+                  </>
+                )}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );
