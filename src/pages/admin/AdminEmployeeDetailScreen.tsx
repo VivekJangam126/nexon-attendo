@@ -9,7 +9,6 @@ import AdminLayout from "@/components/AdminLayout";
 import { EmployeeLeaveBalanceCards } from "@/components/leave/EmployeeLeaveBalanceCards";
 import { EmployeeTimeTracker } from "@/components/EmployeeTimeTracker";
 import { BreakLogsHistory } from "@/components/BreakLogsHistory";
-import AdminFaceRegistration from "@/components/admin/AdminFaceRegistration";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -345,52 +344,6 @@ const AdminEmployeeDetailScreen = () => {
                       {isActive ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
                     </button>
                   </div>
-                </div>
-              </div>
-
-              {/* Profile Photo & Face Registration */}
-              <div className="animate-fade-in-up" style={{ animationDelay: "0.025s" }}>
-                <h2 className="text-overline mb-2">Face Registration</h2>
-                <div className="card-elevated p-4">
-                  {employee.face_registered ? (
-                    <div className="flex items-start gap-3">
-                      {employee.profile_photo_url ? (
-                        <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-success flex-shrink-0">
-                          <img 
-                            src={employee.profile_photo_url} 
-                            alt={employee.full_name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-20 h-20 bg-success/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <CheckCircle2 className="w-8 h-8 text-success" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold mb-1 text-success">
-                          Face Registered
-                        </h3>
-                        <p className="text-xs text-muted-foreground mb-3">
-                          Employee can use face verification for attendance. Registered on {employee.face_registered_at ? new Date(employee.face_registered_at).toLocaleDateString() : 'Unknown date'}.
-                        </p>
-                        <button
-                          onClick={() => setShowFaceRegistration(true)}
-                          className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex items-center gap-2"
-                        >
-                          <Camera className="w-3.5 h-3.5" />
-                          Re-register Face
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <AdminFaceRegistration
-                      employeeId={employee.id}
-                      employeeName={employee.full_name}
-                      employeeEmail={employee.email}
-                      onRegistrationComplete={handleFaceRegistrationComplete}
-                    />
-                  )}
                 </div>
               </div>
 

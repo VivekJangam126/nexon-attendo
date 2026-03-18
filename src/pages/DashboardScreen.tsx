@@ -4,7 +4,6 @@ import { MapPin, Clock, CheckCircle2, Building2, Calendar, AlertCircle, LogOut, 
 import DashboardLayout from "@/components/DashboardLayout";
 import { EmployeeTimeTracker } from "@/components/EmployeeTimeTracker";
 import { BreakLogsHistory } from "@/components/BreakLogsHistory";
-import FaceVerificationModal from "@/components/face/FaceVerificationModal";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { attendanceService, attendanceSettingsService } from "@server";
@@ -21,10 +20,7 @@ const DashboardScreen = () => {
   const [windowDisplay, setWindowDisplay] = useState<string>('Loading...');
   const [workDuration, setWorkDuration] = useState<string>('0h 0m');
   const [defaultCheckoutTime, setDefaultCheckoutTime] = useState<string>('6:30 PM');
-  const [breakRefreshTrigger, setBreakRefreshTrigger] = useState(0); // Add refresh trigger
-  const [showFaceVerification, setShowFaceVerification] = useState(false);
-  const [faceRegistered, setFaceRegistered] = useState(false);
-  const [checkingFaceRegistration, setCheckingFaceRegistration] = useState(false);
+  const [breakRefreshTrigger, setBreakRefreshTrigger] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -115,81 +111,16 @@ const DashboardScreen = () => {
     setMarking(true);
 
     try {
-      // Step 1: Check if employee has face registered
-      setCheckingFaceRegistration(true);
-      
-      const response = await fetch('/api/face-recognition', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'check-registration',
-          employee_id: profile.id,
-        }),
-      });
-
-      const faceStatus = await response.json();
-      setFaceRegistered(faceStatus.registered);
-      setCheckingFaceRegistration(false);
-
-      console.log('Face registration check:', faceStatus);
-
-      // Step 2: Always go to attendance processing first (for geolocation)
-      // Face verification will happen AFTER geolocation if needed
-      
-      // TEMPORARY FIX: Force face verification for testing
-      console.log('🔧 FORCING face verification for testing...');
-      navigate("/attendance-processing", { 
-        state: { 
-          requiresFaceVerification: true,
-          employeeId: profile.id
-        } 
-      });
-      
-      // Original logic (commented out for testing):
-      // if (faceStatus.registered && faceStatus.mlServiceAvailable) {
-      //   navigate("/attendance-processing", { 
-      //     state: { 
-      //       requiresFaceVerification: true,
-      //       employeeId: profile.id
-      //     } 
-      //   });
-      // } else {
-      //   navigate("/attendance-processing");
-      // }
-    } catch (error) {
-      console.error('Face registration check failed:', error);
-      setCheckingFaceRegistration(false);
-      setMarking(false);
-      // Fallback to standard attendance
+      // Navigate directly to attendance processing (no face verification)
       navigate("/attendance-processing");
-    }
-  };
-
-  const handleFaceVerificationComplete = async (success: boolean, confidence?: number) => {
-    setShowFaceVerification(false);
-    
-    if (success) {
+    } catch (error) {
+      console.error('Attendance marking failed:', error);
+      setMarking(false);
       toast({
-        title: "Face Verified",
-        description: `Identity confirmed (${confidence?.toFixed(1)}% confidence)`,
-      });
-      // Proceed to attendance processing with face verification data
-      navigate("/attendance-processing", { 
-        state: { 
-          faceVerified: true, 
-          faceConfidence: confidence,
-          selfieData: null // Will be handled by the face verification modal
-        } 
-      });
-    } else {
-      toast({
-        title: "Face Verification Failed",
-        description: "Please try again or contact admin for assistance",
+        title: "Error",
+        description: "Failed to start attendance marking. Please try again.",
         variant: "destructive",
       });
-      setMarking(false);
     }
   };
 
@@ -199,84 +130,64 @@ const DashboardScreen = () => {
     setCheckingOut(true);
 
     try {
-      if (!navigator.geolocation) {
+      const result = await attendanceService.checkOut(profile);
+      
+      if (result.success) {
+        setTodayAttendance(result.attendance || null);
         toast({
-          title: "Location Not Supported",
-          description: "Your browser doesn't support location services",
+          title: "Checked Out Successfully",
+          description: `Work duration: ${result.workHours?.toFixed(1)} hours`,
+        });
+      } else {
+        toast({
+          title: "Checkout Failed",
+          description: result.error || "Failed to check out",
           variant: "destructive",
         });
-        setCheckingOut(false);
-        return;
       }
-
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-
-          const result = await attendanceService.checkOut(profile, latitude, longitude);
-
-          if (result.success) {
-            toast({
-              title: "Checked Out Successfully",
-              description: `Work duration: ${result.workHours?.toFixed(1)} hours`,
-            });
-
-            const { attendance } = await attendanceService.getTodayAttendance(profile);
-            setTodayAttendance(attendance);
-          } else {
-            toast({
-              title: "Checkout Failed",
-              description: result.message || "Please try again",
-              variant: "destructive",
-            });
-          }
-
-          setCheckingOut(false);
-        },
-        (error) => {
-          console.error("Location error:", error);
-          toast({
-            title: "Location Error",
-            description: "Could not get your location. Please enable location services.",
-            variant: "destructive",
-          });
-          setCheckingOut(false);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        }
-      );
     } catch (error) {
-      console.error("Checkout error:", error);
       toast({
-        title: "Error",
+        title: "Checkout Error",
         description: "An unexpected error occurred",
         variant: "destructive",
       });
+    } finally {
       setCheckingOut(false);
     }
   };
 
   const formatTime = (isoString: string) => {
-    const utcDate = new Date(isoString);
-    const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
-    
-    const hours = istDate.getUTCHours();
-    const minutes = istDate.getUTCMinutes();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    const displayMinutes = minutes.toString().padStart(2, '0');
-    
-    return `${displayHours}:${displayMinutes} ${ampm}`;
+    const date = new Date(isoString);
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'present': return 'text-green-600 bg-green-50 border-green-200';
+      case 'late': return 'text-amber-600 bg-amber-50 border-amber-200';
+      case 'absent': return 'text-red-600 bg-red-50 border-red-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'present': return <CheckCircle2 className="w-4 h-4" />;
+      case 'late': return <Clock className="w-4 h-4" />;
+      case 'absent': return <AlertCircle className="w-4 h-4" />;
+      default: return <Clock className="w-4 h-4" />;
+    }
   };
 
   if (loading) {
     return (
-      <DashboardLayout title="Dashboard">
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-3 border-amber-200 border-t-amber-600 rounded-full animate-spin" />
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-full">
+          <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
       </DashboardLayout>
     );
@@ -287,342 +198,220 @@ const DashboardScreen = () => {
   }
 
   return (
-    <DashboardLayout title={`${getGreeting()}, ${profile.full_name.split(' ')[0]}`}>
-      <div className="max-w-4xl mx-auto space-y-4">
-        
-        {/* Welcome Hero Section */}
-        <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-amber-100 via-amber-50 to-orange-50 p-5 shadow-sm animate-fade-in-up border border-amber-200">
-          <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-amber-200/30 animate-pulse" />
-          <div className="absolute -bottom-3 -left-3 h-20 w-20 rounded-full bg-amber-200/30 animate-pulse delay-200" />
-          
-          <div className="relative z-10">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-              <div>
-                <h1 className="text-base sm:text-lg font-bold text-gray-800 mb-0.5">
-                  {getGreeting()}, {profile.full_name.split(' ')[0]}! 👋
-                </h1>
-                <p className="text-amber-700 text-sm">
-                  {formattedDate} • Track attendance
-                </p>
-              </div>
-              <div className="mt-2 sm:mt-0 hidden sm:flex items-center justify-center w-10 h-10 bg-amber-200/40 rounded-lg backdrop-blur-sm">
-                <Zap className="w-5 h-5 text-amber-700" />
-              </div>
+    <DashboardLayout>
+      <div className="flex flex-col min-h-full pb-20 md:pb-0">
+        {/* Header */}
+        <div className="px-4 sm:px-6 lg:px-8 pt-2 pb-2 border-b border-border">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-lg font-semibold">{getGreeting()}</h1>
+              <p className="text-sm text-muted-foreground">{formattedDate}</p>
             </div>
+            <button
+              onClick={() => navigate("/profile")}
+              className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors"
+            >
+              <span className="text-sm font-semibold text-primary">
+                {profile.full_name.split(' ').map(n => n[0]).join('')}
+              </span>
+            </button>
           </div>
         </div>
 
-        {/* Quick Stats Section */}
-        <div className="grid grid-cols-2 gap-3 animate-fade-in-up delay-100">
-          {/* Today Status */}
-          <div className="bg-white rounded-lg border border-gray-100 p-4 shadow-sm hover:shadow-md transition-all duration-300 hover:border-amber-200 hover:scale-105">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-green-50 rounded-lg">
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
-              </div>
-              <div className="flex-1">
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Status</p>
-                <p className="text-sm font-bold text-gray-900">
-                  {todayAttendance ? "Present" : "Pending"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Office Location */}
-          {profile.office_location && (
-            <div className="bg-white rounded-lg border border-gray-100 p-4 shadow-sm hover:shadow-md transition-all duration-300 hover:border-blue-200 hover:scale-105">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-blue-50 rounded-lg">
-                  <Building2 className="w-4 h-4 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Location</p>
-                  <p className="text-sm font-bold text-gray-900">
-                    {profile.office_name || 'Assigned'}
-                  </p>
+        {/* Content */}
+        <div className="flex-1 px-4 sm:px-6 lg:px-8 py-3 overflow-y-auto">
+          <div className="max-w-4xl mx-auto space-y-3">
+            {/* Attendance Status Card */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold text-gray-900">Today's Attendance</h2>
+                <div className="flex items-center gap-2 text-xs text-gray-600">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Window: {windowDisplay}</span>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
 
-        {/* Real-Time Clock & Break Management */}
-        <div className="animate-fade-in-up delay-150">
-          <EmployeeTimeTracker
-            employeeId={profile.id}
-            checkInTime={todayAttendance?.check_in_time || null}
-            checkOutTime={todayAttendance?.check_out_time || null}
-            currentUserId={profile.id}
-            onBreakUpdate={handleBreakUpdate}
-          />
-        </div>
+              {todayAttendance ? (
+                <div className="space-y-3">
+                  {/* Status Badge */}
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border ${getStatusColor(todayAttendance.status)}`}>
+                    {getStatusIcon(todayAttendance.status)}
+                    <span className="capitalize">{todayAttendance.status}</span>
+                  </div>
 
-        {/* Break Logs History */}
-        <div className="animate-fade-in-up delay-175">
-          <BreakLogsHistory
-            employeeId={profile.id}
-            employeeName={profile.full_name}
-            refreshTrigger={breakRefreshTrigger}
-          />
-        </div>
-
-        {/* Main Attendance Card */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 animate-fade-in-up delay-200">
-          {/* Card Header */}
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-gray-100 p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-bold text-gray-900 mb-0.5">Today's Attendance</h2>
-                <p className="text-xs text-gray-600">
-                  {todayAttendance 
-                    ? "Check-in and check-out times" 
-                    : "Mark to get started"}
-                </p>
-              </div>
-              <div className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
-                todayAttendance 
-                  ? "bg-green-100 text-green-700" 
-                  : "bg-gray-100 text-gray-700"
-              }`}>
-                {todayAttendance ? "✓ Present" : "Not Marked"}
-              </div>
-            </div>
-          </div>
-
-          {/* Card Content */}
-          <div className="p-5">
-            {todayAttendance ? (
-              <div className="space-y-4">
-                {/* Time Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {/* Check-in Time */}
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <div className="p-1 bg-blue-500/20 rounded">
-                        <Clock className="w-3.5 h-3.5 text-blue-600" />
-                      </div>
-                      <p className="text-xs font-semibold text-blue-900 uppercase tracking-wide">Check-in</p>
+                  {/* Time Info */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-600 mb-1">Check In</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {formatTime(todayAttendance.check_in_time)}
+                      </p>
                     </div>
-                    <p className="text-base font-bold text-blue-900 mb-1">
-                      {formatTime(todayAttendance.check_in_time)}
-                    </p>
-                    <div className="flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-blue-600" />
-                      <p className="text-xs text-blue-700 font-medium">Marked</p>
+                    <div>
+                      <p className="text-xs text-gray-600 mb-1">
+                        {todayAttendance.check_out_time ? 'Check Out' : 'Duration'}
+                      </p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {todayAttendance.check_out_time 
+                          ? formatTime(todayAttendance.check_out_time)
+                          : workDuration
+                        }
+                      </p>
                     </div>
                   </div>
 
-                  {/* Check-out Time or Work Duration */}
-                  {todayAttendance.check_out_time ? (
-                    <>
-                      <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-3 border border-red-200">
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <div className="p-1 bg-red-500/20 rounded">
-                            <LogOut className="w-3.5 h-3.5 text-red-600" />
-                          </div>
-                          <p className="text-xs font-semibold text-red-900 uppercase tracking-wide">Check-out</p>
-                        </div>
-                        <p className="text-base font-bold text-red-900 mb-1">
-                          {formatTime(todayAttendance.check_out_time)}
-                        </p>
-                        <div className="flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-red-600" />
-                          <p className="text-xs text-red-700 font-medium">Completed</p>
-                        </div>
+                  {/* Checkout Button */}
+                  {canCheckOut && (
+                    <button
+                      onClick={handleCheckOut}
+                      disabled={checkingOut}
+                      className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      {checkingOut ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Checking Out...
+                        </>
+                      ) : (
+                        <>
+                          <LogOut className="w-4 h-4" />
+                          Check Out
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  {windowOpen ? (
+                    <div className="space-y-3">
+                      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                        <MapPin className="w-8 h-8 text-primary" />
                       </div>
-
-                      <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg p-3 border border-green-200">
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <div className="p-1 bg-green-500/20 rounded">
-                            <TrendingUp className="w-3.5 h-3.5 text-green-600" />
-                          </div>
-                          <p className="text-xs font-semibold text-green-900 uppercase tracking-wide">Duration</p>
-                        </div>
-                        <p className="text-base font-bold text-green-900 mb-1">
-                          {(() => {
-                            const checkIn = new Date(todayAttendance.check_in_time);
-                            const checkOut = new Date(todayAttendance.check_out_time);
-                            const diffMs = checkOut.getTime() - checkIn.getTime();
-                            const hours = Math.floor(diffMs / (1000 * 60 * 60));
-                            const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-                            return `${hours}h ${minutes}m`;
-                          })()}
+                      <div>
+                        <h3 className="text-base font-medium text-gray-900 mb-1">Ready to Check In</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Tap the button below to mark your attendance
                         </p>
-                        <div className="flex items-center gap-1">
-                          <Award className="w-3 h-3 text-green-600" />
-                          <p className="text-xs text-green-700 font-medium">Completed</p>
-                        </div>
                       </div>
-                    </>
+                      <button
+                        onClick={handleMarkAttendance}
+                        disabled={marking}
+                        className="w-full bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-primary-foreground py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                      >
+                        {marking ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                            Starting...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-5 h-5" />
+                            Mark Attendance
+                          </>
+                        )}
+                      </button>
+                    </div>
                   ) : (
-                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-3 border border-gray-200">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <div className="p-1 bg-gray-500/20 rounded">
-                          <Clock className="w-3.5 h-3.5 text-gray-600" />
-                        </div>
-                        <p className="text-xs font-semibold text-gray-900 uppercase tracking-wide">Auto Check-out</p>
+                    <div className="space-y-3">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                        <Clock className="w-8 h-8 text-gray-400" />
                       </div>
-                      <p className="text-base font-bold text-gray-900 mb-1">{defaultCheckoutTime}</p>
-                      <div className="flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3 text-gray-600" />
-                        <p className="text-xs text-gray-700 font-medium">System managed</p>
+                      <div>
+                        <h3 className="text-base font-medium text-gray-900 mb-1">Attendance Window Closed</h3>
+                        <p className="text-sm text-gray-600">
+                          Attendance window: {windowDisplay}
+                        </p>
                       </div>
                     </div>
                   )}
                 </div>
-
-                {/* Verification Status */}
-                <div className="border-t border-gray-200 pt-3">
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3 flex items-center gap-3">
-                    <div className="p-1.5 bg-green-500/20 rounded">
-                      <MapPin className="w-4 h-4 text-green-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-green-900 text-xs">Location Verified</p>
-                      <p className="text-xs text-green-700">GPS validation completed</p>
-                    </div>
-                    <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
-                  <Clock className="w-6 h-6 text-gray-400" />
-                </div>
-                <h3 className="text-sm font-bold text-gray-900 mb-1">No Attendance Marked</h3>
-                <p className="text-gray-600 text-sm">
-                  {windowOpen 
-                    ? "Ready to mark your attendance!" 
-                    : `Window: ${windowDisplay}`
-                  }
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Status Alert Banner */}
-        <div className={`rounded-lg p-4 border-l-4 animate-fade-in-up delay-300 ${
-          todayAttendance 
-            ? "bg-green-50 border-green-500 border" 
-            : windowOpen 
-              ? "bg-blue-50 border-blue-500 border" 
-              : "bg-yellow-50 border-yellow-500 border"
-        }`}>
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 pt-0.5">
-              {todayAttendance ? (
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-              ) : windowOpen ? (
-                <AlertCircle className="w-5 h-5 text-blue-600" />
-              ) : (
-                <AlertCircle className="w-5 h-5 text-yellow-600" />
               )}
             </div>
-            <div className="flex-1">
-              <h3 className={`text-sm font-semibold mb-1 ${
-                todayAttendance 
-                  ? "text-green-900" 
-                  : windowOpen 
-                    ? "text-blue-900" 
-                    : "text-yellow-900"
-              }`}>
-                {todayAttendance 
-                  ? "✓ Attendance Recorded" 
-                  : windowOpen 
-                    ? "Ready to Mark" 
-                    : "Window Closed"
-                }
-              </h3>
-              <p className={`text-sm ${
-                todayAttendance 
-                  ? "text-green-700" 
-                  : windowOpen 
-                    ? "text-blue-700" 
-                    : "text-yellow-700"
-              }`}>
-                {todayAttendance 
-                  ? "Your attendance has been marked successfully" 
-                  : windowOpen 
-                    ? `Mark your attendance now. ${windowDisplay}` 
-                    : `Attendance window is closed. ${windowDisplay}`
-                }
-              </p>
-            </div>
-          </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-center animate-fade-in-up delay-400">
-          <div className="w-full max-w-md space-y-3">
-            {/* Mark Attendance Button */}
-            {!todayAttendance && (
-              <button
-                onClick={handleMarkAttendance}
-                disabled={!canMarkAttendance || marking}
-                className="group relative overflow-hidden w-full py-3 px-6 bg-gradient-to-r from-amber-600 to-amber-500 text-white rounded-lg font-semibold text-sm hover:from-amber-700 hover:to-amber-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-amber-600 disabled:hover:to-amber-500 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
-              >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-10 bg-white transition-opacity duration-300" />
-                {marking ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Processing...</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-4 h-4" />
-                    <span>Mark Attendance</span>
-                  </>
-                )}
-              </button>
-            )}
-
-            {/* Checkout Button */}
-            {canCheckOut && (
-              <button
-                onClick={handleCheckOut}
-                disabled={checkingOut}
-                className="group relative overflow-hidden w-full py-3 px-6 bg-gradient-to-r from-green-600 to-emerald-500 text-white rounded-lg font-semibold text-sm hover:from-green-700 hover:to-emerald-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-green-600 disabled:hover:to-emerald-500 flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
-              >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-10 bg-white transition-opacity duration-300" />
-                {checkingOut ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Checking Out...</span>
-                  </>
-                ) : (
-                  <>
-                    <LogOut className="w-4 h-4" />
-                    <span>Check Out</span>
-                  </>
-                )}
-              </button>
-            )}
-
-            {/* Already Checked Out */}
-            {todayAttendance && todayAttendance.check_out_time && (
-              <div className="w-full py-3 px-6 bg-gradient-to-r from-gray-100 to-gray-50 text-gray-600 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 border border-gray-200">
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span>Checked Out</span>
+            {/* Quick Stats */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                    <TrendingUp className="w-3.5 h-3.5 text-green-600" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-600">This Week</span>
+                </div>
+                <p className="text-lg font-bold text-gray-900">5/5</p>
+                <p className="text-xs text-gray-600">Days Present</p>
               </div>
-            )}
+
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Zap className="w-3.5 h-3.5 text-blue-600" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-600">Avg Hours</span>
+                </div>
+                <p className="text-lg font-bold text-gray-900">8.2</p>
+                <p className="text-xs text-gray-600">Per Day</p>
+              </div>
+
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center">
+                    <Award className="w-3.5 h-3.5 text-amber-600" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-600">Streak</span>
+                </div>
+                <p className="text-lg font-bold text-gray-900">12</p>
+                <p className="text-xs text-gray-600">Days</p>
+              </div>
+            </div>
+
+            {/* Time Tracker */}
+            <EmployeeTimeTracker 
+              todayAttendance={todayAttendance}
+              defaultCheckoutTime={defaultCheckoutTime}
+            />
+
+            {/* Break Logs */}
+            <BreakLogsHistory 
+              refreshTrigger={breakRefreshTrigger}
+              onBreakUpdate={handleBreakUpdate}
+            />
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => navigate("/history")}
+                className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-gray-900">View History</p>
+                    <p className="text-xs text-gray-600">Past attendance</p>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate("/leave-management")}
+                className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-gray-900">Leave Request</p>
+                    <p className="text-xs text-gray-600">Apply for leave</p>
+                  </div>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Face Verification Modal */}
-      <FaceVerificationModal
-        isOpen={showFaceVerification}
-        onClose={() => {
-          setShowFaceVerification(false);
-          setMarking(false);
-        }}
-        onVerificationComplete={handleFaceVerificationComplete}
-        employeeName={profile?.full_name || 'Employee'}
-        employeeId={profile?.id || ''}
-      />
     </DashboardLayout>
   );
 };
