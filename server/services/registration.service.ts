@@ -78,8 +78,6 @@ export const registrationService = {
           designation,
           role_type,
           status: 'pending',
-          face_registered: false, // No face registration without ML service
-          face_registered_at: null,
         });
 
       if (profileError) {
@@ -92,18 +90,6 @@ export const registrationService = {
       }
 
       console.log('  ✅ Profile created with pending status');
-
-      // Register face with ML service using all photos
-      try {
-        console.log(`  🔍 Face registration skipped - ML service not available`);
-        console.log(`  📸 Number of photos received: ${face_photos.length}`);
-        
-        // Face registration is disabled - just log the attempt
-        console.log(`  ⚠️ ML service unavailable, face will be registered later`);
-      } catch (error) {
-        console.log('  ❌ ML service error:', error.message);
-        console.log('  ⚠️ ML service unavailable, face will be registered later');
-      }
 
       // Create employee request
       const { error: requestError } = await supabase

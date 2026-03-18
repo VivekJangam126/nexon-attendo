@@ -15,7 +15,6 @@ import type {
 } from '../types/attendance';
 import { attendanceSettingsService } from './attendance-settings.service';
 import { rateLimitService } from './rate-limit.service';
-import { faceRecognitionService } from './face-recognition.service';
 
 /**
  * Get current IST time
