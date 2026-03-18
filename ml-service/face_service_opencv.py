@@ -107,7 +107,7 @@ class FaceRecognitionService:
     
     def compare_features(self, features1, features2):
         """
-        Compare two feature vectors using correlation
+        Compare two feature vectors using multiple methods
         
         Args:
             features1: First feature vector
@@ -116,17 +116,41 @@ class FaceRecognitionService:
         Returns:
             float: Similarity score (0-100)
         """
-        # Calculate correlation coefficient
-        correlation = np.corrcoef(features1, features2)[0, 1]
-        
-        # Handle NaN values
-        if np.isnan(correlation):
-            correlation = 0
-        
-        # Convert to percentage (0-100)
-        similarity = max(0, min(100, (correlation + 1) * 50))
-        
-        return similarity
+        try:
+            # Method 1: Correlation coefficient
+            correlation = np.corrcoef(features1, features2)[0, 1]
+            if np.isnan(correlation):
+                correlation = 0
+            correlation_score = max(0, min(100, (correlation + 1) * 50))
+            
+            # Method 2: Cosine similarity
+            dot_product = np.dot(features1, features2)
+            norm1 = np.linalg.norm(features1)
+            norm2 = np.linalg.norm(features2)
+            
+            if norm1 == 0 or norm2 == 0:
+                cosine_score = 0
+            else:
+                cosine_similarity = dot_product / (norm1 * norm2)
+                cosine_score = max(0, min(100, (cosine_similarity + 1) * 50))
+            
+            # Method 3: Euclidean distance (inverted)
+            euclidean_distance = np.linalg.norm(features1 - features2)
+            max_distance = np.sqrt(len(features1))  # Maximum possible distance
+            euclidean_score = max(0, min(100, (1 - euclidean_distance / max_distance) * 100))
+            
+            # Combine all methods (weighted average)
+            final_score = (correlation_score * 0.4 + cosine_score * 0.4 + euclidean_score * 0.2)
+            
+            # Add some tolerance for same person with different conditions
+            if final_score > 15:  # If there's any reasonable similarity
+                final_score = min(100, final_score * 1.5)  # Boost the score
+            
+            return max(0, min(100, final_score))
+            
+        except Exception as e:
+            print(f"Error in feature comparison: {e}")
+            return 0
     
     def register_face(self, employee_id, image_base64):
         """

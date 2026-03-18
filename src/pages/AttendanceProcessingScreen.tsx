@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { MapPin, ShieldCheck, Loader2, Camera } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
+import FaceVerificationModal from "@/components/face/FaceVerificationModal";
 import { useAuth } from "@/hooks/useAuth";
 import { attendanceService, attendanceSettingsService } from "@server";
 import { getDeviceFingerprint, getUserAgent } from "@/utils/device-fingerprint";
+import { toast } from "@/hooks/use-toast";
 
 type ProcessingStep = "location" | "face" | "verifying" | "complete";
 
@@ -15,25 +17,29 @@ const AttendanceProcessingScreen = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [steps, setSteps] = useState<{ key: ProcessingStep; icon: typeof MapPin; label: string; description: string }[]>([]);
+  const [showFaceVerification, setShowFaceVerification] = useState(false);
+  const [locationData, setLocationData] = useState<{ latitude?: number; longitude?: number }>({});
+  const [faceVerificationComplete, setFaceVerificationComplete] = useState(false);
+  const [faceVerificationData, setFaceVerificationData] = useState<{ verified: boolean; confidence?: number }>({ verified: false });
 
-  // Get face verification data from navigation state
-  const faceVerified = location.state?.faceVerified || false;
-  const faceConfidence = location.state?.faceConfidence || 0;
+  // Get face verification requirement from navigation state
+  const requiresFaceVerification = location.state?.requiresFaceVerification || false;
+  const employeeId = location.state?.employeeId;
 
   useEffect(() => {
-    // Set up steps based on whether face verification was performed
+    // Set up steps based on whether face verification is required
     const baseSteps = [
       { key: "location" as ProcessingStep, icon: MapPin, label: "Checking your location", description: "Verifying GPS coordinates" },
     ];
 
-    if (faceVerified) {
-      baseSteps.push({ key: "face" as ProcessingStep, icon: Camera, label: "Face verified", description: `Identity confirmed (${faceConfidence?.toFixed(1)}% confidence)` });
+    if (requiresFaceVerification) {
+      baseSteps.push({ key: "face" as ProcessingStep, icon: Camera, label: "Face verification", description: "Verifying your identity" });
     }
 
     baseSteps.push({ key: "verifying" as ProcessingStep, icon: ShieldCheck, label: "Recording attendance", description: "Saving your attendance record" });
 
     setSteps(baseSteps);
-  }, [faceVerified, faceConfidence]);
+  }, [requiresFaceVerification]);
 
   useEffect(() => {
     const processAttendance = async () => {
@@ -43,15 +49,13 @@ const AttendanceProcessingScreen = () => {
       }
 
       try {
-        // Always try to get GPS location (for record-keeping)
-        // But only validate if strict mode is enabled
-        let latitude: number | undefined;
-        let longitude: number | undefined;
-
-        // Step 1: Request GPS location
+        // Step 1: Get GPS location first
         setCurrentStep(0);
         console.log('📍 Requesting GPS location...');
         
+        let latitude: number | undefined;
+        let longitude: number | undefined;
+
         if ('geolocation' in navigator) {
           try {
             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -67,69 +71,23 @@ const AttendanceProcessingScreen = () => {
             console.log('✅ GPS location obtained:', latitude, longitude);
           } catch (gpsError) {
             console.log('⚠️  GPS error:', gpsError);
-            // GPS denied or failed
-            // If strict mode is enabled, this will be caught by backend validation
-            // If strict mode is disabled, we'll proceed without GPS
           }
         }
 
+        setLocationData({ latitude, longitude });
         await new Promise((resolve) => setTimeout(resolve, 800));
         setCompletedSteps((prev) => [...prev, 0]);
 
-        // Step 2: Show face verification step if it was performed
-        if (faceVerified) {
+        // Step 2: Face verification if required
+        if (requiresFaceVerification && !faceVerificationComplete) {
           setCurrentStep(1);
-          console.log('👤 Face verification completed');
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          setCompletedSteps((prev) => [...prev, 1]);
-          setCurrentStep(2); // Move to verifying step
-        } else {
-          setCurrentStep(1); // Move directly to verifying step
+          console.log('👤 Starting face verification...');
+          setShowFaceVerification(true);
+          return; // Wait for face verification to complete
         }
 
-        // Check strict mode
-        const { strictMode } = await attendanceSettingsService.getStrictMode();
-        console.log('🔒 Strict mode:', strictMode);
-
-        // Final step: Mark attendance
-        console.log('💾 Marking attendance...');
-
-        // Get device fingerprint and user agent for tracking
-        const deviceId = getDeviceFingerprint();
-        const userAgent = getUserAgent();
-        console.log('📱 Device ID:', deviceId.substring(0, 20) + '...');
-
-        const result = await attendanceService.markAttendance(
-          profile,
-          latitude,
-          longitude,
-          undefined, // IP address will be extracted on backend
-          deviceId,
-          userAgent
-        );
-        
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        setCompletedSteps((prev) => [...prev, faceVerified ? 2 : 1]);
-
-        // Navigate based on result
-        setTimeout(() => {
-          if (result.success) {
-            navigate("/attendance-success", { 
-              state: { 
-                attendance: result.attendance,
-                faceVerified,
-                faceConfidence
-              } 
-            });
-          } else {
-            navigate("/attendance-error", { 
-              state: { 
-                error: 'error' in result ? result.error : 'Failed to mark attendance',
-                errorCode: 'errorCode' in result ? result.errorCode : 'VALIDATION_FAILED'
-              } 
-            });
-          }
-        }, 500);
+        // Step 3: Mark attendance (either after face verification or directly)
+        await markAttendance(latitude, longitude);
       } catch (error) {
         console.error('❌ Processing error:', error);
         navigate("/attendance-error", { 
@@ -144,7 +102,100 @@ const AttendanceProcessingScreen = () => {
     if (steps.length > 0) {
       processAttendance();
     }
-  }, [navigate, profile, steps, faceVerified, faceConfidence]);
+  }, [navigate, profile, steps, requiresFaceVerification, faceVerificationComplete]);
+
+  const handleFaceVerificationComplete = async (success: boolean, confidence?: number) => {
+    setShowFaceVerification(false);
+    setFaceVerificationData({ verified: success, confidence });
+    
+    if (success) {
+      console.log('✅ Face verification successful:', confidence);
+      toast({
+        title: "Face Verified",
+        description: `Identity confirmed (${confidence?.toFixed(1)}% confidence)`,
+      });
+      
+      // Complete face verification step
+      setCompletedSteps((prev) => [...prev, 1]);
+      setFaceVerificationComplete(true);
+      
+      // Proceed to mark attendance
+      await markAttendance(locationData.latitude, locationData.longitude);
+    } else {
+      console.log('❌ Face verification failed');
+      toast({
+        title: "Face Verification Failed",
+        description: "Your face doesn't match the registered photo. Please try again or contact admin.",
+        variant: "destructive",
+      });
+      
+      // Go back to dashboard
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 2000);
+    }
+  };
+
+  const markAttendance = async (gpsLatitude?: number, gpsLongitude?: number) => {
+    try {
+      // Set current step to verifying
+      const verifyingStepIndex = requiresFaceVerification ? 2 : 1;
+      setCurrentStep(verifyingStepIndex);
+      
+      console.log('💾 Marking attendance...');
+      console.log('📍 Using GPS coordinates:', gpsLatitude, gpsLongitude);
+
+      // Get device fingerprint and user agent for tracking
+      const deviceId = getDeviceFingerprint();
+      const userAgent = getUserAgent();
+
+      // Use passed coordinates or fallback to locationData
+      const finalLatitude = gpsLatitude ?? locationData.latitude;
+      const finalLongitude = gpsLongitude ?? locationData.longitude;
+
+      console.log('📍 Final coordinates being sent:', finalLatitude, finalLongitude);
+
+      const result = await attendanceService.markAttendance(
+        profile!,
+        finalLatitude,
+        finalLongitude,
+        undefined, // IP address will be extracted on backend
+        deviceId,
+        userAgent
+      );
+      
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setCompletedSteps((prev) => [...prev, verifyingStepIndex]);
+
+      // Navigate based on result
+      setTimeout(() => {
+        if (result.success) {
+          navigate("/attendance-success", { 
+            state: { 
+              attendance: result.attendance,
+              faceVerified: faceVerificationData.verified,
+              faceConfidence: faceVerificationData.confidence
+            } 
+          });
+        } else {
+          navigate("/attendance-error", { 
+            state: { 
+              error: 'error' in result ? result.error : 'Failed to mark attendance',
+              errorCode: 'errorCode' in result ? result.errorCode : 'VALIDATION_FAILED'
+            } 
+          });
+        }
+      }, 500);
+    } catch (error) {
+      console.error('❌ Attendance marking error:', error);
+      navigate("/attendance-error", { 
+        state: { 
+          error: 'Failed to mark attendance',
+          errorCode: 'VALIDATION_FAILED'
+        } 
+      });
+    }
+  };
 
   return (
     <MobileContainer>
@@ -163,7 +214,7 @@ const AttendanceProcessingScreen = () => {
         {/* Title */}
         <h1 className="text-title text-center mb-2">Marking Attendance</h1>
         <p className="text-body-secondary text-center mb-12">
-          {faceVerified ? "Face verified! Processing your attendance..." : "Please wait while we verify your attendance"}
+          {faceVerificationData.verified ? "Face verified! Processing your attendance..." : "Please wait while we verify your attendance"}
         </p>
 
         {/* Steps */}
@@ -228,6 +279,17 @@ const AttendanceProcessingScreen = () => {
           Please don't close the app while we process your attendance
         </p>
       </div>
+
+      {/* Face Verification Modal */}
+      {showFaceVerification && employeeId && (
+        <FaceVerificationModal
+          isOpen={showFaceVerification}
+          onClose={() => setShowFaceVerification(false)}
+          onVerificationComplete={handleFaceVerificationComplete}
+          employeeId={employeeId}
+          employeeName={profile?.full_name || profile?.email || 'Employee'}
+        />
+      )}
     </MobileContainer>
   );
 };

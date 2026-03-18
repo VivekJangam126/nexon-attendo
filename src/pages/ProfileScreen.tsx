@@ -1,23 +1,16 @@
 import { useNavigate } from "react-router-dom";
 import { 
   User, Briefcase, Building2, Mail, Calendar, 
-  LogOut, ChevronRight, Lock, HelpCircle, FileText, Info, Shield, Camera, Upload, X
+  LogOut, ChevronRight, Lock, HelpCircle, FileText, Info, Shield, Camera
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import LiveCameraCapture from "@/components/face/LiveCameraCapture";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 
@@ -25,10 +18,8 @@ const ProfileScreen = () => {
   const navigate = useNavigate();
   const { profile, logout: authLogout, refreshProfile } = useAuth();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [showPhotoUploadDialog, setShowPhotoUploadDialog] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [showFaceRegistration, setShowFaceRegistration] = useState(false);
+  const [registeringFace, setRegisteringFace] = useState(false);
 
   useEffect(() => {
     if (!profile) {
@@ -83,102 +74,52 @@ const ProfileScreen = () => {
     }
   };
 
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast({ title: "Invalid File", description: "Please select an image file (JPG, PNG)", variant: "destructive" });
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "File Too Large", description: "Image size must be less than 5MB", variant: "destructive" });
-      return;
-    }
-
-    setSelectedPhoto(file);
+  const handleFaceRegistrationComplete = async (success: boolean, photos: string[]) => {
+    setShowFaceRegistration(false);
     
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPhotoPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleUploadPhoto = async () => {
-    if (!selectedPhoto || !profile?.id) return;
-
-    setUploadingPhoto(true);
-
-    try {
-      // Convert file to base64
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        try {
-          const base64Data = reader.result as string;
-          
-          // Upload photo via API
-          const response = await fetch('/api/upload-photo', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              employeeId: profile.id,
-              photoData: base64Data,
-              fileName: selectedPhoto.name,
-            }),
-          });
-
-          const result = await response.json();
-
-          if (result.success) {
-            toast({ 
-              title: "Photo Uploaded", 
-              description: "Profile photo uploaded successfully." 
-            });
-            
-            setShowPhotoUploadDialog(false);
-            setSelectedPhoto(null);
-            setPhotoPreview(null);
-            
-            // Refresh the profile data to show updated photo
-            await refreshProfile();
-          } else {
-            throw new Error(result.error || 'Upload failed');
-          }
-        } catch (error) {
-          console.error('Upload error:', error);
-          toast({ 
-            title: "Upload Failed", 
-            description: "Failed to upload photo. Please try again.", 
-            variant: "destructive" 
-          });
-        } finally {
-          setUploadingPhoto(false);
-        }
-      };
+    if (success && photos.length > 0) {
+      setRegisteringFace(true);
       
-      reader.readAsDataURL(selectedPhoto);
-    } catch (error) {
-      console.error('Photo processing error:', error);
-      toast({ 
-        title: "Upload Failed", 
-        description: "Failed to process photo. Please try again.", 
-        variant: "destructive" 
-      });
-      setUploadingPhoto(false);
-    }
-  };
+      try {
+        console.log(`🚀 Registering face with ${photos.length} photos`);
+        
+        // Register face with ML service using burst mode
+        const response = await fetch('/api/face-recognition', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'register',
+            employee_id: profile!.id,
+            face_photos: photos,
+          }),
+        });
 
-  const cancelPhotoUpload = () => {
-    setShowPhotoUploadDialog(false);
-    setSelectedPhoto(null);
-    setPhotoPreview(null);
+        const result = await response.json();
+
+        if (result.success) {
+          toast({
+            title: "Face Registered Successfully",
+            description: `Your face has been registered with ${result.faces_detected || photos.length} photos for secure attendance verification.`,
+          });
+          
+          // Refresh profile to show updated face registration status
+          await refreshProfile();
+        } else {
+          throw new Error(result.message || 'Face registration failed');
+        }
+      } catch (error) {
+        console.error('Face registration error:', error);
+        toast({
+          title: "Registration Failed",
+          description: "Failed to register your face. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setRegisteringFace(false);
+      }
+    }
   };
 
   if (!profile) {
@@ -228,32 +169,20 @@ const ProfileScreen = () => {
 
         {/* Profile Photo & Face Recognition */}
         <div>
-          <h2 className="text-sm font-bold text-gray-900 mb-2">Profile Photo & Security</h2>
+          <h2 className="text-sm font-bold text-gray-900 mb-2">Face Recognition Security</h2>
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
             <div className="flex items-start gap-3">
-              {profile.profile_photo_url ? (
-                <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-gray-200 flex-shrink-0">
-                  <img 
-                    src={profile.profile_photo_url} 
-                    alt={profile.full_name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Camera className="w-8 h-8 text-gray-400" />
-                </div>
-              )}
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 border-2 border-blue-200">
+                <Camera className="w-8 h-8 text-blue-600" />
+              </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">
-                  {profile.profile_photo_url ? 'Profile Photo Uploaded' : 'No Profile Photo'}
+                  {profile.face_registered ? 'Face Recognition Active' : 'Face Recognition Setup'}
                 </h3>
                 <p className="text-xs text-gray-600 mb-3">
                   {profile.face_registered 
-                    ? 'Face recognition is enabled for secure attendance verification'
-                    : profile.profile_photo_url
-                    ? 'Face recognition will be enabled once ML service is configured'
-                    : 'Upload a profile photo to enable face recognition for attendance'
+                    ? 'Your face is registered for secure attendance verification'
+                    : 'Register your face using live camera for secure attendance verification'
                   }
                 </p>
                 <div className="flex items-center gap-2">
@@ -262,21 +191,18 @@ const ProfileScreen = () => {
                       <Camera className="w-3.5 h-3.5" />
                       Face Recognition Active
                     </span>
-                  ) : profile.profile_photo_url ? (
-                    <span className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-medium">
-                      Pending ML Service Setup
-                    </span>
                   ) : (
                     <span className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium">
-                      Photo Required
+                      Face Registration Required
                     </span>
                   )}
                   <button
-                    onClick={() => setShowPhotoUploadDialog(true)}
-                    className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex items-center gap-1"
+                    onClick={() => setShowFaceRegistration(true)}
+                    disabled={registeringFace}
+                    className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex items-center gap-1 disabled:opacity-50"
                   >
-                    <Upload className="w-3.5 h-3.5" />
-                    {profile.profile_photo_url ? 'Update' : 'Upload'}
+                    <Camera className="w-3.5 h-3.5" />
+                    {registeringFace ? 'Registering...' : profile.face_registered ? 'Re-register' : 'Register Face'}
                   </button>
                 </div>
               </div>
@@ -436,96 +362,17 @@ const ProfileScreen = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Photo Upload Dialog */}
-      <Dialog open={showPhotoUploadDialog} onOpenChange={setShowPhotoUploadDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Upload Profile Photo</DialogTitle>
-            <DialogDescription>
-              Upload a clear, front-facing photo for face recognition verification
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            {photoPreview ? (
-              <div className="relative">
-                <div className="w-full aspect-square bg-muted rounded-xl overflow-hidden border-2 border-border">
-                  <img 
-                    src={photoPreview} 
-                    alt="Preview" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPhoto(null);
-                    setPhotoPreview(null);
-                  }}
-                  className="absolute top-2 right-2 p-2 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors shadow-lg"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <label className="block cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/jpg"
-                  onChange={handlePhotoSelect}
-                  className="hidden"
-                />
-                <div className="w-full aspect-square bg-muted rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors flex flex-col items-center justify-center gap-3">
-                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                    <Upload className="w-8 h-8 text-primary" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-foreground">Click to select photo</p>
-                    <p className="text-xs text-muted-foreground mt-1">JPG or PNG, max 5MB</p>
-                  </div>
-                </div>
-              </label>
-            )}
-            
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs text-blue-800">
-                <strong>Tips for best results:</strong><br />
-                • Face should be clearly visible and front-facing<br />
-                • Good lighting with no shadows<br />
-                • Remove sunglasses or hats<br />
-                • Neutral expression works best
-              </p>
-            </div>
-          </div>
-          
-          <DialogFooter className="flex gap-3">
-            <button 
-              onClick={cancelPhotoUpload} 
-              className="flex-1 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
-              disabled={uploadingPhoto}
-            >
-              Cancel
-            </button>
-            <button 
-              onClick={handleUploadPhoto} 
-              className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
-              disabled={!selectedPhoto || uploadingPhoto}
-            >
-              {uploadingPhoto ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4" />
-                  Upload Photo
-                </>
-              )}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Face Registration with Live Camera */}
+      {showFaceRegistration && (
+        <LiveCameraCapture
+          isOpen={showFaceRegistration}
+          onClose={() => setShowFaceRegistration(false)}
+          onComplete={handleFaceRegistrationComplete}
+          title="Register Your Face"
+          description="Use live camera to capture 50 photos for secure attendance verification"
+          captureCount={50}
+        />
+      )}
     </DashboardLayout>
   );
 };

@@ -9,7 +9,165 @@ import type { RegistrationData, RegistrationResponse } from '../types/registrati
 
 export const registrationService = {
   /**
-   * Register a new employee
+   * Register a new employee with face photos
+   * Creates auth user, profile (status=pending), and registers face with ML service
+   * 
+   * @param data - Registration data with face photos
+   * @returns RegistrationResponse with success status
+   */
+  async registerEmployeeWithFace(data: RegistrationData & { face_photos: string[] }): Promise<RegistrationResponse> {
+    try {
+      const { email, password, full_name, office_id, designation, role_type, face_photos } = data;
+
+      console.log('🔍 [REGISTRATION] Starting employee registration with face...');
+      console.log('  Email:', email);
+      console.log('  Office ID:', office_id);
+      console.log('  Face Photos:', face_photos.length);
+
+      // Verify the selected office exists and is active
+      const { data: selectedOffice, error: officeError } = await supabase
+        .from('offices')
+        .select('id, name')
+        .eq('id', office_id)
+        .eq('is_active', true)
+        .single();
+
+      if (officeError || !selectedOffice) {
+        console.log('  ❌ Selected office not found or inactive');
+        return {
+          success: false,
+          userId: null,
+          error: new Error('Selected office is not available. Please contact admin.'),
+        };
+      }
+
+      console.log('  🏢 Assigning to office:', selectedOffice.name);
+
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name,
+          },
+        },
+      });
+
+      if (authError || !authData.user) {
+        console.log('  ❌ Auth user creation failed:', authError?.message);
+        return {
+          success: false,
+          userId: null,
+          error: authError || new Error('Failed to create user account'),
+        };
+      }
+
+      const userId = authData.user.id;
+      console.log('  ✅ Auth user created:', userId);
+
+      // Create profile with pending status
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email,
+          full_name,
+          role: 'employee', // Set default role
+          office_location: office_id, // Use office_location column name
+          designation,
+          role_type,
+          status: 'pending',
+          face_registered: true, // Mark as registered since we have face photos
+          face_registered_at: new Date().toISOString(),
+        });
+
+      if (profileError) {
+        console.log('  ❌ Profile creation failed:', profileError.message);
+        return {
+          success: false,
+          userId: null,
+          error: profileError,
+        };
+      }
+
+      console.log('  ✅ Profile created with pending status');
+
+      // Register face with ML service using all photos
+      try {
+        console.log(`  🔍 Starting face registration for user: ${userId}`);
+        console.log(`  📸 Number of photos received: ${face_photos.length}`);
+        console.log(`  📊 Photo sizes:`, face_photos.map((photo, i) => `${i+1}: ${photo.length} bytes`));
+        
+        const faceRecognitionService = await import('./face-recognition.service');
+        const faceResult = await faceRecognitionService.faceRecognitionService.registerFaceWithPhotos(
+          userId, 
+          face_photos // Use all 50 photos for registration
+        );
+        
+        console.log(`  📸 Sending ${face_photos.length} photos to ML service for user: ${userId}`);
+        console.log(`  🔬 ML service response:`, {
+          success: faceResult.success,
+          message: faceResult.message,
+          faces_detected: faceResult.faces_detected,
+          encoding_saved: faceResult.encoding_saved
+        });
+        
+        if (faceResult.success) {
+          console.log(`  ✅ Face registered with ML service using ${face_photos.length} photos`);
+        } else {
+          console.log('  ⚠️ Face registration failed, but continuing:', faceResult.message);
+        }
+      } catch (error) {
+        console.log('  ❌ ML service error:', error.message);
+        console.log('  ⚠️ ML service unavailable, face will be registered later');
+      }
+
+      // Create employee request
+      const { error: requestError } = await supabase
+        .from('employee_requests')
+        .insert({
+          user_id: userId,
+          full_name,
+          email,
+          office_id,
+          status: 'pending',
+        });
+
+      if (requestError) {
+        console.log('  ❌ Employee request creation failed:', requestError.message);
+        return {
+          success: false,
+          userId: null,
+          error: requestError,
+        };
+      }
+
+      console.log('  ✅ Employee request created');
+      
+      // Step 5: Immediately sign out the user (they cannot login until approved)
+      await supabase.auth.signOut();
+      console.log('  ✅ User signed out - cannot login until approved');
+      
+      console.log('🎉 [REGISTRATION] Registration completed successfully');
+
+      return {
+        success: true,
+        userId,
+        error: null,
+      };
+    } catch (error) {
+      console.error('❌ [REGISTRATION] Unexpected error:', error);
+      return {
+        success: false,
+        userId: null,
+        error: error instanceof Error ? error : new Error('Registration failed'),
+      };
+    }
+  },
+
+  /**
+   * Register a new employee (legacy method - kept for compatibility)
    * Creates auth user, profile (status=pending), and employee_request
    * User CANNOT login until admin approves
    * SINGLE OFFICE MODE: Auto-assigns to SmartMatrix Pvt Ltd
@@ -176,7 +334,7 @@ export const registrationService = {
           full_name,
           role: 'employee',
           status: 'pending', // ⚠️ User is pending approval
-          office_location: office_id, // Auto-assigned to SmartMatrix
+          office_location: office_id, // Use office_location column name
           designation: designation || 'Not Assigned',
           role_type: role_type || 'Employee',
           profile_photo_url: profilePhotoUrl,

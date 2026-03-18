@@ -113,10 +113,11 @@ const DashboardScreen = () => {
     if (!profile || marking) return;
     
     setMarking(true);
-    setCheckingFaceRegistration(true);
 
     try {
-      // Check if employee has face registered via API
+      // Step 1: Check if employee has face registered
+      setCheckingFaceRegistration(true);
+      
       const response = await fetch('/api/face-recognition', {
         method: 'POST',
         headers: {
@@ -134,19 +135,33 @@ const DashboardScreen = () => {
 
       console.log('Face registration check:', faceStatus);
 
-      if (faceStatus.registered && faceStatus.mlServiceAvailable) {
-        // Face is registered and ML service is available - show face verification
-        console.log('Showing face verification modal');
-        setShowFaceVerification(true);
-        setMarking(false); // Reset marking state, will be set again in face verification
-      } else {
-        // No face registration or ML service unavailable - proceed with standard attendance
-        console.log('Proceeding with standard attendance - Face registered:', faceStatus.registered, 'ML available:', faceStatus.mlServiceAvailable);
-        navigate("/attendance-processing");
-      }
+      // Step 2: Always go to attendance processing first (for geolocation)
+      // Face verification will happen AFTER geolocation if needed
+      
+      // TEMPORARY FIX: Force face verification for testing
+      console.log('🔧 FORCING face verification for testing...');
+      navigate("/attendance-processing", { 
+        state: { 
+          requiresFaceVerification: true,
+          employeeId: profile.id
+        } 
+      });
+      
+      // Original logic (commented out for testing):
+      // if (faceStatus.registered && faceStatus.mlServiceAvailable) {
+      //   navigate("/attendance-processing", { 
+      //     state: { 
+      //       requiresFaceVerification: true,
+      //       employeeId: profile.id
+      //     } 
+      //   });
+      // } else {
+      //   navigate("/attendance-processing");
+      // }
     } catch (error) {
       console.error('Face registration check failed:', error);
       setCheckingFaceRegistration(false);
+      setMarking(false);
       // Fallback to standard attendance
       navigate("/attendance-processing");
     }

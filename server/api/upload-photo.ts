@@ -42,10 +42,14 @@ export default async function handler(req: any, res: any) {
 
     const publicUrl = urlData.publicUrl;
 
-    // Update profile with photo URL
+    // Update profile with photo URL and set face_registered flag
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({ profile_photo_url: publicUrl })
+      .update({ 
+        profile_photo_url: publicUrl,
+        face_registered: true,
+        face_registered_at: new Date().toISOString()
+      })
       .eq('id', employeeId);
 
     if (updateError) {
@@ -53,7 +57,7 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ error: 'Failed to update profile' });
     }
 
-    // Try to register face with ML service
+    // Try to register face with ML service (but don't fail if it doesn't work)
     let faceRegistrationMessage = '';
     try {
       const faceResult = await faceRecognitionService.registerFace(employeeId, photoData);

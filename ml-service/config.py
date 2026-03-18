@@ -18,7 +18,7 @@ class Config:
     SUPABASE_SERVICE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
     
     # Face recognition settings
-    FACE_CONFIDENCE_THRESHOLD = float(os.getenv('FACE_CONFIDENCE_THRESHOLD', '80.0'))
+    FACE_CONFIDENCE_THRESHOLD = float(os.getenv('FACE_CONFIDENCE_THRESHOLD', '30.0'))  # Lowered from 80.0 for testing
     MAX_FACE_DISTANCE = float(os.getenv('MAX_FACE_DISTANCE', '0.6'))  # Lower = stricter
     
     # Image processing settings

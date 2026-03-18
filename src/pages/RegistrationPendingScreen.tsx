@@ -65,7 +65,23 @@ const RegistrationPendingScreen = () => {
 
         {/* Back to Login */}
         <div className="w-full max-w-sm mt-8 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-          <button onClick={() => navigate("/login")} className="btn-primary-large">
+          <button 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('🔄 Button clicked, clearing session and navigating to login...');
+              
+              // Clear any potential session data
+              localStorage.clear();
+              sessionStorage.clear();
+              
+              // Force navigation with replace and add parameter to indicate source
+              console.log('🔄 Using direct window navigation with replace...');
+              window.location.replace("/login?from=registration-pending");
+            }} 
+            className="btn-primary-large"
+            type="button"
+          >
             Back to Login
           </button>
         </div>

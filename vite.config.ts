@@ -82,6 +82,9 @@ export default defineConfig(({ mode }) => {
                     const action = parts[1]; // e.g., 'apply', 'balance', 'my-requests'
                     console.log('[API Middleware] Loading leave handler:', action);
                     handler = await import(`./server/api/leave/${action}.ts`);
+                  } else if (pathname.startsWith('register-employee-with-face')) {
+                    console.log('[API Middleware] Loading register-employee-with-face handler');
+                    handler = await import('./server/api/register-employee-with-face.ts');
                   } else if (pathname.startsWith('payroll')) {
                     console.log('[API Middleware] Loading payroll handler');
                     handler = await import('./server/api/payroll.ts');

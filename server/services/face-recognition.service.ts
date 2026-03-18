@@ -50,13 +50,13 @@ export const faceRecognitionService = {
   },
 
   /**
-   * Register employee face with ML service
+   * Register employee face with ML service using multiple photos (burst mode)
    * 
    * @param employeeId - UUID of employee
-   * @param imageBase64 - Base64 encoded image
+   * @param imageBase64Array - Array of base64 encoded images
    * @returns Registration result
    */
-  async registerFace(employeeId: string, imageBase64: string): Promise<FaceRegistrationResult> {
+  async registerFaceWithPhotos(employeeId: string, imageBase64Array: string[]): Promise<FaceRegistrationResult> {
     try {
       const isAvailable = await this.isMLServiceAvailable();
       
@@ -69,6 +69,8 @@ export const faceRecognitionService = {
 
       const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5000';
       
+      console.log(`🚀 Registering face with ${imageBase64Array.length} photos for employee: ${employeeId}`);
+      
       const response = await fetch(`${ML_SERVICE_URL}/register-face`, {
         method: 'POST',
         headers: {
@@ -76,9 +78,9 @@ export const faceRecognitionService = {
         },
         body: JSON.stringify({
           employee_id: employeeId,
-          image: imageBase64,
+          face_photos: imageBase64Array,
         }),
-        signal: AbortSignal.timeout(30000), // 30 second timeout
+        signal: AbortSignal.timeout(180000), // 3 minute timeout for multiple photos
       });
 
       const result = await response.json();
@@ -92,6 +94,8 @@ export const faceRecognitionService = {
             face_registered_at: new Date().toISOString(),
           })
           .eq('id', employeeId);
+        
+        console.log(`✅ Face registration successful: ${result.faces_detected} photos processed`);
       }
 
       return result;
@@ -102,6 +106,17 @@ export const faceRecognitionService = {
         message: `Face registration failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
+  },
+  /**
+   * Register employee face with ML service (legacy single photo method)
+   * 
+   * @param employeeId - UUID of employee
+   * @param imageBase64 - Base64 encoded image
+   * @returns Registration result
+   */
+  async registerFace(employeeId: string, imageBase64: string): Promise<FaceRegistrationResult> {
+    // Use the new multi-photo method with single photo
+    return this.registerFaceWithPhotos(employeeId, [imageBase64]);
   },
 
   /**
@@ -167,39 +182,32 @@ export const faceRecognitionService = {
    */
   async checkFaceRegistration(employeeId: string): Promise<FaceRegistrationStatus> {
     try {
-      const isAvailable = await this.isMLServiceAvailable();
-      
-      if (!isAvailable) {
-        // Check database for face_registered flag
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('face_registered')
-          .eq('id', employeeId)
-          .single();
+      // Always check database first for face_registered flag
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('face_registered')
+        .eq('id', employeeId)
+        .single();
 
+      const isRegisteredInDB = profile?.face_registered || false;
+
+      // If not registered in database, return false
+      if (!isRegisteredInDB) {
         return {
-          registered: profile?.face_registered || false,
-          message: profile?.face_registered 
-            ? 'Face registered (ML service offline)'
-            : 'Face not registered',
+          registered: false,
+          message: 'Face not registered',
         };
       }
 
-      const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5000';
+      // If registered in database, check if ML service is available
+      const isAvailable = await this.isMLServiceAvailable();
       
-      const response = await fetch(`${ML_SERVICE_URL}/check-registration`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          employee_id: employeeId,
-        }),
-        signal: AbortSignal.timeout(10000), // 10 second timeout
-      });
-
-      const result = await response.json();
-      return result;
+      return {
+        registered: true,
+        message: isAvailable 
+          ? 'Face registered and ML service available'
+          : 'Face registered (ML service offline)',
+      };
     } catch (error) {
       console.error('Face registration check error:', error);
       return {

@@ -46,6 +46,11 @@ export default async function handler(req: Request, res: Response) {
       return await getServiceStatus(req, res);
     }
 
+    // POST /api/face-recognition/sync-flags
+    if (pathname === '/sync-flags' && method === 'POST') {
+      return await syncFaceRegistrationFlags(req, res);
+    }
+
     return res.status(404).json({
       success: false,
       message: 'Endpoint not found',
@@ -69,13 +74,38 @@ export default async function handler(req: Request, res: Response) {
  */
 export async function handleFaceRecognition(req: Request, res: Response) {
   try {
-    const { action, selfie, employee_id } = req.body;
+    const { action, selfie, employee_id, face_photos, image } = req.body;
 
     if (!action) {
       return res.status(400).json({
         success: false,
         message: 'Action is required',
       });
+    }
+
+    if (action === 'register') {
+      if (!employee_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'employee_id is required for registration',
+        });
+      }
+
+      // Handle multiple photos registration (burst mode)
+      if (face_photos && Array.isArray(face_photos) && face_photos.length > 0) {
+        console.log(`🚀 Burst mode registration: ${face_photos.length} photos for employee ${employee_id}`);
+        const result = await faceRecognitionService.registerFaceWithPhotos(employee_id, face_photos);
+        return res.status(result.success ? 200 : 400).json(result);
+      } else if (image) {
+        // Single photo registration (legacy)
+        const result = await faceRecognitionService.registerFace(employee_id, image);
+        return res.status(result.success ? 200 : 400).json(result);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'face_photos or image data is required for registration',
+        });
+      }
     }
 
     if (action === 'verify') {
@@ -118,7 +148,7 @@ export async function handleFaceRecognition(req: Request, res: Response) {
 
     return res.status(400).json({
       success: false,
-      message: 'Invalid action',
+      message: 'Invalid action. Supported: register, verify, check-registration',
     });
   } catch (error) {
     console.error('Face recognition API error:', error);
@@ -276,6 +306,61 @@ export async function uploadPhoto(req: Request, res: Response) {
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error) {
     console.error('Photo upload API error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+}
+
+/**
+ * POST /api/face-recognition/sync-flags
+ * Sync face registration flags between ML service and database
+ */
+export async function syncFaceRegistrationFlags(req: Request, res: Response) {
+  try {
+    const { employee_ids } = req.body;
+
+    if (!employee_ids || !Array.isArray(employee_ids)) {
+      return res.status(400).json({
+        success: false,
+        message: 'employee_ids array is required',
+      });
+    }
+
+    console.log('🔧 Syncing face registration flags for:', employee_ids);
+
+    // Import supabase client
+    const { supabase } = await import('../supabase/client');
+
+    // Update face_registered flag for the provided employee IDs
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        face_registered: true,
+        face_registered_at: new Date().toISOString(),
+      })
+      .in('id', employee_ids)
+      .eq('role', 'employee')
+      .select('id, email, full_name');
+
+    if (error) {
+      console.error('Database update error:', error);
+      return res.status(500).json({
+        success: false,
+        message: `Database update failed: ${error.message}`,
+      });
+    }
+
+    console.log('✅ Updated face registration flags for:', data?.length || 0, 'employees');
+
+    return res.status(200).json({
+      success: true,
+      message: `Updated face registration flags for ${data?.length || 0} employees`,
+      updated_employees: data,
+    });
+  } catch (error) {
+    console.error('Sync flags API error:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error',

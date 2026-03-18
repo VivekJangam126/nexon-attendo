@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, Eye, EyeOff, AlertCircle, ArrowLeft, Upload, X, Camera } from "lucide-react";
+import { Building2, Eye, EyeOff, AlertCircle, ArrowLeft, Camera, CheckCircle2 } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
+import LiveCameraCapture from "@/components/face/LiveCameraCapture";
 import { registrationService, officeService } from "@server";
 import type { Office } from "@server";
 
@@ -22,8 +23,9 @@ const RegisterScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingOffices, setLoadingOffices] = useState(true);
-  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [showCameraCapture, setShowCameraCapture] = useState(false);
+  const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
+  const [faceRegistered, setFaceRegistered] = useState(false);
 
   // Fetch offices on mount
   useEffect(() => {
@@ -43,36 +45,15 @@ const RegisterScreen = () => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setError('Please select an image file (JPG, PNG)');
-      return;
+  const handleCameraCapture = (success: boolean, photos: string[]) => {
+    if (success && photos.length > 0) {
+      setCapturedPhotos(photos);
+      setFaceRegistered(true);
+      setError(null);
+      console.log(`✅ Face registration complete: ${photos.length} photos captured`);
+    } else {
+      setError("Face registration failed. Please try again.");
     }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image size must be less than 5MB');
-      return;
-    }
-
-    setProfilePhoto(file);
-    
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPhotoPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-    setError(null);
-  };
-
-  const removePhoto = () => {
-    setProfilePhoto(null);
-    setPhotoPreview(null);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -89,8 +70,8 @@ const RegisterScreen = () => {
       return;
     }
 
-    if (!profilePhoto) {
-      setError("Please upload a profile photo for face recognition.");
+    if (!faceRegistered || capturedPhotos.length === 0) {
+      setError("Please complete face registration using the camera.");
       return;
     }
 
@@ -107,50 +88,15 @@ const RegisterScreen = () => {
     setIsLoading(true);
 
     try {
-      // Step 1: Upload photo to Supabase Storage first (client-side)
-      let profilePhotoUrl: string | null = null;
-      
-      if (profilePhoto) {
-        // Import supabase client
-        const { supabase } = await import('@/lib/supabase');
-        
-        // Generate unique filename
-        const fileExt = profilePhoto.name.split('.').pop();
-        const tempUserId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const fileName = `${tempUserId}.${fileExt}`;
-        const filePath = `profile-photos/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('profile-photos')
-          .upload(filePath, profilePhoto, {
-            cacheControl: '3600',
-            upsert: false
-          });
-
-        if (uploadError) {
-          console.error('Photo upload failed:', uploadError);
-          setError(`Photo upload failed: ${uploadError.message}`);
-          setIsLoading(false);
-          return;
-        }
-
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('profile-photos')
-          .getPublicUrl(filePath);
-        
-        profilePhotoUrl = publicUrl;
-      }
-
-      // Step 2: Register employee with photo URL
-      const { success, error: regError } = await registrationService.registerEmployee({
+      // Step 1: Register employee with face photos
+      const { success, error: regError } = await registrationService.registerEmployeeWithFace({
         email: form.email,
         password: form.password,
         full_name: form.fullName,
         office_id: form.officeId,
         role_type: form.roleType,
         designation: form.designation,
-        profile_photo_url: profilePhotoUrl, // Send URL instead of File
+        face_photos: capturedPhotos, // Send captured photos
       });
 
       if (regError || !success) {
@@ -160,6 +106,7 @@ const RegisterScreen = () => {
       }
 
       // Registration successful - navigate to pending screen
+      console.log('✅ Registration completed, user automatically signed out by backend');
       navigate("/registration-pending", { state: { name: form.fullName, email: form.email } });
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
@@ -256,50 +203,46 @@ const RegisterScreen = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Profile Photo *</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Face Registration *</label>
               <p className="text-xs text-muted-foreground mb-3">
-                Upload a clear, front-facing photo for face recognition verification
+                Use live camera to register your face for attendance verification
               </p>
               
-              {photoPreview ? (
-                <div className="relative">
-                  <div className="w-full aspect-video bg-muted rounded-xl overflow-hidden border-2 border-border">
-                    <img 
-                      src={photoPreview} 
-                      alt="Profile preview" 
-                      className="w-full h-full object-cover"
-                    />
+              {faceRegistered ? (
+                <div className="w-full p-4 bg-success-muted border border-success/20 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-success rounded-full flex items-center justify-center">
+                      <CheckCircle2 className="w-5 h-5 text-success-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-success">Face Registered Successfully</p>
+                      <p className="text-xs text-success/80 mt-1">
+                        {capturedPhotos.length} photos captured for verification
+                      </p>
+                    </div>
                   </div>
                   <button
                     type="button"
-                    onClick={removePhoto}
-                    className="absolute top-2 right-2 p-2 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors shadow-lg"
+                    onClick={() => setShowCameraCapture(true)}
+                    className="mt-3 text-xs text-success hover:text-success/80 transition-colors"
                   >
-                    <X className="w-4 h-4" />
+                    Retake photos
                   </button>
-                  <div className="mt-2 flex items-center gap-2 text-xs text-success">
-                    <Camera className="w-4 h-4" />
-                    <span>Photo uploaded successfully</span>
-                  </div>
                 </div>
               ) : (
-                <label className="block">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/jpg"
-                    onChange={handlePhotoSelect}
-                    className="hidden"
-                  />
-                  <div className="w-full aspect-video bg-muted rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors cursor-pointer flex flex-col items-center justify-center gap-3">
-                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Upload className="w-6 h-6 text-primary" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-foreground">Click to upload photo</p>
-                      <p className="text-xs text-muted-foreground mt-1">JPG or PNG, max 5MB</p>
-                    </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCameraCapture(true)}
+                  className="w-full aspect-video bg-muted rounded-xl border-2 border-dashed border-border hover:border-primary transition-colors flex flex-col items-center justify-center gap-3"
+                >
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Camera className="w-6 h-6 text-primary" />
                   </div>
-                </label>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-foreground">Start Face Registration</p>
+                    <p className="text-xs text-muted-foreground mt-1">Click to open camera</p>
+                  </div>
+                </button>
               )}
             </div>
 
@@ -343,6 +286,16 @@ const RegisterScreen = () => {
             </button>
           </div>
         </div>
+
+        {/* Live Camera Capture Modal */}
+        <LiveCameraCapture
+          isOpen={showCameraCapture}
+          onClose={() => setShowCameraCapture(false)}
+          onComplete={handleCameraCapture}
+          title="Face Registration"
+          description="Capture 50 photos for secure attendance verification"
+          captureCount={50}
+        />
       </div>
     </MobileContainer>
   );

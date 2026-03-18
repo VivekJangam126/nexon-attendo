@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff, AlertCircle, Building2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const LoginScreen = () => {
   const navigate = useNavigate();
-  const { login, logout, profile, user } = useAuth();
+  const location = useLocation();
+  const { login, logout, profile, user, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -13,21 +14,50 @@ const LoginScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    console.log('🔍 LoginScreen useEffect - User:', !!user, 'Profile:', !!profile, 'Loading:', loading);
+    if (profile) {
+      console.log('👤 Profile status:', profile.status, 'Role:', profile.role);
+    }
+    
+    // Check if user came from registration-pending page or if URL has specific flag
+    const cameFromRegistrationPending = document.referrer.includes('/registration-pending') || 
+                                       window.location.search.includes('from=registration-pending');
+    console.log('🔍 Came from registration-pending:', cameFromRegistrationPending);
+    
+    // If we're still loading auth state, wait
+    if (loading) {
+      return;
+    }
+    
+    // If user came from registration-pending, force logout and don't redirect
+    if (cameFromRegistrationPending) {
+      if (user) {
+        console.log('🔄 Force logging out user from registration-pending');
+        logout();
+      }
+      return;
+    }
+    
+    // Normal redirect logic for authenticated users
     if (user && profile && !isLoading) {
       if (profile.role === 'employee') {
         if (profile.status === 'pending') {
+          console.log('🔄 Redirecting to registration-pending due to pending status');
           navigate("/registration-pending");
         } else if (profile.status === 'rejected' || profile.status === 'blocked') {
+          console.log('🔄 Redirecting to account-blocked due to status:', profile.status);
           navigate("/account-blocked");
         } else if (profile.status === 'active') {
+          console.log('🔄 Redirecting to dashboard due to active status');
           navigate("/dashboard");
         }
       } else if (profile.role === 'admin') {
+        console.log('🔄 Logging out admin user');
         logout();
         setError("Please use the admin login portal.");
       }
     }
-  }, [user, profile, navigate, logout, isLoading]);
+  }, [user, profile, navigate, logout, isLoading, loading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

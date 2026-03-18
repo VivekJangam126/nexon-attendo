@@ -1,0 +1,11 @@
+{
+  "employee_id": "74d8aa0b-1e46-4f81-b13f-1769ed8a64a7",
+  "registration_time": 1773824230.6662748,
+  "photo_count": 50,
+  "quality_score": 0.9008617049756742,
+  "feature_dimensions": 357,
+  "confidence_threshold": 0.85,
+  "original_photos_saved": true,
+  "photos_folder": "face_storage\\74d8aa0b-1e46-4f81-b13f-1769ed8a64a7",
+  "storage_structure": "individual_employee_folders"
+}
