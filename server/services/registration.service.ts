@@ -78,8 +78,8 @@ export const registrationService = {
           designation,
           role_type,
           status: 'pending',
-          face_registered: true, // Mark as registered since we have face photos
-          face_registered_at: new Date().toISOString(),
+          face_registered: false, // No face registration without ML service
+          face_registered_at: null,
         });
 
       if (profileError) {
@@ -95,29 +95,11 @@ export const registrationService = {
 
       // Register face with ML service using all photos
       try {
-        console.log(`  🔍 Starting face registration for user: ${userId}`);
+        console.log(`  🔍 Face registration skipped - ML service not available`);
         console.log(`  📸 Number of photos received: ${face_photos.length}`);
-        console.log(`  📊 Photo sizes:`, face_photos.map((photo, i) => `${i+1}: ${photo.length} bytes`));
         
-        const faceRecognitionService = await import('./face-recognition.service');
-        const faceResult = await faceRecognitionService.faceRecognitionService.registerFaceWithPhotos(
-          userId, 
-          face_photos // Use all 50 photos for registration
-        );
-        
-        console.log(`  📸 Sending ${face_photos.length} photos to ML service for user: ${userId}`);
-        console.log(`  🔬 ML service response:`, {
-          success: faceResult.success,
-          message: faceResult.message,
-          faces_detected: faceResult.faces_detected,
-          encoding_saved: faceResult.encoding_saved
-        });
-        
-        if (faceResult.success) {
-          console.log(`  ✅ Face registered with ML service using ${face_photos.length} photos`);
-        } else {
-          console.log('  ⚠️ Face registration failed, but continuing:', faceResult.message);
-        }
+        // Face registration is disabled - just log the attempt
+        console.log(`  ⚠️ ML service unavailable, face will be registered later`);
       } catch (error) {
         console.log('  ❌ ML service error:', error.message);
         console.log('  ⚠️ ML service unavailable, face will be registered later');
