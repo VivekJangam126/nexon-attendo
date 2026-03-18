@@ -1,5 +1,4 @@
 import { supabase } from '../supabase/client';
-import { faceRecognitionService } from '../services/face-recognition.service';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -42,13 +41,11 @@ export default async function handler(req: any, res: any) {
 
     const publicUrl = urlData.publicUrl;
 
-    // Update profile with photo URL and set face_registered flag
+    // Update profile with photo URL
     const { error: updateError } = await supabase
       .from('profiles')
       .update({ 
-        profile_photo_url: publicUrl,
-        face_registered: true,
-        face_registered_at: new Date().toISOString()
+        profile_photo_url: publicUrl
       })
       .eq('id', employeeId);
 
@@ -57,24 +54,10 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ error: 'Failed to update profile' });
     }
 
-    // Try to register face with ML service (but don't fail if it doesn't work)
-    let faceRegistrationMessage = '';
-    try {
-      const faceResult = await faceRecognitionService.registerFace(employeeId, photoData);
-      if (faceResult.success) {
-        faceRegistrationMessage = ' Face recognition has been enabled.';
-      } else {
-        faceRegistrationMessage = ' Face recognition will be enabled once ML service is configured.';
-      }
-    } catch (error) {
-      console.log('Face registration failed (ML service may be offline):', error);
-      faceRegistrationMessage = ' Face recognition will be enabled once ML service is configured.';
-    }
-
     return res.json({ 
       success: true, 
       photoUrl: publicUrl,
-      message: `Photo uploaded successfully.${faceRegistrationMessage}` 
+      message: 'Photo uploaded successfully.' 
     });
 
   } catch (error: any) {

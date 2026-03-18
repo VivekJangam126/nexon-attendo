@@ -82,9 +82,6 @@ export default defineConfig(({ mode }) => {
                     const action = parts[1]; // e.g., 'apply', 'balance', 'my-requests'
                     console.log('[API Middleware] Loading leave handler:', action);
                     handler = await import(`./server/api/leave/${action}.ts`);
-                  } else if (pathname.startsWith('register-employee-with-face')) {
-                    console.log('[API Middleware] Loading register-employee-with-face handler');
-                    handler = await import('./server/api/register-employee-with-face.ts');
                   } else if (pathname.startsWith('payroll')) {
                     console.log('[API Middleware] Loading payroll handler');
                     handler = await import('./server/api/payroll.ts');
@@ -100,9 +97,6 @@ export default defineConfig(({ mode }) => {
                   } else if (pathname.startsWith('upload-photo')) {
                     console.log('[API Middleware] Loading upload-photo handler');
                     handler = await import('./server/api/upload-photo.ts');
-                  } else if (pathname.startsWith('face-recognition')) {
-                    console.log('[API Middleware] Loading face-recognition handler');
-                    handler = await import('./server/api/face-recognition.ts');
                   } else if (pathname.startsWith('holidays')) {
                     console.log('[API Middleware] Loading holidays handler');
                     handler = await import('./server/api/holidays.ts');
