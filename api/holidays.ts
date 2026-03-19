@@ -150,14 +150,23 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
 
       console.log('[Holiday API] Admin holidays result:', {
         recurring: recurringHolidays?.length || 0,
-        specific: specificHolidays?.length || 0
+        specific: specificHolidays?.length || 0,
+        sample_recurring: recurringHolidays?.slice(0, 2),
+        sample_specific: specificHolidays?.slice(0, 2)
       });
 
       return res.status(200).json({
         recurring_holidays: recurringHolidays || [],
         specific_holidays: specificHolidays || [],
         year: targetYear,
-        month: targetMonth
+        month: targetMonth,
+        debug: {
+          query_params: { start_date, end_date, date },
+          data_counts: {
+            recurring: recurringHolidays?.length || 0,
+            specific: specificHolidays?.length || 0
+          }
+        }
       });
     } else {
       // Employee: Get only their holidays

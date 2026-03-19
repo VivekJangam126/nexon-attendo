@@ -137,7 +137,12 @@ const AdminHolidayCalendarScreen = () => {
         
         console.log('[Admin Holiday Calendar] Received data:', {
           recurring: data.recurring_holidays?.length || 0,
-          specific: data.specific_holidays?.length || 0
+          specific: data.specific_holidays?.length || 0,
+          debug: data.debug,
+          sample_data: {
+            recurring: data.recurring_holidays?.slice(0, 2),
+            specific: data.specific_holidays?.slice(0, 2)
+          }
         });
         
         // Cache the data for this month
@@ -150,6 +155,8 @@ const AdminHolidayCalendarScreen = () => {
         }));
       } else {
         console.error('[Admin Holiday Calendar] API error:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('[Admin Holiday Calendar] Error details:', errorText);
       }
     } catch (error) {
       console.error("Error fetching month data:", error);
@@ -194,6 +201,24 @@ const AdminHolidayCalendarScreen = () => {
     const recurring = currentMonthData.recurring.filter(h => h.day_of_week === dayOfWeek);
     const specific = currentMonthData.specific.filter(h => h.holiday_date === dateStr);
     
+    // Debug logging for specific dates
+    if (day === 19) { // Today's date for debugging
+      console.log('[Holiday Calendar] Debug for day', day, ':', {
+        dateStr,
+        dayOfWeek,
+        currentMonthData: {
+          recurring: currentMonthData.recurring?.length || 0,
+          specific: currentMonthData.specific?.length || 0
+        },
+        filtered: {
+          recurring: recurring.length,
+          specific: specific.length
+        },
+        sample_recurring: currentMonthData.recurring?.slice(0, 2),
+        sample_specific: currentMonthData.specific?.slice(0, 2)
+      });
+    }
+    
     // Check if any holiday is a public holiday or festival
     const hasPublicHoliday = specific.some(h => 
       h.holiday_type === 'public_holiday' || h.holiday_type === 'festival'
@@ -204,12 +229,19 @@ const AdminHolidayCalendarScreen = () => {
     const specificEmployees = new Set(specific.map(h => h.employee_id));
     const allEmployees = new Set([...recurringEmployees, ...specificEmployees]);
 
-    return { 
+    const result = { 
       recurring, 
       specific, 
       total: allEmployees.size, // Count unique employees, not records
       hasPublicHoliday
     };
+
+    // Debug logging for days with holidays
+    if (result.total > 0) {
+      console.log('[Holiday Calendar] Found holidays for day', day, ':', result);
+    }
+
+    return result;
   };
 
   const handleDayHeaderClick = (dayIndex: number) => {
