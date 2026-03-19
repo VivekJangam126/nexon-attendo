@@ -108,11 +108,11 @@ const AdminHolidayCalendarScreen = () => {
     }
   };
 
-  const fetchMonthData = async (date: Date) => {
+  const fetchMonthData = async (date: Date, forceRefresh = false) => {
     const monthKey = getMonthKey(date);
     
-    // Skip if already cached
-    if (holidayData[monthKey]) {
+    // Skip if already cached and not forcing refresh
+    if (holidayData[monthKey] && !forceRefresh) {
       return;
     }
 
@@ -122,6 +122,8 @@ const AdminHolidayCalendarScreen = () => {
 
       const startDate = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split("T")[0];
       const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split("T")[0];
+
+      console.log('[Admin Holiday Calendar] Fetching data for:', { startDate, endDate, forceRefresh });
 
       // Fetch API data
       const response = await fetch(`/api/holidays?start_date=${startDate}&end_date=${endDate}`, {
@@ -133,6 +135,11 @@ const AdminHolidayCalendarScreen = () => {
       if (response.ok) {
         const data = await response.json();
         
+        console.log('[Admin Holiday Calendar] Received data:', {
+          recurring: data.recurring_holidays?.length || 0,
+          specific: data.specific_holidays?.length || 0
+        });
+        
         // Cache the data for this month
         setHolidayData(prev => ({
           ...prev,
@@ -141,6 +148,8 @@ const AdminHolidayCalendarScreen = () => {
             specific: data.specific_holidays || []
           }
         }));
+      } else {
+        console.error('[Admin Holiday Calendar] API error:', response.status, response.statusText);
       }
     } catch (error) {
       console.error("Error fetching month data:", error);
@@ -190,10 +199,15 @@ const AdminHolidayCalendarScreen = () => {
       h.holiday_type === 'public_holiday' || h.holiday_type === 'festival'
     );
 
+    // Count unique employees (not individual records)
+    const recurringEmployees = new Set(recurring.map(h => h.employee_id));
+    const specificEmployees = new Set(specific.map(h => h.employee_id));
+    const allEmployees = new Set([...recurringEmployees, ...specificEmployees]);
+
     return { 
       recurring, 
       specific, 
-      total: recurring.length + specific.length,
+      total: allEmployees.size, // Count unique employees, not records
       hasPublicHoliday
     };
   };
@@ -283,30 +297,12 @@ const AdminHolidayCalendarScreen = () => {
           description: `Recurring holiday created for ${selectedEmployees.length} employee(s)`,
         });
         
-        // Optimistically update the UI immediately
-        const monthKey = getMonthKey(currentDate);
-        const newRecurringHolidays = selectedEmployees.map(empId => ({
-          id: `temp-${empId}-${selectedDay}`,
-          employee_id: empId,
-          day_of_week: selectedDay!,
-          created_at: new Date().toISOString()
-        }));
-        
-        // Update cache with new holidays
-        setHolidayData(prev => {
-          const currentData = prev[monthKey] || { recurring: [], specific: [] };
-          return {
-            ...prev,
-            [monthKey]: {
-              ...currentData,
-              recurring: [...currentData.recurring, ...newRecurringHolidays]
-            }
-          };
-        });
-        
         setRecurringModalOpen(false);
         
-        // No need to clear cache - the optimistic update is already correct
+        // Force refresh the current month data to get the actual saved data
+        await fetchMonthData(currentDate, true);
+        
+        console.log('[Holiday Calendar] Data refreshed after holiday creation');
         // The server data will match what we added optimistically
       } else {
         const error = await response.json();
@@ -361,33 +357,12 @@ const AdminHolidayCalendarScreen = () => {
           description: `Holiday created for ${selectedEmployees.length} employee(s)`,
         });
         
-        // Optimistically update the UI immediately
-        const monthKey = getMonthKey(currentDate);
-        const newHolidays = selectedEmployees.map(empId => ({
-          id: `temp-${empId}-${selectedDate}`,
-          employee_id: empId,
-          holiday_date: selectedDate,
-          holiday_type: holidayType,
-          reason: holidayReason,
-          created_at: new Date().toISOString()
-        }));
-        
-        // Update cache with new holidays
-        setHolidayData(prev => {
-          const currentData = prev[monthKey] || { recurring: [], specific: [] };
-          return {
-            ...prev,
-            [monthKey]: {
-              ...currentData,
-              specific: [...currentData.specific, ...newHolidays]
-            }
-          };
-        });
-        
         setSpecificModalOpen(false);
         
-        // No need to clear cache - the optimistic update is already correct
-        // The server data will match what we added optimistically
+        // Force refresh the current month data to get the actual saved data
+        await fetchMonthData(currentDate, true);
+        
+        console.log('[Holiday Calendar] Data refreshed after specific holiday creation');
       } else {
         const error = await response.json();
         toast({
