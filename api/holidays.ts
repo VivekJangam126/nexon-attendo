@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { holidayService } from '../server/services/holiday.service';
-import { supabase } from '../server/supabase/client';
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase configuration
+const supabaseUrl = 'https://falbkccaqjqdbvrmdlll.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTE4NTQsImV4cCI6MjA4NjI2Nzg1NH0.FkwmwhprYiu7vtXhfGLE_zPmB6-9cbF7uNFqFu7qwVw';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * Main holidays API endpoint
@@ -109,14 +113,8 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
     console.log('[Holiday API] Query params:', { year, month, start_date, end_date, date });
 
     if (profile.role_type === 'Admin' || profile.role_type === 'Super Admin') {
-      // Admin: Get all holidays for the month
+      // Admin: Get all holidays
       console.log('[Holiday API] Admin request - getting all holidays');
-      const result = await holidayService.getMonthHolidays(targetYear, targetMonth);
-      
-      if (result.error) {
-        console.error('[Holiday API] Error getting month holidays:', result.error);
-        return res.status(500).json({ error: result.error });
-      }
 
       // Get recurring holidays for all employees
       const { data: recurringHolidays, error: recurringError } = await supabase
@@ -158,7 +156,6 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({
         recurring_holidays: recurringHolidays || [],
         specific_holidays: specificHolidays || [],
-        holidays: result.holidays || [],
         year: targetYear,
         month: targetMonth
       });

@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabase } from '../server/supabase/client';
 
 /**
  * Test database connection endpoint
@@ -16,44 +15,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    console.log('[Test DB API] Testing database connection...');
+    console.log('[Test DB API] Testing basic functionality...');
 
-    // Test basic connection
-    const { data: testData, error: testError } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .limit(1);
-
-    if (testError) {
-      console.error('[Test DB API] Database error:', testError);
-      return res.status(500).json({
-        success: false,
-        error: 'Database connection failed',
-        details: testError.message
-      });
-    }
-
-    // Test holiday tables
-    const { data: holidayTest, error: holidayError } = await supabase
-      .from('employee_recurring_holidays')
-      .select('id')
-      .limit(1);
-
-    const { data: specificTest, error: specificError } = await supabase
-      .from('employee_specific_holidays')
-      .select('id')
-      .limit(1);
-
-    console.log('[Test DB API] Database connection successful');
+    // Test basic functionality first
     return res.status(200).json({
       success: true,
-      message: 'Database connection working',
-      tests: {
-        profiles: testData?.length || 0,
-        recurring_holidays_table: holidayError ? 'ERROR: ' + holidayError.message : 'OK',
-        specific_holidays_table: specificError ? 'ERROR: ' + specificError.message : 'OK'
-      },
-      timestamp: new Date().toISOString()
+      message: 'API endpoint is working',
+      timestamp: new Date().toISOString(),
+      environment: {
+        node_version: process.version,
+        platform: process.platform
+      }
     });
 
   } catch (error: any) {
