@@ -123,7 +123,22 @@ async function createSpecificHolidays(req: VercelRequest, res: VercelResponse) {
       .select();
 
     if (error) {
-      console.error('[Specific Holiday API] Error creating specific holidays:', error);
+      console.error('[Specific Holiday API] Database error:', error);
+      console.error('[Specific Holiday API] Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      
+      // Check if it's an RLS policy error
+      if (error.message.includes('row-level security policy') || error.message.includes('RLS')) {
+        return res.status(500).json({ 
+          error: 'Database security policy error. Please check RLS policies for employee_specific_holidays table.',
+          details: error.message
+        });
+      }
+      
       return res.status(500).json({ error: error.message });
     }
 
