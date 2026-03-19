@@ -88,3 +88,4 @@ UPDATE_*.sql
 CHECK_*.sql
 FIX_*.sql
 TESTING_*.sql
+.vercel
