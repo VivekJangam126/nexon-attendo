@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { holidayService } from '../../server/services/holiday.service';
-import { supabase } from '../../server/supabase/client';
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase configuration
+const supabaseUrl = 'https://falbkccaqjqdbvrmdlll.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTE4NTQsImV4cCI6MjA4NjI2Nzg1NH0.FkwmwhprYiu7vtXhfGLE_zPmB6-9cbF7uNFqFu7qwVw';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * Recurring holidays API endpoint
@@ -98,19 +102,26 @@ async function createRecurringHolidays(req: VercelRequest, res: VercelResponse) 
       day_of_week
     });
 
-    const result = await holidayService.createRecurringHolidays({
-      employee_ids,
+    // Create records for each employee
+    const records = employee_ids.map(employee_id => ({
+      employee_id,
       day_of_week
-    });
+    }));
 
-    if (!result.success) {
-      return res.status(500).json({ error: result.error });
+    const { data, error } = await supabase
+      .from('employee_recurring_holidays')
+      .upsert(records, { onConflict: 'employee_id,day_of_week' })
+      .select();
+
+    if (error) {
+      console.error('[Recurring Holiday API] Error creating recurring holidays:', error);
+      return res.status(500).json({ error: error.message });
     }
 
     return res.status(200).json({
       success: true,
-      message: `Created recurring holidays for ${result.count} employees`,
-      count: result.count
+      message: `Created recurring holidays for ${data?.length || 0} employees`,
+      count: data?.length || 0
     });
 
   } catch (error: any) {
@@ -130,14 +141,18 @@ async function getAllRecurringHolidays(req: VercelRequest, res: VercelResponse) 
   try {
     console.log('[Recurring Holiday API] Getting all recurring holidays');
 
-    const result = await holidayService.getAllRecurringHolidays();
+    const { data: holidays, error } = await supabase
+      .from('employee_recurring_holidays')
+      .select('*')
+      .order('day_of_week', { ascending: true });
 
-    if (result.error) {
-      return res.status(500).json({ error: result.error });
+    if (error) {
+      console.error('[Recurring Holiday API] Error getting recurring holidays:', error);
+      return res.status(500).json({ error: error.message });
     }
 
     return res.status(200).json({
-      holidays: result.holidays || []
+      holidays: holidays || []
     });
 
   } catch (error: any) {
