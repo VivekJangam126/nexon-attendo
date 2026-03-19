@@ -74,32 +74,6 @@ const HolidayCalendarScreen = () => {
     });
   };
 
-  const getHolidayTypeColor = (type: string) => {
-    switch (type) {
-      case "public_holiday":
-        return "bg-blue-100 text-blue-700 border-blue-200";
-      case "festival":
-        return "bg-purple-100 text-purple-700 border-purple-200";
-      case "company_event":
-        return "bg-green-100 text-green-700 border-green-200";
-      default:
-        return "bg-gray-100 text-gray-700 border-gray-200";
-    }
-  };
-
-  const getHolidayTypeLabel = (type: string) => {
-    switch (type) {
-      case "public_holiday":
-        return "Public Holiday";
-      case "festival":
-        return "Festival";
-      case "company_event":
-        return "Company Event";
-      default:
-        return "Other";
-    }
-  };
-
   if (loading) {
     return (
       <DashboardLayout title="My Holidays">
@@ -195,13 +169,6 @@ const HolidayCalendarScreen = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <h4 className="font-semibold text-gray-900">{holiday.reason}</h4>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getHolidayTypeColor(
-                              holiday.holiday_type
-                            )}`}
-                          >
-                            {getHolidayTypeLabel(holiday.holiday_type)}
-                          </span>
                           {isToday && (
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-300">
                               Today

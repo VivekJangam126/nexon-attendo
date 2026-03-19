@@ -47,24 +47,34 @@ export const EmployeeTimeTracker = ({
   // Load break logs from database (only today's logs)
   useEffect(() => {
     const fetchBreakLogs = async () => {
-      // Always fetch only today's break logs for the timeline
-      const today = new Date().toISOString().split('T')[0];
-      const { breakLogs: logs, error } = await breakLogsService.getBreakLogsForDateRange(
-        employeeId, 
-        today, 
-        today
-      );
-      
-      if (error) {
-        console.error('Failed to fetch break logs:', error);
+      // Don't fetch if employeeId is not available
+      if (!employeeId || employeeId.trim() === '') {
+        console.warn('EmployeeTimeTracker: employeeId is not available');
         return;
       }
-      
-      setBreakLogs(logs);
-      
-      // Find active break
-      const activeBreak = logs.find(log => !log.end_time);
-      setCurrentBreak(activeBreak || null);
+
+      try {
+        // Always fetch only today's break logs for the timeline
+        const today = new Date().toISOString().split('T')[0];
+        const { breakLogs: logs, error } = await breakLogsService.getBreakLogsForDateRange(
+          employeeId, 
+          today, 
+          today
+        );
+        
+        if (error) {
+          console.error('Failed to fetch break logs:', error);
+          return;
+        }
+        
+        setBreakLogs(logs);
+        
+        // Find active break
+        const activeBreak = logs.find(log => !log.end_time);
+        setCurrentBreak(activeBreak || null);
+      } catch (error) {
+        console.error('Failed to fetch break logs:', error);
+      }
     };
 
     fetchBreakLogs();
@@ -132,6 +142,15 @@ export const EmployeeTimeTracker = ({
   };
 
   const handleStartBreak = async () => {
+    if (!employeeId || employeeId.trim() === '') {
+      toast({
+        title: "Error",
+        description: "Employee ID not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (currentBreak) {
       toast({
         title: "Break Already Active",
@@ -168,6 +187,15 @@ export const EmployeeTimeTracker = ({
   };
 
   const handleEndBreak = async () => {
+    if (!employeeId || employeeId.trim() === '') {
+      toast({
+        title: "Error",
+        description: "Employee ID not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!currentBreak) return;
 
     setLoading(true);

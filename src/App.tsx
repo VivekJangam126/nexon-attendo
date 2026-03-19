@@ -11,7 +11,6 @@ import RegistrationPendingScreen from "./pages/RegistrationPendingScreen";
 import AccountBlockedScreen from "./pages/AccountBlockedScreen";
 import ForgotPasswordScreen from "./pages/ForgotPasswordScreen";
 import PasswordResetSentScreen from "./pages/PasswordResetSentScreen";
-import ChangePasswordScreen from "./pages/ChangePasswordScreen";
 import HelpSupportScreen from "./pages/HelpSupportScreen";
 import AttendanceRulesScreen from "./pages/AttendanceRulesScreen";
 import DashboardScreen from "./pages/DashboardScreen";
@@ -39,7 +38,6 @@ import NotificationSettingsScreen from "./pages/admin/settings/NotificationSetti
 import EmployeeManagementScreen from "./pages/admin/settings/EmployeeManagementScreen";
 import LeaveManagementPage from "./pages/LeaveManagement";
 import AdminLeaveManagementPage from "./pages/admin/LeaveManagement";
-import PayrollPage from "./pages/admin/PayrollPage";
 import AdminAnalyticsScreen from "./pages/admin/AdminAnalyticsScreen";
 import AdminPerformanceDashboard from "./pages/admin/AdminPerformanceDashboard";
 import AdminHolidayCalendarScreen from "./pages/admin/AdminHolidayCalendarScreen";
@@ -64,7 +62,6 @@ const App = () => (
           <Route path="/account-blocked" element={<AccountBlockedScreen />} />
           <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
           <Route path="/password-reset-sent" element={<PasswordResetSentScreen />} />
-          <Route path="/change-password" element={<ChangePasswordScreen />} />
           <Route path="/help-support" element={<HelpSupportScreen />} />
           <Route path="/attendance-rules" element={<AttendanceRulesScreen />} />
           <Route path="/dashboard" element={<DashboardScreen />} />
@@ -97,7 +94,6 @@ const App = () => (
           <Route path="/admin/settings/notifications" element={<NotificationSettingsScreen />} />
           <Route path="/admin/settings/employee-management" element={<EmployeeManagementScreen />} />
           <Route path="/admin/leave" element={<AdminLeaveManagementPage />} />
-          <Route path="/admin/payroll" element={<PayrollPage />} />
           <Route path="/admin/analytics" element={<AdminAnalyticsScreen />} />
           <Route path="/admin/performance" element={<AdminPerformanceDashboard />} />
           <Route path="/admin/calendar" element={<AdminHolidayCalendarScreen />} />

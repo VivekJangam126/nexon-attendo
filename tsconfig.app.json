@@ -29,5 +29,5 @@
       "@server/*": ["./server/*"]
     }
   },
-  "include": ["src", "server"]
+  "include": ["src", "server", "api/leave/recalculate-balance.ts"]
 }

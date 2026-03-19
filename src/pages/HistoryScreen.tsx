@@ -356,20 +356,20 @@ const HistoryScreen = () => {
           <p className="text-xs text-gray-600 mb-3">
             {dateRange === "week" ? "Last 7 days" : "Last 30 days"} overview
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-md transition-shadow">
               <p className="text-xs font-medium text-gray-600 mb-1">Present</p>
-              <p className="text-lg font-bold text-green-600 mb-1">{presentCount}</p>
+              <p className="text-lg sm:text-xl font-bold text-green-600 mb-1">{presentCount}</p>
               <p className="text-xs text-gray-500">On time</p>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-md transition-shadow">
               <p className="text-xs font-medium text-gray-600 mb-1">Late</p>
-              <p className="text-lg font-bold text-amber-600 mb-1">{lateCount}</p>
+              <p className="text-lg sm:text-xl font-bold text-amber-600 mb-1">{lateCount}</p>
               <p className="text-xs text-gray-500">After grace period</p>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-md transition-shadow">
               <p className="text-xs font-medium text-gray-600 mb-1">Absent</p>
-              <p className="text-lg font-bold text-red-600 mb-1">{absentCount}</p>
+              <p className="text-lg sm:text-xl font-bold text-red-600 mb-1">{absentCount}</p>
               <p className="text-xs text-gray-500">Not marked</p>
             </div>
           </div>

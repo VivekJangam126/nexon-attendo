@@ -7,7 +7,6 @@ import {
   Calendar,
   BarChart3,
   BookOpen,
-  DollarSign,
   HelpCircle,
   ChevronLeft,
   ChevronRight,
@@ -32,7 +31,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isAdmin = false }) => {
     { icon: Calendar, label: 'Holiday Calendar', path: '/admin/calendar' },
     { icon: TrendingUp, label: 'Performance', path: '/admin/performance' },
     { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
-    { icon: DollarSign, label: 'Payroll', path: '/admin/payroll' },
   ];
 
   const employeeMenuItems = [

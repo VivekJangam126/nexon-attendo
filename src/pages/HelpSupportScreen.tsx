@@ -22,7 +22,7 @@ const faqs = [
   },
   { 
     q: "Who do I contact for attendance corrections?", 
-    a: "Please reach out to your HR manager or email hr@nexon.com for any corrections." 
+    a: "Please reach out to your HR manager or email hr@smartmatrixds.com for any corrections." 
   },
   { 
     q: "How do I apply for leave?", 
@@ -69,11 +69,11 @@ const HelpSupportScreen = () => {
               <h3 className="text-base font-bold text-gray-900 mb-2">Email Support</h3>
               <p className="text-sm text-gray-600 mb-4">Response within 24 hours</p>
               <a 
-                href="mailto:hr@nexon.com"
+                href="mailto:hr@smartmatrixds.com"
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-semibold text-sm hover:from-blue-700 hover:to-blue-600 transition-all duration-300 shadow-md hover:shadow-lg w-full justify-center"
               >
                 <Mail className="w-4 h-4" />
-                hr@nexon.com
+                hr@smartmatrixds.com
               </a>
             </div>
 
@@ -85,11 +85,11 @@ const HelpSupportScreen = () => {
               <h3 className="text-base font-bold text-gray-900 mb-2">Phone Support</h3>
               <p className="text-sm text-gray-600 mb-4">9 AM - 6 PM weekdays</p>
               <a 
-                href="tel:+911800123456"
+                href="tel:+91976540079"
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-lg font-semibold text-sm hover:from-green-700 hover:to-green-600 transition-all duration-300 shadow-md hover:shadow-lg w-full justify-center"
               >
                 <Phone className="w-4 h-4" />
-                +91 1800-123-4567
+                +91 976540079
               </a>
             </div>
           </div>

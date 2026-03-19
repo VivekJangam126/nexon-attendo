@@ -47,7 +47,8 @@ export const useLeaveBalance = (year?: number) => {
         table: 'employee_leave_balance',
         filter: `employee_id=eq.${user.id}`,
       },
-      () => {
+      (payload) => {
+        console.log('[useLeaveBalance] Real-time update received:', payload);
         queryClient.invalidateQueries({ queryKey: ['leaveBalance', year] });
       }
     ).subscribe();
@@ -71,10 +72,9 @@ export const useLeaveBalance = (year?: number) => {
       return Array.isArray(data) ? data : [];
     },
     enabled: !!user,
-    staleTime: 1000 * 60 * 10, // Cache for 10 minutes
-    gcTime: 1000 * 60 * 30, // Keep in cache for 30 minutes
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnMount: false, // Don't refetch on component mount if data exists
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 };
 
@@ -109,8 +109,10 @@ export const useEmployeeLeaveRequests = () => {
         table: 'leave_requests',
         filter: `employee_id=eq.${user.id}`,
       },
-      () => {
+      (payload) => {
+        console.log('[useEmployeeLeaveRequests] Real-time update received:', payload);
         queryClient.invalidateQueries({ queryKey: ['employeeLeaveRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['leaveBalance'] });
       }
     ).subscribe();
 
@@ -142,10 +144,9 @@ export const useEmployeeLeaveRequests = () => {
       return Array.isArray(data) ? data : [];
     },
     enabled: !!user,
-    staleTime: 1000 * 60 * 10, // Cache for 10 minutes
-    gcTime: 1000 * 60 * 30, // Keep in cache for 30 minutes
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnMount: false, // Don't refetch on component mount if data exists
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 };
 

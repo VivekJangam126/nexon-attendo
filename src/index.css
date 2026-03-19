@@ -290,7 +290,7 @@
 
   /* Bottom navigation */
   .bottom-nav {
-    @apply fixed bottom-0 left-1/2 -translate-x-1/2 bg-card border-t border-border px-4 py-2 safe-area-bottom;
+    @apply fixed bottom-0 left-1/2 -translate-x-1/2 bg-card border-t border-border px-2 py-2 safe-area-bottom;
     width: min(100vw, 430px);
   }
 
@@ -307,7 +307,14 @@
   }
 
   .nav-item {
-    @apply flex flex-col items-center gap-1 px-4 py-2 rounded-lg text-muted-foreground transition-colors duration-200;
+    @apply flex flex-col items-center gap-1 px-2 py-2 rounded-lg text-muted-foreground transition-colors duration-200;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .nav-item span {
+    @apply text-xs font-medium truncate;
+    max-width: 100%;
   }
 
   .nav-item-active {

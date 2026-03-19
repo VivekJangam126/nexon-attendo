@@ -198,14 +198,14 @@ const AdminPerformanceDashboard = () => {
       <AdminLayout title="Performance Dashboard">
         <div className="space-y-4">
           {/* Header Stats Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm animate-pulse">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
-                  <div>
-                    <div className="h-3 bg-gray-200 rounded w-20 mb-2"></div>
-                    <div className="h-6 bg-gray-200 rounded w-12"></div>
+              <div key={i} className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 md:p-4 shadow-sm animate-pulse">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gray-200 rounded-md sm:rounded-lg self-start"></div>
+                  <div className="min-w-0">
+                    <div className="h-3 bg-gray-200 rounded w-16 sm:w-20 mb-1"></div>
+                    <div className="h-4 sm:h-5 md:h-6 bg-gray-200 rounded w-8 sm:w-10 md:w-12"></div>
                   </div>
                 </div>
               </div>
@@ -242,51 +242,51 @@ const AdminPerformanceDashboard = () => {
     <AdminLayout title="Performance Dashboard">
       <div className="space-y-4">
         {/* Header Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-50 rounded-lg">
-                <Users className="w-5 h-5 text-blue-600" />
+        <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 md:p-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-blue-50 rounded-md sm:rounded-lg self-start">
+                <Users className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
               </div>
-              <div>
-                <p className="text-xs text-gray-600">Total Employees</p>
-                <p className="text-xl font-bold text-gray-900">{statistics.totalEmployees}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-50 rounded-lg">
-                <TrendingUp className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-600">Avg Performance</p>
-                <p className="text-xl font-bold text-gray-900">{statistics.avgScore.toFixed(1)}/100</p>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-600 leading-tight">Total Employees</p>
+                <p className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 leading-none">{statistics.totalEmployees}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-50 rounded-lg">
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
+          <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 md:p-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-green-50 rounded-md sm:rounded-lg self-start">
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-green-600" />
               </div>
-              <div>
-                <p className="text-xs text-gray-600">Active Alerts</p>
-                <p className="text-xl font-bold text-gray-900">{statistics.totalAlerts}</p>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-600 leading-tight">Avg Performance</p>
+                <p className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 leading-none">{statistics.avgScore.toFixed(1)}/100</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-50 rounded-lg">
-                <TrendingUp className="w-5 h-5 text-purple-600" />
+          <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 md:p-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-amber-50 rounded-md sm:rounded-lg self-start">
+                <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-amber-600" />
               </div>
-              <div>
-                <p className="text-xs text-gray-600">High Performers</p>
-                <p className="text-xl font-bold text-gray-900">{statistics.highPerformers}</p>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-600 leading-tight">Active Alerts</p>
+                <p className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 leading-none">{statistics.totalAlerts}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 md:p-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-purple-50 rounded-md sm:rounded-lg self-start">
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-purple-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-600 leading-tight">High Performers</p>
+                <p className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 leading-none">{statistics.highPerformers}</p>
               </div>
             </div>
           </div>

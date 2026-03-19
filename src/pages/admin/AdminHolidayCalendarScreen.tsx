@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, Trash2, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, Trash2 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -17,24 +17,17 @@ interface Employee {
   email: string;
 }
 
-interface SyncStatus {
-  currentYear: { year: number; count: number };
-  nextYear: { year: number; count: number };
-}
-
 const AdminHolidayCalendarScreen = () => {
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [recurringHolidays, setRecurringHolidays] = useState<RecurringHoliday[]>([]);
   const [specificHolidays, setSpecificHolidays] = useState<SpecificHoliday[]>([]);
-  const [masterHolidays, setMasterHolidays] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [holidayData, setHolidayData] = useState<{
     [key: string]: {
       recurring: RecurringHoliday[];
       specific: SpecificHoliday[];
-      master: any[];
     };
   }>({});
 
@@ -48,10 +41,6 @@ const AdminHolidayCalendarScreen = () => {
   const [holidayReason, setHolidayReason] = useState("");
   const [viewHolidaysModalOpen, setViewHolidaysModalOpen] = useState(false);
   const [selectedDateHolidays, setSelectedDateHolidays] = useState<any[]>([]);
-  
-  // Sync status states
-  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
-  const [syncing, setSyncing] = useState(false);
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const monthNames = [
@@ -68,13 +57,11 @@ const AdminHolidayCalendarScreen = () => {
   const currentMonthKey = getMonthKey(currentDate);
   const currentMonthData = holidayData[currentMonthKey] || {
     recurring: [],
-    specific: [],
-    master: []
+    specific: []
   };
 
   useEffect(() => {
     fetchData();
-    fetchSyncStatus();
     // Pre-load adjacent months for instant navigation
     const timer = setTimeout(() => {
       preloadAdjacentMonths();
@@ -136,33 +123,22 @@ const AdminHolidayCalendarScreen = () => {
       const startDate = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split("T")[0];
       const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split("T")[0];
 
-      // Fetch master holidays and API data in parallel for speed
-      const [masterHolidaysResponse, apiResponse] = await Promise.all([
-        supabase
-          .from("master_public_holidays")
-          .select("*")
-          .gte("holiday_date", startDate)
-          .lte("holiday_date", endDate)
-          .eq("is_active", true),
-        fetch(`/api/holidays?start_date=${startDate}&end_date=${endDate}`, {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        })
-      ]);
-
-      const masterHolidaysData = masterHolidaysResponse.data || [];
+      // Fetch API data
+      const response = await fetch(`/api/holidays?start_date=${startDate}&end_date=${endDate}`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
       
-      if (apiResponse.ok) {
-        const data = await apiResponse.json();
+      if (response.ok) {
+        const data = await response.json();
         
         // Cache the data for this month
         setHolidayData(prev => ({
           ...prev,
           [monthKey]: {
             recurring: data.recurring_holidays || [],
-            specific: data.specific_holidays || [],
-            master: masterHolidaysData
+            specific: data.specific_holidays || []
           }
         }));
       }
@@ -209,26 +185,8 @@ const AdminHolidayCalendarScreen = () => {
     const recurring = currentMonthData.recurring.filter(h => h.day_of_week === dayOfWeek);
     const specific = currentMonthData.specific.filter(h => h.holiday_date === dateStr);
     
-    // Check if this date has a master public holiday
-    const masterHoliday = currentMonthData.master.find(h => h.holiday_date === dateStr);
-    
-    // Get unique holiday names for this date
-    const holidayNames = new Set<string>();
-    
-    // Add master holiday name first (priority)
-    if (masterHoliday) {
-      holidayNames.add(masterHoliday.holiday_name);
-    }
-    
-    // Add specific holiday names
-    specific.forEach(h => {
-      if (!masterHoliday || h.reason !== masterHoliday.holiday_name) {
-        holidayNames.add(h.reason);
-      }
-    });
-    
-    // Check if any holiday is a public holiday or festival OR if there's a master holiday
-    const hasPublicHoliday = masterHoliday || specific.some(h => 
+    // Check if any holiday is a public holiday or festival
+    const hasPublicHoliday = specific.some(h => 
       h.holiday_type === 'public_holiday' || h.holiday_type === 'festival'
     );
 
@@ -236,9 +194,7 @@ const AdminHolidayCalendarScreen = () => {
       recurring, 
       specific, 
       total: recurring.length + specific.length,
-      holidayNames: Array.from(holidayNames),
-      hasPublicHoliday,
-      masterHoliday
+      hasPublicHoliday
     };
   };
 
@@ -338,7 +294,7 @@ const AdminHolidayCalendarScreen = () => {
         
         // Update cache with new holidays
         setHolidayData(prev => {
-          const currentData = prev[monthKey] || { recurring: [], specific: [], master: [] };
+          const currentData = prev[monthKey] || { recurring: [], specific: [] };
           return {
             ...prev,
             [monthKey]: {
@@ -418,7 +374,7 @@ const AdminHolidayCalendarScreen = () => {
         
         // Update cache with new holidays
         setHolidayData(prev => {
-          const currentData = prev[monthKey] || { recurring: [], specific: [], master: [] };
+          const currentData = prev[monthKey] || { recurring: [], specific: [] };
           return {
             ...prev,
             [monthKey]: {
@@ -625,125 +581,6 @@ const AdminHolidayCalendarScreen = () => {
     }
   };
 
-  // Sync functions
-  const fetchSyncStatus = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.log('[Sync Status] No session found');
-        return;
-      }
-
-      console.log('[Sync Status] Fetching sync status...');
-      const response = await fetch('/api/holidays/sync', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      console.log('[Sync Status] Response status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('[Sync Status] Received data:', data);
-        setSyncStatus(data.status);
-      } else {
-        const errorData = await response.json();
-        console.error('[Sync Status] Error response:', errorData);
-      }
-    } catch (error) {
-      console.error('[Sync Status] Error fetching sync status:', error);
-    }
-  };
-
-  const handleManualSync = async () => {
-    console.log('[Admin Calendar] Manual sync triggered');
-    setSyncing(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.error('[Admin Calendar] No session found');
-        return;
-      }
-
-      console.log('[Admin Calendar] Calling /api/holidays/sync...');
-      const response = await fetch('/api/holidays/sync', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      console.log('[Admin Calendar] Sync response status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('[Admin Calendar] Sync response data:', data);
-        setSyncStatus(data.status);
-        toast({
-          title: "Success",
-          description: data.message || "Holiday sync completed successfully",
-        });
-        
-        // Clear cache and force reload current month data
-        setHolidayData({});
-        
-        // Force fetch current month data
-        const monthKey = getMonthKey(currentDate);
-        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString().split("T")[0];
-        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().split("T")[0];
-
-        // Fetch fresh data
-        const [masterHolidaysResponse, apiResponse] = await Promise.all([
-          supabase
-            .from("master_public_holidays")
-            .select("*")
-            .gte("holiday_date", startDate)
-            .lte("holiday_date", endDate)
-            .eq("is_active", true),
-          fetch(`/api/holidays?start_date=${startDate}&end_date=${endDate}`, {
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-            },
-          })
-        ]);
-
-        const masterHolidaysData = masterHolidaysResponse.data || [];
-        
-        if (apiResponse.ok) {
-          const apiData = await apiResponse.json();
-          
-          // Update cache with fresh data
-          setHolidayData({
-            [monthKey]: {
-              recurring: apiData.recurring_holidays || [],
-              specific: apiData.specific_holidays || [],
-              master: masterHolidaysData
-            }
-          });
-        }
-        
-        // Also refresh sync status
-        await fetchSyncStatus();
-      } else {
-        const error = await response.json();
-        toast({
-          title: "Error",
-          description: error.message || "Failed to sync holidays",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to sync holidays",
-        variant: "destructive",
-      });
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const previousMonth = () => {
     const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1);
     setCurrentDate(newDate);
@@ -790,43 +627,6 @@ const AdminHolidayCalendarScreen = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {/* Sync Status & Button */}
-              <div className="flex items-center gap-2 text-xs">
-                {syncStatus ? (
-                  <>
-                    <div className="flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3 text-green-600" />
-                      <span className="text-gray-600">
-                        {syncStatus.currentYear.year}: {syncStatus.currentYear.count} holidays
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {syncStatus.nextYear.count > 0 ? (
-                        <CheckCircle className="w-3 h-3 text-green-600" />
-                      ) : (
-                        <AlertCircle className="w-3 h-3 text-amber-600" />
-                      )}
-                      <span className="text-gray-600">
-                        {syncStatus.nextYear.year}: {syncStatus.nextYear.count} holidays
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <span className="text-gray-500">Loading sync status...</span>
-                )}
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleManualSync}
-                  disabled={syncing}
-                  className="h-6 px-2 text-xs"
-                >
-                  <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
-                  {syncing ? 'Syncing...' : 'Sync'}
-                </Button>
-              </div>
-              
               {/* Month Navigation */}
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={previousMonth}>
@@ -900,16 +700,7 @@ const AdminHolidayCalendarScreen = () => {
                     {day}
                   </div>
                   
-                  {/* Show holiday name for public holidays/festivals */}
-                  {holidays.holidayNames.length > 0 && (
-                    <div className="mt-0.5 text-[9px] sm:text-[10px] font-medium text-center leading-tight px-0.5 line-clamp-2 max-w-full">
-                      <span className={hasPublicHoliday ? "text-red-600" : "text-amber-700"}>
-                        {holidays.holidayNames[0]}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {/* Show employee count for all holidays including public holidays */}
+                  {/* Show employee count for holidays */}
                   {hasHolidays && (
                     <div className="mt-0.5 flex items-center justify-center gap-0.5">
                       <Users className={`w-2.5 h-2.5 ${isToday ? "text-green-700" : hasPublicHoliday ? "text-red-600" : "text-amber-600"}`} />

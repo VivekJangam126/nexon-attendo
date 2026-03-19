@@ -57,6 +57,13 @@ export const BreakLogsHistory = ({ employeeId, employeeName, refreshTrigger }: B
   };
 
   const fetchBreakLogs = async () => {
+    // Don't fetch if employeeId is not available
+    if (!employeeId || employeeId.trim() === '') {
+      console.warn('BreakLogsHistory: employeeId is not available');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const { startDate, endDate } = getDateRange(activeFilter);

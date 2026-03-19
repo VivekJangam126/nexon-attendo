@@ -154,34 +154,34 @@ const LoginScreen = () => {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center px-6 py-12 bg-white">
-        <div className="w-full max-w-md">
+      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center px-4 py-8 bg-white">
+        <div className="w-full max-w-sm">
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center justify-center mb-8">
-            <div className="w-12 h-12 bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-orange-500" />
+          <div className="lg:hidden flex items-center justify-center mb-6">
+            <div className="w-10 h-10 bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-orange-500" />
             </div>
           </div>
 
           {/* Form Header */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Employee Login</h2>
-            <p className="text-gray-600">Sign in to your account to continue</p>
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-1">Employee Login</h2>
+            <p className="text-sm text-gray-600">Sign in to your account to continue</p>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-red-700">{error}</p>
             </div>
           )}
 
           {/* Login Form */}
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleLogin} className="space-y-4">
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-2">
+              <label htmlFor="email" className="block text-xs font-medium text-gray-900 mb-1">
                 Email Address
               </label>
               <input
@@ -190,14 +190,14 @@ const LoginScreen = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                 autoComplete="email"
               />
             </div>
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-900 mb-2">
+              <label htmlFor="password" className="block text-xs font-medium text-gray-900 mb-1">
                 Password
               </label>
               <div className="relative">
@@ -207,15 +207,15 @@ const LoginScreen = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all pr-12"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all pr-10"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
@@ -225,7 +225,7 @@ const LoginScreen = () => {
               <button
                 type="button"
                 onClick={() => navigate("/forgot-password")}
-                className="text-sm text-orange-600 hover:text-orange-700 font-medium transition-colors"
+                className="text-xs text-orange-600 hover:text-orange-700 font-medium transition-colors"
               >
                 Forgot Password?
               </button>
@@ -235,11 +235,11 @@ const LoginScreen = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-orange-600 text-white text-sm rounded-lg font-semibold hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Signing in...
                 </>
               ) : (
@@ -249,12 +249,12 @@ const LoginScreen = () => {
           </form>
 
           {/* Registration and Admin Links */}
-          <div className="mt-6 text-center space-y-3">
+          <div className="mt-4 text-center space-y-2">
             <div>
-              <span className="text-sm text-gray-500">New employee? </span>
+              <span className="text-xs text-gray-500">New employee? </span>
               <button
                 onClick={() => navigate("/register")}
-                className="text-sm text-orange-600 hover:text-orange-700 font-medium transition-colors"
+                className="text-xs text-orange-600 hover:text-orange-700 font-medium transition-colors"
               >
                 Register here
               </button>
@@ -262,7 +262,7 @@ const LoginScreen = () => {
             <div>
               <button
                 onClick={() => navigate("/admin/login")}
-                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
               >
                 Admin Login →
               </button>
@@ -270,7 +270,7 @@ const LoginScreen = () => {
           </div>
 
           {/* Footer */}
-          <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+          <div className="mt-6 pt-4 border-t border-gray-200 text-center">
             <p className="text-xs text-gray-500">© 2026 Nexus Corporate Pvt Ltd. All rights reserved.</p>
           </div>
         </div>

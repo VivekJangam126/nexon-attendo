@@ -65,13 +65,14 @@ export class LeaveService {
             .from('employee_leave_balance')
             .insert({
               employee_id: employeeId,
-              leave_type_id: type.id,
-              total_leaves: type.max_per_year,
+              leave_type_id: (type as any).id,
+              total_leaves: (type as any).max_per_year,
               used_leaves: 0,
-              remaining_leaves: type.max_per_year,
+              remaining_leaves: (type as any).max_per_year,
+              year: year,
               employment_year_start: yearStartStr,
               employment_year_end: yearEndStr,
-            })
+            } as any)
             .select()
             .single();
 
@@ -82,7 +83,7 @@ export class LeaveService {
                 .from('employee_leave_balance')
                 .select('*')
                 .eq('employee_id', employeeId)
-                .eq('leave_type_id', type.id)
+                .eq('leave_type_id', (type as any).id)
                 .eq('employment_year_start', yearStartStr)
                 .single();
               
@@ -92,7 +93,7 @@ export class LeaveService {
             balances.push(balance);
           }
         } catch (err) {
-          console.error('[LeaveService] Error creating balance for type:', type.name, err);
+          console.error('[LeaveService] Error creating balance for type:', (type as any).name, err);
         }
       }
 
@@ -167,8 +168,8 @@ export class LeaveService {
 
     const leaveDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    if (balance && balance.remaining_leaves < leaveDays) {
-      throw new Error(`Insufficient leave balance. Available: ${balance.remaining_leaves} days`);
+    if (balance && (balance as any).remaining_leaves < leaveDays) {
+      throw new Error(`Insufficient leave balance. Available: ${(balance as any).remaining_leaves} days`);
     }
 
     const { data, error } = await supabase
@@ -180,7 +181,7 @@ export class LeaveService {
         end_date: endDate,
         reason,
         status: 'pending',
-      })
+      } as any)
       .select()
       .single();
 
@@ -215,15 +216,15 @@ export class LeaveService {
     if (error) throw error;
 
     if (data && data.length > 0) {
-      const employeeIds = [...new Set(data.map(r => r.employee_id))];
+      const employeeIds = [...new Set(data.map((r: any) => r.employee_id))];
       const { data: employees } = await supabase
         .from('profiles')
         .select('id, full_name, email')
         .in('id', employeeIds);
 
       if (employees) {
-        const employeeMap = new Map(employees.map(e => [e.id, e]));
-        return data.map(request => ({
+        const employeeMap = new Map(employees.map((e: any) => [e.id, e]));
+        return data.map((request: any) => ({
           ...request,
           employee: employeeMap.get(request.employee_id),
         }));
@@ -255,15 +256,15 @@ export class LeaveService {
     if (error) throw error;
 
     if (data && data.length > 0) {
-      const employeeIds = [...new Set(data.map(r => r.employee_id))];
+      const employeeIds = [...new Set(data.map((r: any) => r.employee_id))];
       const { data: employees } = await supabase
         .from('profiles')
         .select('id, full_name, email')
         .in('id', employeeIds);
 
       if (employees) {
-        const employeeMap = new Map(employees.map(e => [e.id, e]));
-        return data.map(request => ({
+        const employeeMap = new Map(employees.map((e: any) => [e.id, e]));
+        return data.map((request: any) => ({
           ...request,
           employee: employeeMap.get(request.employee_id),
         }));
@@ -274,7 +275,6 @@ export class LeaveService {
   }
 
   // Admin: Approve leave request
-  // Admin: Approve leave request
   static async approveLeaveRequest(leaveRequestId: string, adminComment?: string): Promise<void> {
     const { data: leaveRequest, error: fetchError } = await supabase
       .from('leave_requests')
@@ -283,24 +283,25 @@ export class LeaveService {
       .single();
 
     if (fetchError) throw fetchError;
+    if (!leaveRequest) throw new Error('Leave request not found');
 
-    const start = new Date(leaveRequest.start_date);
-    const end = new Date(leaveRequest.end_date);
+    const start = new Date((leaveRequest as any).start_date);
+    const end = new Date((leaveRequest as any).end_date);
     const leaveDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
     console.log('[approveLeaveRequest] Approving leave request');
     console.log('[approveLeaveRequest] Leave days:', leaveDays);
-    console.log('[approveLeaveRequest] Employee ID:', leaveRequest.employee_id);
-    console.log('[approveLeaveRequest] Leave Type ID:', leaveRequest.leave_type_id);
+    console.log('[approveLeaveRequest] Employee ID:', (leaveRequest as any).employee_id);
+    console.log('[approveLeaveRequest] Leave Type ID:', (leaveRequest as any).leave_type_id);
 
     // Update request status
     const { error: updateError } = await supabase
       .from('leave_requests')
       .update({
         status: 'approved',
-        admin_comment: adminComment,
+        admin_comment: adminComment || null,
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq('id', leaveRequestId);
 
     if (updateError) {
@@ -309,13 +310,13 @@ export class LeaveService {
     }
 
     // Update leave balance - simple approach
-    if (leaveRequest.leave_type_id) {
+    if ((leaveRequest as any).leave_type_id) {
       // Get the balance record - just find ANY record for this employee and leave type
       const { data: balances, error: balanceError } = await supabase
         .from('employee_leave_balance')
         .select('*')
-        .eq('employee_id', leaveRequest.employee_id)
-        .eq('leave_type_id', leaveRequest.leave_type_id);
+        .eq('employee_id', (leaveRequest as any).employee_id)
+        .eq('leave_type_id', (leaveRequest as any).leave_type_id);
 
       console.log('[approveLeaveRequest] Found balances:', balances?.length || 0);
 
@@ -326,9 +327,9 @@ export class LeaveService {
 
       if (balances && balances.length > 0) {
         // Use the first balance record found
-        const balance = balances[0];
-        const newUsedLeaves = balance.used_leaves + leaveDays;
-        const newRemainingLeaves = balance.total_leaves - newUsedLeaves;
+        const balance = balances[0] as any;
+        const newUsedLeaves = (balance.used_leaves || 0) + leaveDays;
+        const newRemainingLeaves = (balance.total_leaves || 0) - newUsedLeaves;
 
         console.log('[approveLeaveRequest] Updating balance:', {
           balance_id: balance.id,
@@ -345,7 +346,7 @@ export class LeaveService {
             used_leaves: newUsedLeaves,
             remaining_leaves: newRemainingLeaves,
             updated_at: new Date().toISOString(),
-          })
+          } as any)
           .eq('id', balance.id);
 
         if (updateBalanceError) {
@@ -356,8 +357,8 @@ export class LeaveService {
         console.log('[approveLeaveRequest] Balance updated successfully!');
       } else {
         console.error('[approveLeaveRequest] No balance record found for employee');
-        console.error('[approveLeaveRequest] Employee ID:', leaveRequest.employee_id);
-        console.error('[approveLeaveRequest] Leave Type ID:', leaveRequest.leave_type_id);
+        console.error('[approveLeaveRequest] Employee ID:', (leaveRequest as any).employee_id);
+        console.error('[approveLeaveRequest] Leave Type ID:', (leaveRequest as any).leave_type_id);
       }
     }
   }
@@ -370,7 +371,7 @@ export class LeaveService {
         status: 'rejected',
         admin_comment: adminComment,
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq('id', leaveRequestId);
 
     if (error) throw error;
@@ -415,5 +416,225 @@ export class LeaveService {
       employees_on_leave_today: todayCount || 0,
       leaves_this_month: monthCount || 0,
     };
+  }
+
+  /**
+   * Recalculate leave balance for an employee based on actual approved leave requests
+   * This should be called when leave requests are deleted or modified
+   * @param employeeId - Employee ID
+   * @returns Updated leave balances
+   */
+  static async recalculateLeaveBalance(employeeId: string): Promise<{ success: boolean; message: string; balances?: any[] }> {
+    try {
+      console.log('[LeaveService] Recalculating leave balance for employee:', employeeId);
+
+      // Get current employment year dates
+      console.log('[LeaveService] Getting current employment year...');
+      const currentYearDates = await LeaveAnniversaryService.getCurrentEmploymentYear(employeeId);
+      
+      if (!currentYearDates) {
+        console.error('[LeaveService] Could not determine employment year');
+        return { success: false, message: 'Could not determine employment year for employee' };
+      }
+
+      console.log('[LeaveService] Employment year dates:', currentYearDates);
+
+      // Calculate employment year number from start date
+      const employmentYear = new Date(currentYearDates.start).getFullYear();
+      console.log('[LeaveService] Employment year:', employmentYear);
+      
+      // Get all leave balances for current employment year
+      console.log('[LeaveService] Fetching leave balances...');
+      const { data: balances, error: balanceError } = await supabase
+        .from('employee_leave_balance')
+        .select('*')
+        .eq('employee_id', employeeId);
+
+      if (balanceError) {
+        console.error('[LeaveService] Error fetching balances:', balanceError);
+        return { success: false, message: `Failed to fetch leave balances: ${balanceError.message}` };
+      }
+
+      console.log('[LeaveService] Found balances:', balances?.length || 0);
+
+      if (!balances || balances.length === 0) {
+        console.log('[LeaveService] No balances found, initializing...');
+        try {
+          const newBalances = await this.initializeLeaveBalance(employeeId, employmentYear);
+          return { 
+            success: true, 
+            message: 'Leave balance initialized', 
+            balances: newBalances 
+          };
+        } catch (initError: any) {
+          console.error('[LeaveService] Error initializing balance:', initError);
+          return { success: false, message: `Failed to initialize balance: ${initError.message}` };
+        }
+      }
+
+      // For each leave type, recalculate used leaves based on approved requests
+      const updatedBalances = [];
+      
+      for (const balance of balances) {
+        const balanceRecord = balance as any;
+        
+        console.log('[LeaveService] Processing balance for leave type:', balanceRecord.leave_type_id);
+        
+        // Get all approved leave requests for this employee and leave type in current employment year
+        // Use the employment year date range instead of calendar year
+        const { data: approvedRequests, error: requestError } = await supabase
+          .from('leave_requests')
+          .select('leave_days')
+          .eq('employee_id', employeeId)
+          .eq('leave_type_id', balanceRecord.leave_type_id)
+          .eq('status', 'approved')
+          .gte('created_at', currentYearDates.start)
+          .lt('created_at', currentYearDates.end);
+
+        if (requestError) {
+          console.error('[LeaveService] Error fetching approved requests:', requestError);
+          continue;
+        }
+
+        // Calculate total used leaves from approved requests
+        const totalUsedLeaves = (approvedRequests || []).reduce((sum, req) => sum + (req.leave_days || 0), 0);
+        const newRemainingLeaves = Math.max(0, (balanceRecord.total_leaves || 0) - totalUsedLeaves);
+
+        console.log('[LeaveService] Recalculating balance for leave type:', balanceRecord.leave_type_id, {
+          date_range: `${currentYearDates.start} to ${currentYearDates.end}`,
+          total_leaves: balanceRecord.total_leaves,
+          old_used: balanceRecord.used_leaves,
+          new_used: totalUsedLeaves,
+          old_remaining: balanceRecord.remaining_leaves,
+          new_remaining: newRemainingLeaves,
+          approved_requests_count: approvedRequests?.length || 0,
+          approved_requests: approvedRequests
+        });
+
+        // Only update if there's actually a change
+        if (balanceRecord.used_leaves !== totalUsedLeaves || balanceRecord.remaining_leaves !== newRemainingLeaves) {
+          console.log('[LeaveService] Balance needs update, updating...');
+          
+          // Update the balance record
+          const { data: updatedBalance, error: updateError } = await supabase
+            .from('employee_leave_balance')
+            .update({
+              used_leaves: totalUsedLeaves,
+              remaining_leaves: newRemainingLeaves,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', balanceRecord.id)
+            .select()
+            .single();
+
+          if (updateError) {
+            console.error('[LeaveService] Error updating balance:', updateError);
+            continue;
+          }
+
+          updatedBalances.push(updatedBalance);
+        } else {
+          console.log('[LeaveService] Balance already correct, no update needed');
+          updatedBalances.push(balanceRecord);
+        }
+      }
+
+      console.log('[LeaveService] Successfully recalculated', updatedBalances.length, 'leave balances');
+      
+      return { 
+        success: true, 
+        message: `Recalculated ${updatedBalances.length} leave balances`, 
+        balances: updatedBalances 
+      };
+
+    } catch (error: any) {
+      console.error('[LeaveService] Unexpected error in recalculateLeaveBalance:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      return { 
+        success: false, 
+        message: `Failed to recalculate leave balance: ${error.message}` 
+      };
+    }
+  }
+
+  /**
+   * Recalculate leave balance for all employees
+   * Useful for admin when bulk operations are performed
+   * @returns Summary of recalculation results
+   */
+  static async recalculateAllEmployeesBalance(): Promise<{ success: boolean; message: string; results?: any[] }> {
+    try {
+      console.log('[LeaveService] Recalculating leave balance for all employees...');
+
+      // Get all active employees
+      const { data: employees, error: employeeError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('role', 'employee')
+        .eq('status', 'active');
+
+      if (employeeError) {
+        console.error('[LeaveService] Error fetching employees:', employeeError);
+        return { success: false, message: 'Failed to fetch employees' };
+      }
+
+      if (!employees || employees.length === 0) {
+        return { success: true, message: 'No active employees found' };
+      }
+
+      const results = [];
+      let successCount = 0;
+      let failureCount = 0;
+
+      // Recalculate balance for each employee
+      for (const employee of employees) {
+        try {
+          const result = await this.recalculateLeaveBalance(employee.id);
+          results.push({
+            employeeId: employee.id,
+            employeeName: employee.full_name,
+            success: result.success,
+            message: result.message
+          });
+
+          if (result.success) {
+            successCount++;
+          } else {
+            failureCount++;
+          }
+        } catch (error) {
+          console.error('[LeaveService] Error recalculating for employee:', employee.id, error);
+          results.push({
+            employeeId: employee.id,
+            employeeName: employee.full_name,
+            success: false,
+            message: 'Unexpected error occurred'
+          });
+          failureCount++;
+        }
+      }
+
+      console.log('[LeaveService] Bulk recalculation complete:', {
+        total: employees.length,
+        success: successCount,
+        failures: failureCount
+      });
+
+      return {
+        success: true,
+        message: `Recalculated balance for ${successCount}/${employees.length} employees`,
+        results
+      };
+
+    } catch (error) {
+      console.error('[LeaveService] Error in recalculateAllEmployeesBalance:', error);
+      return {
+        success: false,
+        message: 'Failed to recalculate leave balances'
+      };
+    }
   }
 }

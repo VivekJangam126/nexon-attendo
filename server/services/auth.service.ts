@@ -225,4 +225,59 @@ export const authService = {
       callback(session);
     });
   },
+
+  /**
+   * Change user password
+   * @param currentPassword - Current password for verification
+   * @param newPassword - New password to set
+   * @returns Success status and error if any
+   */
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; error: Error | null }> {
+    try {
+      // First verify current password by attempting to sign in
+      const { data: currentUser } = await supabase.auth.getUser();
+      
+      if (!currentUser.user?.email) {
+        return {
+          success: false,
+          error: new Error('User not authenticated')
+        };
+      }
+
+      // Verify current password by attempting sign in
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: currentUser.user.email,
+        password: currentPassword,
+      });
+
+      if (verifyError) {
+        return {
+          success: false,
+          error: new Error('Current password is incorrect')
+        };
+      }
+
+      // Update password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (updateError) {
+        return {
+          success: false,
+          error: new Error(updateError.message)
+        };
+      }
+
+      return {
+        success: true,
+        error: null
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error : new Error('Failed to change password')
+      };
+    }
+  },
 };

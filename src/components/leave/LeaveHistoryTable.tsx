@@ -174,43 +174,41 @@ export function LeaveHistoryTable({ requests, isLoading }: LeaveHistoryTableProp
               const days = calculateDays(request.start_date, request.end_date);
               const leaveTypeName = getLeaveTypeName(request.leave_type_id);
 
-              return (
-                <>
-                  <tr key={request.id} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${config.badge} text-xs font-bold`}>
-                        {index + 1}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-gray-900 font-medium">{leaveTypeName}</td>
-                    <td className="py-3 px-4 text-gray-600">{formatDate(request.start_date)} - {formatDate(request.end_date)}</td>
-                    <td className="py-3 px-4 text-center">
-                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded text-xs font-bold text-amber-700">
-                        {days}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-gray-700 truncate max-w-xs">{request.reason || '-'}</td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${config.badge}`}>
-                        <StatusIcon className="w-3.5 h-3.5" />
-                        <span>{config.label}</span>
-                      </span>
+              return [
+                <tr key={request.id} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                  <td className="py-3 px-4 text-center">
+                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${config.badge} text-xs font-bold`}>
+                      {index + 1}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-gray-900 font-medium">{leaveTypeName}</td>
+                  <td className="py-3 px-4 text-gray-600">{formatDate(request.start_date)} - {formatDate(request.end_date)}</td>
+                  <td className="py-3 px-4 text-center">
+                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded text-xs font-bold text-amber-700">
+                      {days}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-gray-700 truncate max-w-xs">{request.reason || '-'}</td>
+                  <td className="py-3 px-4 text-center">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${config.badge}`}>
+                      <StatusIcon className="w-3.5 h-3.5" />
+                      <span>{config.label}</span>
+                    </span>
+                  </td>
+                </tr>,
+                
+                // Manager's Note - Below this leave request
+                request.admin_comment && (
+                  <tr key={`comment-${request.id}`} className="border-b border-gray-200">
+                    <td colSpan={6} className="py-2 px-4">
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                        <p className="font-semibold text-blue-700 mb-1">📝 Manager's Note:</p>
+                        <p className="text-blue-800 text-xs">{request.admin_comment}</p>
+                      </div>
                     </td>
                   </tr>
-                  
-                  {/* Manager's Note - Below this leave request */}
-                  {request.admin_comment && (
-                    <tr key={`comment-${request.id}`} className="border-b border-gray-200">
-                      <td colSpan={6} className="py-2 px-4">
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded">
-                          <p className="font-semibold text-blue-700 mb-1">📝 Manager's Note:</p>
-                          <p className="text-blue-800 text-xs">{request.admin_comment}</p>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </>
-              );
+                )
+              ].filter(Boolean);
             })}
           </tbody>
         </table>
@@ -265,7 +263,7 @@ export function LeaveHistoryTable({ requests, isLoading }: LeaveHistoryTableProp
 
               {/* Admin Comment - Full Width Below */}
               {request.admin_comment && (
-                <div className="px-2 py-1.5 bg-blue-50 border border-blue-200 rounded-lg mt-1">
+                <div key={`mobile-comment-${request.id}`} className="px-2 py-1.5 bg-blue-50 border border-blue-200 rounded-lg mt-1">
                   <p className="text-xs font-medium text-blue-700 mb-0.5">Manager's Note</p>
                   <p className="text-xs text-blue-800">{request.admin_comment}</p>
                 </div>

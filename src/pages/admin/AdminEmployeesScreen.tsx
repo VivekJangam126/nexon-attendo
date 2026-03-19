@@ -1,10 +1,21 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ChevronRight, UserCheck, Clock, UserX, Plus, ClipboardList, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Search, ChevronRight, UserCheck, Clock, UserX, Plus, ClipboardList, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import { AddEmployeeModal } from "@/components/admin/AddEmployeeModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { employeeService, dashboardService } from "@server";
 import type { EmployeeWithAttendance } from "@server";
+import { toast } from "@/hooks/use-toast";
 
 type EmployeeStatus = "present" | "late" | "absent" | "not_marked" | "holiday";
 type SortField = "name" | "email" | "role" | "check_in" | "status";
@@ -38,6 +49,8 @@ const AdminEmployeesScreen = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState<EmployeeWithAttendance | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -179,6 +192,55 @@ const AdminEmployeesScreen = () => {
     
     const pendingAction = actionsResult.actions.find(a => a.type === 'approval');
     setPendingCount(pendingAction?.count || 0);
+  };
+
+  const handleDeleteEmployee = async () => {
+    if (!employeeToDelete || isDeleting) return;
+
+    setIsDeleting(true);
+    
+    try {
+      const result = await employeeService.deleteEmployee(employeeToDelete.id);
+      
+      if (result.success) {
+        toast({
+          title: "Employee Deleted",
+          description: `${employeeToDelete.full_name} has been permanently deleted from the system.`,
+        });
+        
+        // Refresh employee list
+        const [employeeResult, actionsResult] = await Promise.all([
+          employeeService.getAllEmployees(),
+          dashboardService.getPendingActions(),
+        ]);
+        
+        setEmployees(employeeResult.employees);
+        
+        const pendingAction = actionsResult.actions.find(a => a.type === 'approval');
+        setPendingCount(pendingAction?.count || 0);
+        
+        setEmployeeToDelete(null);
+      } else {
+        toast({
+          title: "Delete Failed",
+          description: result.error?.message || "Failed to delete employee. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Delete Error",
+        description: "An unexpected error occurred while deleting the employee.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, employee: EmployeeWithAttendance) => {
+    e.stopPropagation(); // Prevent row click
+    setEmployeeToDelete(employee);
   };
 
   if (loading) {
@@ -353,6 +415,9 @@ const AdminEmployeesScreen = () => {
                       {getSortIcon('status')}
                     </div>
                   </th>
+                  <th className="text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wide px-4 py-3">
+                    Actions
+                  </th>
                   <th className="w-10"></th>
                 </tr>
               </thead>
@@ -386,6 +451,15 @@ const AdminEmployeesScreen = () => {
                     <td className="px-4 py-3 text-xs text-gray-600">{employee.office_name || '—'}</td>
                     <td className="px-4 py-3 text-xs text-gray-600">{formatCheckInTime(employee.check_in_time) || "—"}</td>
                     <td className="px-4 py-3"><StatusBadge status={employee.today_status} /></td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={(e) => handleDeleteClick(e, employee)}
+                        className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete Employee"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
                     <td className="px-4 py-3"><ChevronRight className="w-4 h-4 text-gray-400" /></td>
                   </tr>
                 ))}
@@ -407,6 +481,44 @@ const AdminEmployeesScreen = () => {
         onOpenChange={setShowAddEmployeeModal}
         onSuccess={handleAddEmployeeSuccess}
       />
+
+      {/* Delete Employee Confirmation Dialog */}
+      <AlertDialog open={!!employeeToDelete} onOpenChange={() => setEmployeeToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Employee</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete <strong>{employeeToDelete?.full_name}</strong>? 
+              This action cannot be undone and will remove all associated data including:
+              <br /><br />
+              • Attendance records
+              <br />
+              • Leave requests and balances
+              <br />
+              • Performance data
+              <br />
+              • All other employee-related information
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteEmployee}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {isDeleting ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Deleting...
+                </div>
+              ) : (
+                "Delete Permanently"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 };

@@ -6,14 +6,54 @@ import LeaveBalanceCards from './LeaveBalanceCardsNew';
 import { ApplyLeaveModal } from './ApplyLeaveModal';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Plus, Calendar, TrendingUp, AlertCircle } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function LeaveDashboard() {
   const { profile, user } = useAuth();
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const queryClient = useQueryClient();
   
   // Fetch both in parallel for better performance
   const { data: requests = [], isLoading: requestsLoading, error: requestsError } = useEmployeeLeaveRequests();
   const { data: balances = [], isLoading: balancesLoading } = useLeaveBalance();
+
+  // Auto-recalculate balance when component loads
+  useEffect(() => {
+    const recalculateBalance = async () => {
+      if (!profile?.id) return;
+      
+      try {
+        console.log('[LeaveDashboard] Auto-recalculating leave balance...');
+        const response = await fetch('/api/leave/recalculate-balance', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ employeeId: profile.id }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('[LeaveDashboard] Balance recalculated:', result.message);
+          
+          // Refresh the balance data
+          queryClient.invalidateQueries({ queryKey: ['leaveBalance'] });
+        } else {
+          const errorText = await response.text();
+          console.warn('[LeaveDashboard] Failed to recalculate balance:', {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorText
+          });
+        }
+      } catch (error) {
+        console.error('[LeaveDashboard] Error recalculating balance:', error);
+      }
+    };
+
+    // Recalculate balance when component loads
+    recalculateBalance();
+  }, [profile?.id, queryClient]);
 
   // Calculate statistics
   const totalLeaves = balances.reduce((sum, b) => sum + b.total_leaves, 0);
@@ -23,8 +63,9 @@ export function LeaveDashboard() {
   const approvedRequests = requests.filter(r => r.status === 'approved').length;
 
   const handleApplySuccess = () => {
-    // Refetch requests after successful submission
-    window.location.reload();
+    // Trigger immediate refresh of both queries
+    queryClient.invalidateQueries({ queryKey: ['employeeLeaveRequests'] });
+    queryClient.invalidateQueries({ queryKey: ['leaveBalance'] });
   };
 
   return (

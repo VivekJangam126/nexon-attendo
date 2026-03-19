@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Clock, CheckCircle2, Building2, Calendar, AlertCircle, LogOut, TrendingUp, Zap, Award } from "lucide-react";
+import { MapPin, Clock, CheckCircle2, AlertCircle, LogOut } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { EmployeeTimeTracker } from "@/components/EmployeeTimeTracker";
 import { BreakLogsHistory } from "@/components/BreakLogsHistory";
@@ -141,7 +141,7 @@ const DashboardScreen = () => {
       } else {
         toast({
           title: "Checkout Failed",
-          description: result.error || "Failed to check out",
+          description: ('error' in result ? result.error : result.message) || "Failed to check out",
           variant: "destructive",
         });
       }
@@ -199,59 +199,59 @@ const DashboardScreen = () => {
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col min-h-full pb-20 md:pb-0">
+      <div className="flex flex-col min-h-full pb-20 md:pb-0 bg-gray-50/30">
         {/* Header */}
-        <div className="px-4 sm:px-6 lg:px-8 pt-2 pb-2 border-b border-border">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <h1 className="text-lg font-semibold">{getGreeting()}</h1>
-              <p className="text-sm text-muted-foreground">{formattedDate}</p>
+        <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-6 bg-gradient-to-r from-white to-gray-50/50 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                {getGreeting()}, {profile.full_name.split(' ')[0]}
+              </h1>
+              <p className="text-sm text-gray-600">{formattedDate}</p>
             </div>
             <button
               onClick={() => navigate("/profile")}
-              className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors"
+              className="text-sm text-primary hover:text-primary/80 font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-primary/5"
             >
-              <span className="text-sm font-semibold text-primary">
-                {profile.full_name.split(' ').map(n => n[0]).join('')}
-              </span>
+              View Profile
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 px-4 sm:px-6 lg:px-8 py-3 overflow-y-auto">
-          <div className="max-w-4xl mx-auto space-y-3">
+        <div className="flex-1 px-4 sm:px-6 lg:px-8 py-6 overflow-y-auto">
+          <div className="max-w-4xl mx-auto space-y-6">
             {/* Attendance Status Card */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold text-gray-900">Today's Attendance</h2>
-                <div className="flex items-center gap-2 text-xs text-gray-600">
+            <div className="bg-gradient-to-r from-white to-gray-50/50 rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Today's Attendance</h2>
+                <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
                   <Clock className="w-3.5 h-3.5" />
                   <span>Window: {windowDisplay}</span>
                 </div>
               </div>
 
               {todayAttendance ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {/* Status Badge */}
-                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border ${getStatusColor(todayAttendance.status)}`}>
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border ${getStatusColor(todayAttendance.status)}`}>
                     {getStatusIcon(todayAttendance.status)}
                     <span className="capitalize">{todayAttendance.status}</span>
                   </div>
 
                   {/* Time Info */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Check In</p>
-                      <p className="text-sm font-medium text-gray-900">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="bg-white/70 rounded-lg p-4 border border-gray-100">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Check In</p>
+                      <p className="text-lg font-semibold text-gray-900">
                         {formatTime(todayAttendance.check_in_time)}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">
+                    <div className="bg-white/70 rounded-lg p-4 border border-gray-100">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                         {todayAttendance.check_out_time ? 'Check Out' : 'Duration'}
                       </p>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-lg font-semibold text-gray-900">
                         {todayAttendance.check_out_time 
                           ? formatTime(todayAttendance.check_out_time)
                           : workDuration
@@ -259,45 +259,24 @@ const DashboardScreen = () => {
                       </p>
                     </div>
                   </div>
-
-                  {/* Checkout Button */}
-                  {canCheckOut && (
-                    <button
-                      onClick={handleCheckOut}
-                      disabled={checkingOut}
-                      className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                    >
-                      {checkingOut ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Checking Out...
-                        </>
-                      ) : (
-                        <>
-                          <LogOut className="w-4 h-4" />
-                          Check Out
-                        </>
-                      )}
-                    </button>
-                  )}
                 </div>
               ) : (
-                <div className="text-center py-6">
+                <div className="text-center py-8">
                   {windowOpen ? (
-                    <div className="space-y-3">
-                      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                        <MapPin className="w-8 h-8 text-primary" />
+                    <div className="space-y-4">
+                      <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-primary/20 rounded-full flex items-center justify-center mx-auto">
+                        <MapPin className="w-10 h-10 text-primary" />
                       </div>
                       <div>
-                        <h3 className="text-base font-medium text-gray-900 mb-1">Ready to Check In</h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                          Tap the button below to mark your attendance
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready to Check In</h3>
+                        <p className="text-sm text-gray-600 mb-6">
+                          Tap the button below to mark your attendance for today
                         </p>
                       </div>
                       <button
                         onClick={handleMarkAttendance}
                         disabled={marking}
-                        className="w-full bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-primary-foreground py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                        className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary disabled:from-primary/50 disabled:to-primary/60 text-primary-foreground py-3.5 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
                       >
                         {marking ? (
                           <>
@@ -313,12 +292,12 @@ const DashboardScreen = () => {
                       </button>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                        <Clock className="w-8 h-8 text-gray-400" />
+                    <div className="space-y-4">
+                      <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                        <Clock className="w-10 h-10 text-gray-400" />
                       </div>
                       <div>
-                        <h3 className="text-base font-medium text-gray-900 mb-1">Attendance Window Closed</h3>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Attendance Window Closed</h3>
                         <p className="text-sm text-gray-600">
                           Attendance window: {windowDisplay}
                         </p>
@@ -329,88 +308,49 @@ const DashboardScreen = () => {
               )}
             </div>
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                    <TrendingUp className="w-3.5 h-3.5 text-green-600" />
-                  </div>
-                  <span className="text-xs font-medium text-gray-600">This Week</span>
-                </div>
-                <p className="text-lg font-bold text-gray-900">5/5</p>
-                <p className="text-xs text-gray-600">Days Present</p>
-              </div>
 
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Zap className="w-3.5 h-3.5 text-blue-600" />
-                  </div>
-                  <span className="text-xs font-medium text-gray-600">Avg Hours</span>
-                </div>
-                <p className="text-lg font-bold text-gray-900">8.2</p>
-                <p className="text-xs text-gray-600">Per Day</p>
-              </div>
-
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center">
-                    <Award className="w-3.5 h-3.5 text-amber-600" />
-                  </div>
-                  <span className="text-xs font-medium text-gray-600">Streak</span>
-                </div>
-                <p className="text-lg font-bold text-gray-900">12</p>
-                <p className="text-xs text-gray-600">Days</p>
-              </div>
-            </div>
 
             {/* Time Tracker */}
             <EmployeeTimeTracker 
-              todayAttendance={todayAttendance}
-              defaultCheckoutTime={defaultCheckoutTime}
+              employeeId={profile?.id || ''}
+              checkInTime={todayAttendance?.check_in_time || null}
+              checkOutTime={todayAttendance?.check_out_time || null}
+              currentUserId={user?.id}
+              onBreakUpdate={handleBreakUpdate}
             />
 
             {/* Break Logs */}
             <BreakLogsHistory 
+              employeeId={profile?.id || ''}
               refreshTrigger={breakRefreshTrigger}
-              onBreakUpdate={handleBreakUpdate}
             />
+          </div>
+        </div>
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-3">
+        {/* Bottom Checkout Button */}
+        {canCheckOut && (
+          <div className="px-4 sm:px-6 lg:px-8 py-4 bg-white border-t border-gray-200">
+            <div className="max-w-4xl mx-auto">
               <button
-                onClick={() => navigate("/history")}
-                className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                onClick={handleCheckOut}
+                disabled={checkingOut}
+                className="w-full max-w-xs mx-auto bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-red-400 disabled:to-red-500 text-white py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-gray-900">View History</p>
-                    <p className="text-xs text-gray-600">Past attendance</p>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => navigate("/leave-management")}
-                className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-gray-900">Leave Request</p>
-                    <p className="text-xs text-gray-600">Apply for leave</p>
-                  </div>
-                </div>
+                {checkingOut ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Checking Out...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4" />
+                    Check Out
+                  </>
+                )}
               </button>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </DashboardLayout>
   );

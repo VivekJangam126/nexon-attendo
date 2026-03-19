@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -16,6 +17,7 @@ const ProfileScreen = () => {
   const navigate = useNavigate();
   const { profile, logout: authLogout } = useAuth();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
   useEffect(() => {
     if (!profile) {
@@ -168,7 +170,7 @@ const ProfileScreen = () => {
               <h2 className="text-sm font-bold text-gray-900 mb-2">Quick Actions</h2>
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm divide-y divide-gray-100">
                 <button
-                  onClick={() => navigate("/change-password")}
+                  onClick={() => setShowChangePasswordModal(true)}
                   className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
                 >
                   <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -258,6 +260,12 @@ const ProfileScreen = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Change Password Modal */}
+        <ChangePasswordModal 
+          isOpen={showChangePasswordModal}
+          onClose={() => setShowChangePasswordModal(false)}
+        />
       </div>
     </DashboardLayout>
   );

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
-import { X, LayoutDashboard, Clock, Calendar, HelpCircle, Users, BarChart3, TrendingUp, DollarSign } from 'lucide-react';
+import { X, LayoutDashboard, Clock, Calendar, CalendarDays, HelpCircle, Users, BarChart3, TrendingUp } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const MobileMenuItems: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => {
@@ -16,7 +16,6 @@ const MobileMenuItems: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) =
     { icon: TrendingUp, label: 'Performance', path: '/admin/performance' },
     { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
     { icon: BarChart3, label: 'Analytics', path: '/admin/analytics' },
-    { icon: DollarSign, label: 'Payroll', path: '/admin/payroll' },
     { icon: HelpCircle, label: 'Help Desk', path: '/admin/help' },
   ];
 
@@ -24,6 +23,7 @@ const MobileMenuItems: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) =
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Clock, label: 'Attendance', path: '/history' },
     { icon: Calendar, label: 'Leave', path: '/leave' },
+    { icon: CalendarDays, label: 'Holidays', path: '/calendar' },
     { icon: HelpCircle, label: 'Help', path: '/help-support' },
   ];
 

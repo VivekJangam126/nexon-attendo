@@ -52,7 +52,7 @@ const HelpCenterScreen = () => {
       title: "Support Request",
       description: "Opening email client...",
     });
-    window.location.href = "mailto:support@nexon.com?subject=Attendance App Support";
+    window.location.href = "mailto:hr@smartmatrixds.com?subject=Attendance App Support";
   };
 
   return (
@@ -87,7 +87,7 @@ const HelpCenterScreen = () => {
               </div>
               <div className="flex-1 text-left">
                 <p className="font-medium">Contact Support</p>
-                <p className="text-sm text-muted-foreground">support@nexon.com</p>
+                <p className="text-sm text-muted-foreground">hr@smartmatrixds.com</p>
               </div>
               <MessageCircle className="w-5 h-5 text-muted-foreground" />
             </button>
