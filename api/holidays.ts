@@ -118,8 +118,46 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
         return res.status(500).json({ error: result.error });
       }
 
-      console.log('[Holiday API] Admin holidays result:', result.holidays?.length || 0, 'days');
+      // Get recurring holidays for all employees
+      const { data: recurringHolidays, error: recurringError } = await supabase
+        .from('employee_recurring_holidays')
+        .select(`
+          id,
+          employee_id,
+          day_of_week,
+          profiles!inner(id, full_name)
+        `);
+
+      if (recurringError) {
+        console.error('[Holiday API] Error getting recurring holidays:', recurringError);
+      }
+
+      // Get specific holidays for the date range
+      const { data: specificHolidays, error: specificError } = await supabase
+        .from('employee_specific_holidays')
+        .select(`
+          id,
+          employee_id,
+          holiday_date,
+          reason,
+          holiday_type,
+          profiles!inner(id, full_name)
+        `)
+        .gte('holiday_date', (start_date as string) || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-01`)
+        .lte('holiday_date', (end_date as string) || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-31`);
+
+      if (specificError) {
+        console.error('[Holiday API] Error getting specific holidays:', specificError);
+      }
+
+      console.log('[Holiday API] Admin holidays result:', {
+        recurring: recurringHolidays?.length || 0,
+        specific: specificHolidays?.length || 0
+      });
+
       return res.status(200).json({
+        recurring_holidays: recurringHolidays || [],
+        specific_holidays: specificHolidays || [],
         holidays: result.holidays || [],
         year: targetYear,
         month: targetMonth
@@ -127,16 +165,37 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
     } else {
       // Employee: Get only their holidays
       console.log('[Holiday API] Employee request - getting employee holidays');
-      const result = await holidayService.getEmployeeHolidaysForMonth(user.id, targetYear, targetMonth);
       
-      if (result.error) {
-        console.error('[Holiday API] Error getting employee holidays:', result.error);
-        return res.status(500).json({ error: result.error });
+      // Get employee's recurring holidays
+      const { data: recurringHolidays, error: recurringError } = await supabase
+        .from('employee_recurring_holidays')
+        .select('*')
+        .eq('employee_id', user.id);
+
+      if (recurringError) {
+        console.error('[Holiday API] Error getting employee recurring holidays:', recurringError);
       }
 
-      console.log('[Holiday API] Employee holidays result:', result.holidays?.length || 0, 'days');
+      // Get employee's specific holidays for the date range
+      const { data: specificHolidays, error: specificError } = await supabase
+        .from('employee_specific_holidays')
+        .select('*')
+        .eq('employee_id', user.id)
+        .gte('holiday_date', (start_date as string) || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-01`)
+        .lte('holiday_date', (end_date as string) || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-31`);
+
+      if (specificError) {
+        console.error('[Holiday API] Error getting employee specific holidays:', specificError);
+      }
+
+      console.log('[Holiday API] Employee holidays result:', {
+        recurring: recurringHolidays?.length || 0,
+        specific: specificHolidays?.length || 0
+      });
+
       return res.status(200).json({
-        holidays: result.holidays || [],
+        recurring_holidays: recurringHolidays || [],
+        specific_holidays: specificHolidays || [],
         year: targetYear,
         month: targetMonth
       });
