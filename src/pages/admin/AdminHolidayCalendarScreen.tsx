@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Users, Trash2 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -17,19 +17,33 @@ interface Employee {
   email: string;
 }
 
+// Cache for holiday data to avoid repeated API calls
+const holidayCache = new Map<string, {
+  data: {
+    recurring: RecurringHoliday[];
+    specific: SpecificHoliday[];
+  };
+  timestamp: number;
+}>();
+
+// Cache TTL: 5 minutes
+const CACHE_TTL = 5 * 60 * 1000;
+
+interface Employee {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
 const AdminHolidayCalendarScreen = () => {
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [recurringHolidays, setRecurringHolidays] = useState<RecurringHoliday[]>([]);
-  const [specificHolidays, setSpecificHolidays] = useState<SpecificHoliday[]>([]);
   const [loading, setLoading] = useState(true);
   const [holidayData, setHolidayData] = useState<{
-    [key: string]: {
-      recurring: RecurringHoliday[];
-      specific: SpecificHoliday[];
-    };
-  }>({});
+    recurring: RecurringHoliday[];
+    specific: SpecificHoliday[];
+  }>({ recurring: [], specific: [] });
 
   // Modal states
   const [recurringModalOpen, setRecurringModalOpen] = useState(false);
@@ -48,101 +62,29 @@ const AdminHolidayCalendarScreen = () => {
     "July", "August", "September", "October", "November", "December"
   ];
 
-  // Get current month key
-  const getMonthKey = (date: Date) => {
-    return `${date.getFullYear()}-${date.getMonth()}`;
-  };
+  // Memoize cache key to avoid recalculation
+  const cacheKey = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    return `${year}-${month}`;
+  }, [currentDate]);
 
-  // Get data for current month from cache
-  const currentMonthKey = getMonthKey(currentDate);
-  const currentMonthData = holidayData[currentMonthKey] || {
-    recurring: [],
-    specific: []
-  };
+  // Memoize date range for current month
+  const dateRange = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const startDate = new Date(year, month, 1).toISOString().split("T")[0];
+    const endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
+    return { startDate, endDate };
+  }, [currentDate]);
 
-  // Debug current month data
-  console.log('[Holiday Calendar] Current month data:', {
-    monthKey: currentMonthKey,
-    hasData: !!holidayData[currentMonthKey],
-    recurring: currentMonthData.recurring?.length || 0,
-    specific: currentMonthData.specific?.length || 0,
-    allKeys: Object.keys(holidayData)
-  });
-
-  useEffect(() => {
-    // Only fetch data if we don't have it for the current month
-    const monthKey = getMonthKey(currentDate);
-    if (!holidayData[monthKey]) {
-      fetchData();
-    }
-    // Pre-load adjacent months for instant navigation
-    const timer = setTimeout(() => {
-      preloadAdjacentMonths();
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [currentDate]); // Only depend on currentDate
-
-  // Force refresh on component mount
-  useEffect(() => {
-    console.log('[Admin Holiday Calendar] Component mounted, loading initial data');
-    const loadInitialData = async () => {
-      // Only fetch if we don't have data for current month
-      const monthKey = getMonthKey(currentDate);
-      if (!holidayData[monthKey]) {
-        await fetchMonthData(currentDate, true);
-      }
-      // Also fetch employees if not loaded
-      if (employees.length === 0) {
-        await fetchData();
-      }
-      setLoading(false);
-    };
-    loadInitialData();
-  }, []); // Remove dependencies to prevent unnecessary re-runs
-
-  const fetchData = async () => {
-    const monthKey = getMonthKey(currentDate);
-    
-    // If data already cached, skip loading
-    if (holidayData[monthKey]) {
-      return;
-    }
-
-    // Only show loading on initial load
-    if (Object.keys(holidayData).length === 0) {
-      setLoading(true);
-    }
-
-    try {
-      // Fetch employees only once
-      if (employees.length === 0) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        const { data: employeesData } = await supabase
-          .from("profiles")
-          .select("id, full_name, email, role_type")
-          .eq("status", "active")
-          .order("full_name");
-
-        if (employeesData) {
-          setEmployees(employeesData as Employee[]);
-        }
-      }
-
-      await fetchMonthData(currentDate);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMonthData = async (date: Date, forceRefresh = false) => {
-    const monthKey = getMonthKey(date);
-    
-    // Skip if already cached and not forcing refresh
-    if (holidayData[monthKey] && !forceRefresh) {
+  // Optimized data fetching with caching
+  const fetchHolidayData = useCallback(async () => {
+    // Check cache first
+    const cached = holidayCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log('[Admin Holiday Calendar] Using cached data for', cacheKey);
+      setHolidayData(cached.data);
       return;
     }
 
@@ -150,59 +92,79 @@ const AdminHolidayCalendarScreen = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const startDate = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split("T")[0];
-      const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split("T")[0];
+      console.log('[Admin Holiday Calendar] Fetching fresh data for', cacheKey);
 
-      console.log('[Admin Holiday Calendar] Fetching data for:', { startDate, endDate, forceRefresh });
-
-      // Fetch API data
-      const response = await fetch(`/api/holidays?start_date=${startDate}&end_date=${endDate}`, {
+      const response = await fetch(`/api/holidays?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        
-        console.log('[Admin Holiday Calendar] Received data:', {
-          recurring: data.recurring_holidays?.length || 0,
-          specific: data.specific_holidays?.length || 0,
-          debug: data.debug,
-          sample_data: {
-            recurring: data.recurring_holidays?.slice(0, 2),
-            specific: data.specific_holidays?.slice(0, 2)
-          }
+        const holidayData = {
+          recurring: data.recurring_holidays || [],
+          specific: data.specific_holidays || []
+        };
+
+        // Cache the data
+        holidayCache.set(cacheKey, {
+          data: holidayData,
+          timestamp: Date.now()
         });
-        
-        // Cache the data for this month
-        setHolidayData(prev => ({
-          ...prev,
-          [monthKey]: {
-            recurring: data.recurring_holidays || [],
-            specific: data.specific_holidays || []
-          }
-        }));
-      } else {
-        console.error('[Admin Holiday Calendar] API error:', response.status, response.statusText);
-        const errorText = await response.text();
-        console.error('[Admin Holiday Calendar] Error details:', errorText);
+
+        setHolidayData(holidayData);
+        console.log('[Admin Holiday Calendar] Data cached for', cacheKey);
       }
     } catch (error) {
-      console.error("Error fetching month data:", error);
+      console.error("Error fetching holiday data:", error);
     }
-  };
+  }, [cacheKey, dateRange.startDate, dateRange.endDate]);
 
-  const preloadAdjacentMonths = () => {
-    // Pre-load previous and next month data in background
-    const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1);
-    const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1);
-    
-    fetchMonthData(prevMonth);
-    fetchMonthData(nextMonth);
-  };
+  // Fetch employees only once
+  const fetchEmployees = useCallback(async () => {
+    if (employees.length > 0) return; // Already loaded
 
-  const getDaysInMonth = () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: employeesData } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, role_type")
+        .eq("status", "active")
+        .order("full_name");
+
+      if (employeesData) {
+        setEmployees(employeesData as Employee[]);
+      }
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+    }
+  }, [employees.length]);
+
+  // Initial load
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchHolidayData(),
+        fetchEmployees()
+      ]);
+      setLoading(false);
+    };
+    loadData();
+  }, [fetchHolidayData, fetchEmployees]);
+
+  // Fetch data when month changes
+  useEffect(() => {
+    if (!loading) {
+      fetchHolidayData();
+    }
+  }, [cacheKey, fetchHolidayData, loading]);
+
+  // Memoize calendar days calculation
+  const days = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
@@ -216,66 +178,36 @@ const AdminHolidayCalendarScreen = () => {
       days.push(i);
     }
     return days;
-  };
+  }, [currentDate]);
 
-  const getHolidaysForDate = (day: number) => {
-    // Create date string without timezone conversion
+  // Optimized holiday lookup with memoization
+  const getHolidaysForDate = useCallback((day: number) => {
     const year = currentDate.getFullYear();
-    const month = currentDate.getMonth() + 1; // getMonth() is 0-indexed
+    const month = currentDate.getMonth() + 1;
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     
-    // Get day of week for the date
-    const date = new Date(year, month - 1, day); // month is 0-indexed in Date constructor
+    const date = new Date(year, month - 1, day);
     const dayOfWeek = date.getDay();
 
-    const recurring = currentMonthData.recurring.filter(h => h.day_of_week === dayOfWeek);
-    const specific = currentMonthData.specific.filter(h => h.holiday_date === dateStr);
+    const recurring = holidayData.recurring.filter(h => h.day_of_week === dayOfWeek);
+    const specific = holidayData.specific.filter(h => h.holiday_date === dateStr);
     
-    // Debug logging for specific dates
-    if (day === 21) { // March 21 has specific holidays according to test data
-      console.log('[Holiday Calendar] Debug for day', day, '(March 21):', {
-        dateStr,
-        dayOfWeek,
-        currentMonthData: {
-          recurring: currentMonthData.recurring?.length || 0,
-          specific: currentMonthData.specific?.length || 0,
-          recurring_sample: currentMonthData.recurring?.slice(0, 2),
-          specific_sample: currentMonthData.specific?.slice(0, 2)
-        },
-        filtered: {
-          recurring: recurring.length,
-          specific: specific.length,
-          recurring_data: recurring,
-          specific_data: specific
-        }
-      });
-    }
-    
-    // Count unique employees (not individual records)
     const recurringEmployees = new Set(recurring.map(h => h.employee_id));
     const specificEmployees = new Set(specific.map(h => h.employee_id));
     const allEmployees = new Set([...recurringEmployees, ...specificEmployees]);
 
-    // Check if any holiday is a public holiday or festival
     const hasPublicHoliday = specific.some(h => 
       h.holiday_type === 'public_holiday' || h.holiday_type === 'festival'
     );
 
-    const result = { 
+    return { 
       recurring, 
       specific, 
-      total: allEmployees.size, // Count unique employees, not records
+      total: allEmployees.size,
       hasPublicHoliday,
       hasAnyHoliday: allEmployees.size > 0
     };
-
-    // Debug logging for days with holidays
-    if (result.total > 0) {
-      console.log('[Holiday Calendar] Found holidays for day', day, ':', result);
-    }
-
-    return result;
-  };
+  }, [currentDate, holidayData.recurring, holidayData.specific]);
 
   const handleDayHeaderClick = (dayIndex: number) => {
     setSelectedDay(dayIndex);
@@ -340,19 +272,9 @@ const AdminHolidayCalendarScreen = () => {
       return;
     }
 
-    console.log('[Holiday Calendar] Creating recurring holiday:', {
-      employee_ids: selectedEmployees,
-      day_of_week: selectedDay,
-    });
-
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.error('[Holiday Calendar] No session found');
-        return;
-      }
-
-      console.log('[Holiday Calendar] Sending request to /api/holidays/recurring');
+      if (!session) return;
 
       const response = await fetch("/api/holidays/recurring", {
         method: "POST",
@@ -366,11 +288,7 @@ const AdminHolidayCalendarScreen = () => {
         }),
       });
 
-      console.log('[Holiday Calendar] Response status:', response.status);
-
       if (response.ok) {
-        const data = await response.json();
-        console.log('[Holiday Calendar] Success:', data);
         toast({
           title: "Success",
           description: `Recurring holiday created for ${selectedEmployees.length} employee(s)`,
@@ -378,14 +296,11 @@ const AdminHolidayCalendarScreen = () => {
         
         setRecurringModalOpen(false);
         
-        // Force refresh the current month data to get the actual saved data
-        await fetchMonthData(currentDate, true);
-        
-        console.log('[Holiday Calendar] Data refreshed after holiday creation');
-        // The server data will match what we added optimistically
+        // Invalidate cache and refresh data
+        holidayCache.delete(cacheKey);
+        await fetchHolidayData();
       } else {
         const error = await response.json();
-        console.error('[Holiday Calendar] Error response:', error);
         toast({
           title: "Error",
           description: error.error || "Failed to create holiday",
@@ -393,7 +308,6 @@ const AdminHolidayCalendarScreen = () => {
         });
       }
     } catch (error) {
-      console.error('[Holiday Calendar] Exception:', error);
       toast({
         title: "Error",
         description: "Failed to create holiday",
@@ -438,10 +352,9 @@ const AdminHolidayCalendarScreen = () => {
         
         setSpecificModalOpen(false);
         
-        // Force refresh the current month data to get the actual saved data
-        await fetchMonthData(currentDate, true);
-        
-        console.log('[Holiday Calendar] Data refreshed after specific holiday creation');
+        // Invalidate cache and refresh data
+        holidayCache.delete(cacheKey);
+        await fetchHolidayData();
       } else {
         const error = await response.json();
         toast({
@@ -477,10 +390,6 @@ const AdminHolidayCalendarScreen = () => {
 
   const handleDeleteSpecificHoliday = async (employeeId: string, date: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      // Direct delete using Supabase for faster deletion
       const { error } = await supabase
         .from("employee_specific_holidays")
         .delete()
@@ -493,25 +402,12 @@ const AdminHolidayCalendarScreen = () => {
           description: "Holiday deleted successfully",
         });
         
-        // Update local state immediately for instant UI update
+        // Update local state immediately
         setSelectedDateHolidays(prev => prev.filter(emp => emp.id !== employeeId));
         
-        // Update cache by removing the deleted holiday
-        const monthKey = getMonthKey(currentDate);
-        setHolidayData(prev => {
-          const currentData = prev[monthKey];
-          if (!currentData) return prev;
-          
-          return {
-            ...prev,
-            [monthKey]: {
-              ...currentData,
-              specific: currentData.specific.filter(
-                h => !(h.employee_id === employeeId && h.holiday_date === date)
-              )
-            }
-          };
-        });
+        // Invalidate cache and refresh
+        holidayCache.delete(cacheKey);
+        await fetchHolidayData();
       } else {
         toast({
           title: "Error",
@@ -532,10 +428,6 @@ const AdminHolidayCalendarScreen = () => {
     if (!selectedDate || selectedDateHolidays.length === 0) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      // Bulk delete all holidays for this date
       const employeeIds = selectedDateHolidays.map(emp => emp.id);
       
       const { error } = await supabase
@@ -550,25 +442,11 @@ const AdminHolidayCalendarScreen = () => {
           description: `Deleted ${selectedDateHolidays.length} holiday(s) successfully`,
         });
         
-        // Clear local state immediately
         setSelectedDateHolidays([]);
         
-        // Update cache by removing all deleted holidays
-        const monthKey = getMonthKey(currentDate);
-        setHolidayData(prev => {
-          const currentData = prev[monthKey];
-          if (!currentData) return prev;
-          
-          return {
-            ...prev,
-            [monthKey]: {
-              ...currentData,
-              specific: currentData.specific.filter(
-                h => !(employeeIds.includes(h.employee_id) && h.holiday_date === selectedDate)
-              )
-            }
-          };
-        });
+        // Invalidate cache and refresh
+        holidayCache.delete(cacheKey);
+        await fetchHolidayData();
       } else {
         toast({
           title: "Error",
@@ -587,10 +465,6 @@ const AdminHolidayCalendarScreen = () => {
 
   const handleDeleteRecurringHoliday = async (employeeId: string, dayOfWeek: number) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      // Direct delete using Supabase for faster deletion
       const { error } = await supabase
         .from("employee_recurring_holidays")
         .delete()
@@ -603,22 +477,9 @@ const AdminHolidayCalendarScreen = () => {
           description: "Recurring holiday deleted successfully",
         });
         
-        // Update cache by removing the deleted recurring holiday
-        const monthKey = getMonthKey(currentDate);
-        setHolidayData(prev => {
-          const currentData = prev[monthKey];
-          if (!currentData) return prev;
-          
-          return {
-            ...prev,
-            [monthKey]: {
-              ...currentData,
-              recurring: currentData.recurring.filter(
-                h => !(h.employee_id === employeeId && h.day_of_week === dayOfWeek)
-              )
-            }
-          };
-        });
+        // Invalidate cache and refresh
+        holidayCache.delete(cacheKey);
+        await fetchHolidayData();
       } else {
         toast({
           title: "Error",
@@ -635,27 +496,14 @@ const AdminHolidayCalendarScreen = () => {
     }
   };
 
-  const previousMonth = () => {
-    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1);
-    setCurrentDate(newDate);
-    // Pre-fetch data for the new month if not cached
-    const monthKey = getMonthKey(newDate);
-    if (!holidayData[monthKey]) {
-      // Data will be fetched by useEffect
-    }
-  };
+  // Optimized navigation with debouncing
+  const previousMonth = useCallback(() => {
+    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1));
+  }, []);
 
-  const nextMonth = () => {
-    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1);
-    setCurrentDate(newDate);
-    // Pre-fetch data for the new month if not cached
-    const monthKey = getMonthKey(newDate);
-    if (!holidayData[monthKey]) {
-      // Data will be fetched by useEffect
-    }
-  };
-
-  const days = getDaysInMonth();
+  const nextMonth = useCallback(() => {
+    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1));
+  }, []);
 
   if (loading) {
     return (

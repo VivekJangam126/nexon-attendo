@@ -5,48 +5,59 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import type { RecurringHoliday, SpecificHoliday } from "@server";
 
+// Cache for employee holiday data
+const employeeHolidayCache = new Map<string, {
+  data: {
+    recurring: RecurringHoliday[];
+    specific: SpecificHoliday[];
+  };
+  timestamp: number;
+}>();
+
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes for employee data
+
 const HolidayCalendarScreen = () => {
   const { user } = useAuth();
   const [recurringHolidays, setRecurringHolidays] = useState<RecurringHoliday[]>([]);
   const [specificHolidays, setSpecificHolidays] = useState<SpecificHoliday[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
 
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-  // Memoize date range to avoid recalculating on every render
+  // Memoize cache key and date range
+  const cacheKey = useMemo(() => user?.id || 'no-user', [user?.id]);
+  
   const dateRange = useMemo(() => {
-    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    const endDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]; // Reduced from 6 months to 3 months
+    const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]; // Reduced from 30 days to 7 days
+    const endDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]; // Reduced from 90 days to 60 days
     return { startDate, endDate };
   }, []);
 
   const fetchHolidays = useCallback(async () => {
     if (!user) {
-      console.log('[Employee Calendar] No user found');
       setLoading(false);
       return;
     }
 
-    // Prevent excessive API calls - only fetch if more than 5 minutes have passed
-    const now = Date.now();
-    if (now - lastFetchTime < 5 * 60 * 1000 && recurringHolidays.length > 0) {
+    // Check cache first
+    const cached = employeeHolidayCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       console.log('[Employee Calendar] Using cached data');
+      setRecurringHolidays(cached.data.recurring);
+      setSpecificHolidays(cached.data.specific);
       setLoading(false);
       return;
     }
 
-    console.log('[Employee Calendar] Fetching holidays for user:', user.id);
+    console.log('[Employee Calendar] Fetching fresh data for user:', user.id);
     setLoading(true);
+    
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        console.log('[Employee Calendar] No session found');
         setLoading(false);
         return;
       }
-
-      console.log('[Employee Calendar] Fetching holidays from', dateRange.startDate, 'to', dateRange.endDate);
 
       const response = await fetch(`/api/holidays?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}&view=employee`, {
         headers: {
@@ -54,19 +65,10 @@ const HolidayCalendarScreen = () => {
         },
       });
 
-      console.log('[Employee Calendar] Response status:', response.status);
-
       if (response.ok) {
         const data = await response.json();
-        console.log('[Employee Calendar] Received data:', data);
-        console.log('[Employee Calendar] Recurring holidays:', data.recurring_holidays?.length || 0);
-        console.log('[Employee Calendar] Specific holidays:', data.specific_holidays?.length || 0);
-        console.log('[Employee Calendar] Sample data:', {
-          recurring: data.recurring_holidays?.slice(0, 2),
-          specific: data.specific_holidays?.slice(0, 2)
-        });
         
-        // Deduplicate recurring holidays by day_of_week (employee only needs to see unique days)
+        // Deduplicate recurring holidays by day_of_week
         const uniqueRecurringHolidays = data.recurring_holidays?.reduce((unique: RecurringHoliday[], holiday: RecurringHoliday) => {
           const exists = unique.find(h => h.day_of_week === holiday.day_of_week);
           if (!exists) {
@@ -75,24 +77,26 @@ const HolidayCalendarScreen = () => {
           return unique;
         }, []) || [];
         
-        console.log('[Employee Calendar] Deduplicated recurring holidays:', {
-          original: data.recurring_holidays?.length || 0,
-          deduplicated: uniqueRecurringHolidays.length
+        const holidayData = {
+          recurring: uniqueRecurringHolidays,
+          specific: data.specific_holidays || []
+        };
+
+        // Cache the data
+        employeeHolidayCache.set(cacheKey, {
+          data: holidayData,
+          timestamp: Date.now()
         });
-        
-        setRecurringHolidays(uniqueRecurringHolidays);
-        setSpecificHolidays(data.specific_holidays || []);
-        setLastFetchTime(now); // Update last fetch time
-      } else {
-        const error = await response.json();
-        console.error('[Employee Calendar] Error response:', error);
+
+        setRecurringHolidays(holidayData.recurring);
+        setSpecificHolidays(holidayData.specific);
       }
     } catch (error) {
       console.error("[Employee Calendar] Error fetching holidays:", error);
     } finally {
       setLoading(false);
     }
-  }, [user, dateRange.startDate, dateRange.endDate, lastFetchTime, recurringHolidays.length]);
+  }, [user, cacheKey, dateRange.startDate, dateRange.endDate]);
 
   useEffect(() => {
     fetchHolidays();
