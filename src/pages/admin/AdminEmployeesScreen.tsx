@@ -108,9 +108,12 @@ const AdminEmployeesScreen = () => {
     const matchesSearch = employee.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.email.toLowerCase().includes(searchQuery.toLowerCase());
     
-    // Handle blocked filter separately
+    // Handle blocked and awaiting filters separately
     if (filterStatus === 'blocked') {
-      return matchesSearch && (employee.status === 'blocked' || employee.status === 'pending');
+      return matchesSearch && employee.status === 'blocked';
+    }
+    if (filterStatus === 'awaiting') {
+      return matchesSearch && employee.status === 'pending';
     }
     
     const matchesStatus = !filterStatus || employee.today_status === filterStatus;
@@ -148,14 +151,16 @@ const AdminEmployeesScreen = () => {
 
   const activeEmployees = employees.filter(e => e.status === 'active');
   
-  // Add blocked filter logic
-  const blockedEmployees = employees.filter(e => e.status === 'blocked' || e.status === 'pending');
+  // Add blocked and awaiting filter logic
+  const blockedEmployees = employees.filter(e => e.status === 'blocked');
+  const awaitingEmployees = employees.filter(e => e.status === 'pending');
   const statusCounts = {
     present: activeEmployees.filter(e => e.today_status === 'present').length,
     late: activeEmployees.filter(e => e.today_status === 'late').length,
     not_marked: employees.filter(e => e.today_status === 'not_marked').length,
     absent: activeEmployees.filter(e => e.today_status === 'absent').length,
     blocked: blockedEmployees.length,
+    awaiting: awaitingEmployees.length,
   };
 
   const formatCheckInTime = (isoString: string | null) => {
@@ -362,20 +367,20 @@ const AdminEmployeesScreen = () => {
               </button>
             ))}
             <button 
-              onClick={() => setFilterStatus('blocked')} 
+              onClick={() => setFilterStatus('awaiting')} 
               className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                filterStatus === 'blocked' 
+                filterStatus === 'awaiting' 
                   ? "bg-amber-600 text-white shadow-sm" 
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
-              Blocked
+              Awaiting
               <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                filterStatus === 'blocked' 
+                filterStatus === 'awaiting' 
                   ? 'bg-white/30' 
                   : 'bg-gray-200/50'
               }`}>
-                {statusCounts.blocked}
+                {statusCounts.awaiting}
               </span>
             </button>
           </div>

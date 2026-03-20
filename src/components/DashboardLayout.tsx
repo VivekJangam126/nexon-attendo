@@ -15,9 +15,7 @@ const MobileMenuItems: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) =
     { icon: Calendar, label: 'Leave Management', path: '/admin/leave' },
     { icon: CalendarDays, label: 'Holiday Calendar', path: '/admin/calendar' },
     { icon: TrendingUp, label: 'Performance', path: '/admin/performance' },
-    { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
     { icon: PieChart, label: 'Analytics', path: '/admin/analytics' },
-    { icon: HelpCircle, label: 'Help Desk', path: '/admin/help' },
   ];
 
   const employeeMenuItems = [
