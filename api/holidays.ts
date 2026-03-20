@@ -186,9 +186,8 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
       const { data: specificHolidays, error: specificError } = await supabase
         .from('employee_specific_holidays')
         .select('*')
-        .eq('employee_id', user.id)
-        .gte('holiday_date', (start_date as string) || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-01`)
-        .lte('holiday_date', (end_date as string) || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-31`);
+        .eq('employee_id', user.id);
+        // Remove date filtering to get all holidays for debugging
 
       if (specificError) {
         console.error('[Holiday API] Error getting employee specific holidays:', specificError);
@@ -196,11 +195,13 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
 
       console.log('[Holiday API] Employee holidays result:', {
         user_id: user.id,
+        profile_name: profile.full_name,
         recurring: recurringHolidays?.length || 0,
         specific: specificHolidays?.length || 0,
         recurring_sample: recurringHolidays?.slice(0, 2),
         specific_sample: specificHolidays?.slice(0, 2),
-        date_range: { start_date, end_date }
+        date_range: { start_date, end_date },
+        query_params: req.query
       });
 
       return res.status(200).json({

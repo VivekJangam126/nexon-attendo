@@ -81,7 +81,12 @@ const AdminHolidayCalendarScreen = () => {
   // Force refresh on component mount
   useEffect(() => {
     console.log('[Admin Holiday Calendar] Component mounted, forcing data refresh');
-    fetchMonthData(currentDate, true);
+    const loadInitialData = async () => {
+      await fetchMonthData(currentDate, true);
+      // Also fetch employees
+      await fetchData();
+    };
+    loadInitialData();
   }, []);
 
   const fetchData = async () => {
