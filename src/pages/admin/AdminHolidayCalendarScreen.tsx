@@ -69,6 +69,12 @@ const AdminHolidayCalendarScreen = () => {
     return () => clearTimeout(timer);
   }, [currentDate]);
 
+  // Force refresh on component mount
+  useEffect(() => {
+    console.log('[Admin Holiday Calendar] Component mounted, forcing data refresh');
+    fetchMonthData(currentDate, true);
+  }, []);
+
   const fetchData = async () => {
     const monthKey = getMonthKey(currentDate);
     
@@ -90,8 +96,8 @@ const AdminHolidayCalendarScreen = () => {
 
         const { data: employeesData } = await supabase
           .from("profiles")
-          .select("id, full_name, email")
-          .eq("role", "employee")
+          .select("id, full_name, email, role_type")
+          .in("role_type", ["Employee", "Admin", "Super Admin"])
           .eq("status", "active")
           .order("full_name");
 
