@@ -106,8 +106,7 @@ const AdminHolidayCalendarScreen = () => {
         const { data: employeesData } = await supabase
           .from("profiles")
           .select("id, full_name, email, role_type")
-          .in("role_type", ["Employee", "Admin", "Super Admin"])
-          .eq("status", "active")
+          .not("role_type", "is", null)
           .order("full_name");
 
         if (employeesData) {

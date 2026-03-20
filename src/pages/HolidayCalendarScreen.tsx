@@ -51,6 +51,10 @@ const HolidayCalendarScreen = () => {
         console.log('[Employee Calendar] Received data:', data);
         console.log('[Employee Calendar] Recurring holidays:', data.recurring_holidays?.length || 0);
         console.log('[Employee Calendar] Specific holidays:', data.specific_holidays?.length || 0);
+        console.log('[Employee Calendar] Sample data:', {
+          recurring: data.recurring_holidays?.slice(0, 2),
+          specific: data.specific_holidays?.slice(0, 2)
+        });
         
         setRecurringHolidays(data.recurring_holidays || []);
         setSpecificHolidays(data.specific_holidays || []);

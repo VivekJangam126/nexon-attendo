@@ -195,8 +195,12 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
       }
 
       console.log('[Holiday API] Employee holidays result:', {
+        user_id: user.id,
         recurring: recurringHolidays?.length || 0,
-        specific: specificHolidays?.length || 0
+        specific: specificHolidays?.length || 0,
+        recurring_sample: recurringHolidays?.slice(0, 2),
+        specific_sample: specificHolidays?.slice(0, 2),
+        date_range: { start_date, end_date }
       });
 
       return res.status(200).json({
