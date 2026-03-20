@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertCircle, Calendar } from 'lucide-react';
+import { AlertCircle, FileText } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useLeaveBalance } from '@/hooks/useLeave';
@@ -235,7 +235,7 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
           {/* Days Summary */}
           {requestedDays > 0 && (
             <div className={`p-2.5 rounded-lg flex items-center gap-2 ${requestedDays <= remaining ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
-              <Calendar className={`w-3.5 h-3.5 flex-shrink-0 ${requestedDays <= remaining ? 'text-emerald-600' : 'text-red-600'}`} />
+              <FileText className={`w-3.5 h-3.5 flex-shrink-0 ${requestedDays <= remaining ? 'text-emerald-600' : 'text-red-600'}`} />
               <div className="text-[10px]">
                 <p className={`font-medium ${requestedDays <= remaining ? 'text-emerald-700' : 'text-red-700'}`}>
                   {requestedDays} day{requestedDays > 1 ? 's' : ''} requested

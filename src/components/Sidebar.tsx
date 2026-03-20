@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Building2,
   TrendingUp,
+  PieChart,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -31,6 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isAdmin = false }) => {
     { icon: Calendar, label: 'Holiday Calendar', path: '/admin/calendar' },
     { icon: TrendingUp, label: 'Performance', path: '/admin/performance' },
     { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
+    { icon: PieChart, label: 'Analytics', path: '/admin/analytics' },
   ];
 
   const employeeMenuItems = [

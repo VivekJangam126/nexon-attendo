@@ -70,24 +70,35 @@ const AdminHolidayCalendarScreen = () => {
   });
 
   useEffect(() => {
-    fetchData();
+    // Only fetch data if we don't have it for the current month
+    const monthKey = getMonthKey(currentDate);
+    if (!holidayData[monthKey]) {
+      fetchData();
+    }
     // Pre-load adjacent months for instant navigation
     const timer = setTimeout(() => {
       preloadAdjacentMonths();
     }, 100);
     return () => clearTimeout(timer);
-  }, [currentDate]);
+  }, [currentDate]); // Only depend on currentDate
 
   // Force refresh on component mount
   useEffect(() => {
-    console.log('[Admin Holiday Calendar] Component mounted, forcing data refresh');
+    console.log('[Admin Holiday Calendar] Component mounted, loading initial data');
     const loadInitialData = async () => {
-      await fetchMonthData(currentDate, true);
-      // Also fetch employees
-      await fetchData();
+      // Only fetch if we don't have data for current month
+      const monthKey = getMonthKey(currentDate);
+      if (!holidayData[monthKey]) {
+        await fetchMonthData(currentDate, true);
+      }
+      // Also fetch employees if not loaded
+      if (employees.length === 0) {
+        await fetchData();
+      }
+      setLoading(false);
     };
     loadInitialData();
-  }, []);
+  }, []); // Remove dependencies to prevent unnecessary re-runs
 
   const fetchData = async () => {
     const monthKey = getMonthKey(currentDate);
@@ -111,7 +122,7 @@ const AdminHolidayCalendarScreen = () => {
         const { data: employeesData } = await supabase
           .from("profiles")
           .select("id, full_name, email, role_type")
-          .not("role_type", "is", null)
+          .eq("status", "active")
           .order("full_name");
 
         if (employeesData) {
@@ -240,21 +251,22 @@ const AdminHolidayCalendarScreen = () => {
       });
     }
     
-    // Check if any holiday is a public holiday or festival
-    const hasPublicHoliday = specific.some(h => 
-      h.holiday_type === 'public_holiday' || h.holiday_type === 'festival'
-    );
-
     // Count unique employees (not individual records)
     const recurringEmployees = new Set(recurring.map(h => h.employee_id));
     const specificEmployees = new Set(specific.map(h => h.employee_id));
     const allEmployees = new Set([...recurringEmployees, ...specificEmployees]);
 
+    // Check if any holiday is a public holiday or festival
+    const hasPublicHoliday = specific.some(h => 
+      h.holiday_type === 'public_holiday' || h.holiday_type === 'festival'
+    );
+
     const result = { 
       recurring, 
       specific, 
       total: allEmployees.size, // Count unique employees, not records
-      hasPublicHoliday
+      hasPublicHoliday,
+      hasAnyHoliday: allEmployees.size > 0
     };
 
     // Debug logging for days with holidays
@@ -277,25 +289,39 @@ const AdminHolidayCalendarScreen = () => {
     const month = currentDate.getMonth() + 1; // getMonth() is 0-indexed
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     
+    console.log('[Admin Calendar] Clicked on date:', dateStr);
     setSelectedDate(dateStr);
     
     // Fetch existing holidays for this date
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        console.log('[Admin Calendar] No session found');
+        return;
+      }
 
+      console.log('[Admin Calendar] Fetching holidays for date:', dateStr);
       const response = await fetch(`/api/holidays?date=${dateStr}`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
 
+      console.log('[Admin Calendar] Response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('[Admin Calendar] Received holiday data:', data);
+        console.log('[Admin Calendar] Employees with holidays:', data.employees?.length || 0);
         setSelectedDateHolidays(data.employees || []);
+      } else {
+        const errorText = await response.text();
+        console.error('[Admin Calendar] API error:', response.status, errorText);
+        setSelectedDateHolidays([]);
       }
     } catch (error) {
-      console.error("Error fetching date holidays:", error);
+      console.error("[Admin Calendar] Error fetching date holidays:", error);
+      setSelectedDateHolidays([]);
     }
 
     setSelectedEmployees([]);
@@ -696,6 +722,7 @@ const AdminHolidayCalendarScreen = () => {
               const holidays = getHolidaysForDate(day);
               const hasHolidays = holidays.total > 0;
               const hasPublicHoliday = holidays.hasPublicHoliday;
+              const hasAnyHoliday = holidays.hasAnyHoliday;
               
               // Check if this is today
               const today = new Date();
@@ -713,7 +740,7 @@ const AdminHolidayCalendarScreen = () => {
                       ? "bg-green-100 border-green-400 ring-2 ring-green-500 hover:bg-green-200"
                       : hasPublicHoliday
                       ? "bg-red-50 border-red-300 hover:bg-red-100"
-                      : hasHolidays
+                      : hasAnyHoliday
                       ? "bg-amber-100 border-amber-300 hover:bg-amber-200"
                       : "bg-gray-50 border-gray-200 hover:bg-gray-100"
                   }`}
@@ -729,16 +756,16 @@ const AdminHolidayCalendarScreen = () => {
                   </div>
                   
                   {/* Show employee count for holidays */}
-                  {hasHolidays && (
+                  {hasAnyHoliday && (
                     <div className="mt-0.5 flex items-center justify-center gap-0.5">
                       <Users className={`w-2.5 h-2.5 ${isToday ? "text-green-700" : hasPublicHoliday ? "text-red-600" : "text-amber-600"}`} />
-                      <span className={`text-[10px] ${isToday ? "text-green-800" : hasPublicHoliday ? "text-red-700" : "text-amber-700"}`}>
+                      <span className={`text-[10px] font-medium ${isToday ? "text-green-800" : hasPublicHoliday ? "text-red-700" : "text-amber-700"}`}>
                         {holidays.total}
                       </span>
                     </div>
                   )}
                   
-                  {isToday && !hasHolidays && (
+                  {isToday && !hasAnyHoliday && (
                     <div className="mt-0.5 text-[10px] text-green-700 font-medium">Today</div>
                   )}
                 </button>

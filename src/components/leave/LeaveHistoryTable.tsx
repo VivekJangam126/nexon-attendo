@@ -1,4 +1,4 @@
-import { Calendar, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { FileText, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { useEffect, useState, memo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -141,7 +141,7 @@ export function LeaveHistoryTable({ requests, isLoading }: LeaveHistoryTableProp
     return (
       <div className="flex flex-col items-center justify-center py-12 bg-white rounded-lg border border-gray-200">
         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-          <Calendar className="w-8 h-8 text-gray-400" />
+          <FileText className="w-8 h-8 text-gray-400" />
         </div>
         <p className="text-base sm:text-lg font-semibold text-gray-900 mb-1">No Leave Requests Yet</p>
         <p className="text-xs sm:text-sm text-gray-600">Click "Apply for Leave" to submit your first request</p>

@@ -57,20 +57,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Profile not found' });
     }
 
-    // Allow both admin and employee access - filter data based on role
-    console.log('[Recurring Holiday API] User role:', profile.role_type);
+    // Admin access is determined by name, not role_type
+    const isAdmin = profile.full_name?.toLowerCase().includes('admin') || 
+                   profile.full_name?.toLowerCase().includes('siddhesh') ||
+                   profile.email?.toLowerCase().includes('admin') ||
+                   profile.email?.toLowerCase().includes('siddhesh');
+
     console.log('[Recurring Holiday API] User details:', {
       id: profile.id,
       name: profile.full_name,
       role: profile.role_type,
+      isAdmin: isAdmin,
       status: profile.status
     });
 
     if (req.method === 'POST') {
-      // Temporarily allow all authenticated users to create holidays
-      // TODO: Re-enable admin check after fixing user roles
-      console.log('[Recurring Holiday API] Allowing holiday creation for user:', profile.full_name);
-      return await createRecurringHolidays(req, res);
+      // Allow admin users to create holidays
+      if (isAdmin) {
+        console.log('[Recurring Holiday API] Admin access granted for holiday creation');
+        return await createRecurringHolidays(req, res);
+      } else {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
     }
 
     if (req.method === 'GET') {

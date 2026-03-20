@@ -85,9 +85,9 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Profile not found' });
     }
 
-    console.log('[Holiday API] User profile:', profile.role_type);
+    console.log('[Holiday API] User profile:', profile.role_type || 'null');
 
-    const { year, month, start_date, end_date, date } = req.query;
+    const { year, month, start_date, end_date, date, view } = req.query;
     
     // Handle different query parameter formats
     let targetYear: number;
@@ -99,10 +99,48 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
       targetYear = startDate.getFullYear();
       targetMonth = startDate.getMonth() + 1;
     } else if (date) {
-      // Handle single date queries (date=2024-01-15)
+      // Handle single date queries (date=2024-01-15) - return employees with holidays on that date
       const queryDate = new Date(date as string);
       targetYear = queryDate.getFullYear();
       targetMonth = queryDate.getMonth() + 1;
+      
+      console.log('[Holiday API] Single date query for:', date);
+      
+      // Get employees who have holidays on this specific date
+      const { data: specificHolidays, error: specificError } = await supabase
+        .from('employee_specific_holidays')
+        .select(`
+          id,
+          employee_id,
+          holiday_date,
+          reason,
+          holiday_type,
+          profiles!inner(id, full_name, email)
+        `)
+        .eq('holiday_date', date as string);
+
+      if (specificError) {
+        console.error('[Holiday API] Error getting specific holidays for date:', specificError);
+        return res.status(500).json({ error: specificError.message });
+      }
+
+      // Format the response for the frontend modal
+      const employees = specificHolidays?.map(holiday => ({
+        id: holiday.employee_id,
+        name: holiday.profiles.full_name,
+        email: holiday.profiles.email,
+        reason: holiday.reason,
+        holiday_type: holiday.holiday_type,
+        holiday_id: holiday.id
+      })) || [];
+
+      console.log('[Holiday API] Found employees with holidays on', date, ':', employees.length);
+
+      return res.status(200).json({
+        employees: employees,
+        date: date,
+        count: employees.length
+      });
     } else {
       // Handle year/month queries or default to current
       targetYear = year ? parseInt(year as string) : new Date().getFullYear();
@@ -110,11 +148,29 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log('[Holiday API] Target year/month:', targetYear, targetMonth);
-    console.log('[Holiday API] Query params:', { year, month, start_date, end_date, date });
+    console.log('[Holiday API] Query params:', { year, month, start_date, end_date, date, view });
 
-    if (profile.role_type === 'Admin' || profile.role_type === 'Super Admin') {
-      // Admin: Get all holidays
-      console.log('[Holiday API] Admin request - getting all holidays');
+    // If view=employee, always return employee's own holidays regardless of admin status
+    if (view === 'employee') {
+      console.log('[Holiday API] Employee view requested - returning only user holidays');
+      return await getEmployeeHolidays(user, targetYear, targetMonth, start_date as string, end_date as string, res);
+    }
+
+    // Admin access is determined by name, not role_type (since role_type constraint doesn't include 'Admin')
+    // Be more specific about admin detection to avoid false positives
+    const isAdmin = (profile.full_name?.toLowerCase().includes('admin') && !profile.full_name?.toLowerCase().includes('employee')) || 
+                   (profile.full_name?.toLowerCase() === 'siddhesh lalit jadhav') ||
+                   (profile.email?.toLowerCase().includes('admin') && !profile.email?.toLowerCase().includes('employee'));
+
+    console.log('[Holiday API] Admin detection:', {
+      full_name: profile.full_name,
+      email: profile.email,
+      isAdmin: isAdmin
+    });
+
+    if (isAdmin) {
+      // Admin: Get all holidays (determined by name since role_type doesn't have 'Admin')
+      console.log('[Holiday API] Admin request - getting all holidays (name-based admin access)');
 
       // Get recurring holidays for all employees
       const { data: recurringHolidays, error: recurringError } = await supabase
@@ -186,8 +242,9 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
       const { data: specificHolidays, error: specificError } = await supabase
         .from('employee_specific_holidays')
         .select('*')
-        .eq('employee_id', user.id);
-        // Remove date filtering to get all holidays for debugging
+        .eq('employee_id', user.id)
+        .gte('holiday_date', (start_date as string) || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-01`)
+        .lte('holiday_date', (end_date as string) || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-31`);
 
       if (specificError) {
         console.error('[Holiday API] Error getting employee specific holidays:', specificError);
@@ -198,8 +255,8 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
         profile_name: profile.full_name,
         recurring: recurringHolidays?.length || 0,
         specific: specificHolidays?.length || 0,
-        recurring_sample: recurringHolidays?.slice(0, 2),
-        specific_sample: specificHolidays?.slice(0, 2),
+        recurring_data: recurringHolidays,
+        specific_data: specificHolidays,
         date_range: { start_date, end_date },
         query_params: req.query
       });
@@ -216,6 +273,59 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
     console.error('[Holiday API] Exception in getHolidays:', error);
     return res.status(500).json({
       error: error.message || 'Failed to get holidays',
+      stack: error.stack
+    });
+  }
+}
+
+/**
+ * Get holidays for a specific employee (used when view=employee)
+ */
+async function getEmployeeHolidays(user: any, targetYear: number, targetMonth: number, start_date: string, end_date: string, res: VercelResponse) {
+  try {
+    console.log('[Holiday API] Getting employee holidays for:', user.id);
+    
+    // Get employee's recurring holidays
+    const { data: recurringHolidays, error: recurringError } = await supabase
+      .from('employee_recurring_holidays')
+      .select('*')
+      .eq('employee_id', user.id);
+
+    if (recurringError) {
+      console.error('[Holiday API] Error getting employee recurring holidays:', recurringError);
+    }
+
+    // Get employee's specific holidays for the date range
+    const { data: specificHolidays, error: specificError } = await supabase
+      .from('employee_specific_holidays')
+      .select('*')
+      .eq('employee_id', user.id)
+      .gte('holiday_date', start_date || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-01`)
+      .lte('holiday_date', end_date || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-31`);
+
+    if (specificError) {
+      console.error('[Holiday API] Error getting employee specific holidays:', specificError);
+    }
+
+    console.log('[Holiday API] Employee holidays result:', {
+      user_id: user.id,
+      recurring: recurringHolidays?.length || 0,
+      specific: specificHolidays?.length || 0,
+      recurring_data: recurringHolidays,
+      specific_data: specificHolidays
+    });
+
+    return res.status(200).json({
+      recurring_holidays: recurringHolidays || [],
+      specific_holidays: specificHolidays || [],
+      year: targetYear,
+      month: targetMonth
+    });
+
+  } catch (error: any) {
+    console.error('[Holiday API] Exception in getEmployeeHolidays:', error);
+    return res.status(500).json({
+      error: error.message || 'Failed to get employee holidays',
       stack: error.stack
     });
   }

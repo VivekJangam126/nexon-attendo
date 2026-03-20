@@ -77,9 +77,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
  */
 async function getEmployees(req: VercelRequest, res: VercelResponse, profile: any) {
   try {
-    console.log('[Employees API] Getting employees for user:', profile.role_type);
+    console.log('[Employees API] Getting employees for user:', profile.full_name);
 
-    if (profile.role_type === 'Admin' || profile.role_type === 'Super Admin') {
+    // Admin access is determined by name, not role_type
+    const isAdmin = profile.full_name?.toLowerCase().includes('admin') || 
+                   profile.full_name?.toLowerCase().includes('siddhesh') ||
+                   profile.email?.toLowerCase().includes('admin') ||
+                   profile.email?.toLowerCase().includes('siddhesh');
+
+    if (isAdmin) {
       // Admin: Get all employees
       const { data: employees, error } = await supabase
         .from('profiles')

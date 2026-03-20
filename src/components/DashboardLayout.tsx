@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
-import { X, LayoutDashboard, Clock, Calendar, CalendarDays, HelpCircle, Users, BarChart3, TrendingUp } from 'lucide-react';
+import { X, LayoutDashboard, Clock, Calendar, CalendarDays, HelpCircle, Users, BarChart3, TrendingUp, PieChart } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const MobileMenuItems: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => {
@@ -13,9 +13,10 @@ const MobileMenuItems: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) =
     { icon: Users, label: 'Employees', path: '/admin/employees' },
     { icon: Clock, label: 'Attendance', path: '/admin/history' },
     { icon: Calendar, label: 'Leave Management', path: '/admin/leave' },
+    { icon: CalendarDays, label: 'Holiday Calendar', path: '/admin/calendar' },
     { icon: TrendingUp, label: 'Performance', path: '/admin/performance' },
     { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
-    { icon: BarChart3, label: 'Analytics', path: '/admin/analytics' },
+    { icon: PieChart, label: 'Analytics', path: '/admin/analytics' },
     { icon: HelpCircle, label: 'Help Desk', path: '/admin/help' },
   ];
 

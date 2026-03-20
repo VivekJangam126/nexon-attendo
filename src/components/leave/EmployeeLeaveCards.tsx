@@ -1,5 +1,5 @@
 import { useEmployeeLeaveBalance } from '@/hooks/useLeave';
-import { Calendar, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { FileText, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import type { LeaveRequest } from '@/server/types/leave';
 
 interface EmployeeLeaveCardsProps {
@@ -71,7 +71,7 @@ export function EmployeeLeaveCards({ employeeId }: EmployeeLeaveCardsProps) {
           leaveRequests.slice(0, 5).map((request: LeaveRequest) => (
             <div key={request.id} className="flex items-center gap-4 p-4">
               <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-muted-foreground" />
+                <FileText className="w-5 h-5 text-muted-foreground" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">

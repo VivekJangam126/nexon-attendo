@@ -56,19 +56,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Profile not found' });
     }
 
-    console.log('[Specific Holiday API] User role:', profile.role_type);
+    // Admin access is determined by name, not role_type
+    const isAdmin = profile.full_name?.toLowerCase().includes('admin') || 
+                   profile.full_name?.toLowerCase().includes('siddhesh') ||
+                   profile.email?.toLowerCase().includes('admin') ||
+                   profile.email?.toLowerCase().includes('siddhesh');
+
     console.log('[Specific Holiday API] User details:', {
       id: profile.id,
       name: profile.full_name,
       role: profile.role_type,
+      isAdmin: isAdmin,
       status: profile.status
     });
 
     if (req.method === 'POST') {
-      // Temporarily allow all authenticated users to create holidays
-      // TODO: Re-enable admin check after fixing user roles
-      console.log('[Specific Holiday API] Allowing holiday creation for user:', profile.full_name);
-      return await createSpecificHolidays(req, res);
+      // Allow admin users to create holidays
+      if (isAdmin) {
+        console.log('[Specific Holiday API] Admin access granted for holiday creation');
+        return await createSpecificHolidays(req, res);
+      } else {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

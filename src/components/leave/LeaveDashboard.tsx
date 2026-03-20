@@ -5,7 +5,7 @@ import LeaveHistoryTable from './LeaveHistoryTable';
 import LeaveBalanceCards from './LeaveBalanceCardsNew';
 import { ApplyLeaveModal } from './ApplyLeaveModal';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Plus, Calendar, TrendingUp, AlertCircle } from 'lucide-react';
+import { Plus, FileText, Clock, AlertCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 export function LeaveDashboard() {
@@ -92,7 +92,7 @@ export function LeaveDashboard() {
         <div className="animate-fade-in-up delay-100">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-amber-600" />
+              <FileText className="w-5 h-5 text-amber-600" />
             </div>
             <div>
               <h2 className="text-base font-bold text-gray-900">Leave Balance</h2>
@@ -107,7 +107,7 @@ export function LeaveDashboard() {
           <div className="flex items-center justify-between mb-4 gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-amber-600" />
+                <FileText className="w-5 h-5 text-amber-600" />
               </div>
               <div>
                 <h2 className="text-base font-bold text-gray-900">Leave Requests</h2>

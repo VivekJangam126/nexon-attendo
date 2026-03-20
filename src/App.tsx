@@ -24,7 +24,7 @@ import AdminDashboardScreen from "./pages/admin/AdminDashboardScreen";
 import AdminEmployeesScreen from "./pages/admin/AdminEmployeesScreen";
 import AdminEmployeeDetailScreen from "./pages/admin/AdminEmployeeDetailScreen";
 import AdminPendingApprovalsScreen from "./pages/admin/AdminPendingApprovalsScreen";
-import AdminReportsScreen from "./pages/admin/AdminReportsScreen";
+import AdminReportsNewScreen from "./pages/admin/AdminReportsNewScreen";
 import AdminHistoryReportsScreen from "./pages/admin/AdminHistoryReportsScreen";
 import AdminSettingsScreen from "./pages/admin/AdminSettingsScreen";
 import OfficeLocationsScreen from "./pages/admin/settings/OfficeLocationsScreen";
@@ -79,7 +79,7 @@ const App = () => (
           <Route path="/admin/employees" element={<AdminEmployeesScreen />} />
           <Route path="/admin/employee/:id" element={<AdminEmployeeDetailScreen />} />
           <Route path="/admin/pending-approvals" element={<AdminPendingApprovalsScreen />} />
-          <Route path="/admin/reports" element={<AdminReportsScreen />} />
+          <Route path="/admin/reports" element={<AdminReportsNewScreen />} />
           <Route path="/admin/history" element={<AdminHistoryReportsScreen />} />
           <Route path="/admin/settings" element={<AdminSettingsScreen />} />
           

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Calendar as CalendarIcon, Sun, Moon } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,16 +10,29 @@ const HolidayCalendarScreen = () => {
   const [recurringHolidays, setRecurringHolidays] = useState<RecurringHoliday[]>([]);
   const [specificHolidays, setSpecificHolidays] = useState<SpecificHoliday[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
 
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-  useEffect(() => {
-    fetchHolidays();
-  }, [user]);
+  // Memoize date range to avoid recalculating on every render
+  const dateRange = useMemo(() => {
+    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const endDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]; // Reduced from 6 months to 3 months
+    return { startDate, endDate };
+  }, []);
 
-  const fetchHolidays = async () => {
+  const fetchHolidays = useCallback(async () => {
     if (!user) {
       console.log('[Employee Calendar] No user found');
+      setLoading(false);
+      return;
+    }
+
+    // Prevent excessive API calls - only fetch if more than 5 minutes have passed
+    const now = Date.now();
+    if (now - lastFetchTime < 5 * 60 * 1000 && recurringHolidays.length > 0) {
+      console.log('[Employee Calendar] Using cached data');
+      setLoading(false);
       return;
     }
 
@@ -29,16 +42,13 @@ const HolidayCalendarScreen = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         console.log('[Employee Calendar] No session found');
+        setLoading(false);
         return;
       }
 
-      // Get holidays from 30 days ago to 6 months in future
-      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-      const endDate = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      console.log('[Employee Calendar] Fetching holidays from', dateRange.startDate, 'to', dateRange.endDate);
 
-      console.log('[Employee Calendar] Fetching holidays from', startDate, 'to', endDate);
-
-      const response = await fetch(`/api/holidays?start_date=${startDate}&end_date=${endDate}`, {
+      const response = await fetch(`/api/holidays?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}&view=employee`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
@@ -56,8 +66,23 @@ const HolidayCalendarScreen = () => {
           specific: data.specific_holidays?.slice(0, 2)
         });
         
-        setRecurringHolidays(data.recurring_holidays || []);
+        // Deduplicate recurring holidays by day_of_week (employee only needs to see unique days)
+        const uniqueRecurringHolidays = data.recurring_holidays?.reduce((unique: RecurringHoliday[], holiday: RecurringHoliday) => {
+          const exists = unique.find(h => h.day_of_week === holiday.day_of_week);
+          if (!exists) {
+            unique.push(holiday);
+          }
+          return unique;
+        }, []) || [];
+        
+        console.log('[Employee Calendar] Deduplicated recurring holidays:', {
+          original: data.recurring_holidays?.length || 0,
+          deduplicated: uniqueRecurringHolidays.length
+        });
+        
+        setRecurringHolidays(uniqueRecurringHolidays);
         setSpecificHolidays(data.specific_holidays || []);
+        setLastFetchTime(now); // Update last fetch time
       } else {
         const error = await response.json();
         console.error('[Employee Calendar] Error response:', error);
@@ -67,7 +92,11 @@ const HolidayCalendarScreen = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, dateRange.startDate, dateRange.endDate, lastFetchTime, recurringHolidays.length]);
+
+  useEffect(() => {
+    fetchHolidays();
+  }, [fetchHolidays]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
