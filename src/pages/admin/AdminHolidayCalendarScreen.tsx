@@ -60,6 +60,15 @@ const AdminHolidayCalendarScreen = () => {
     specific: []
   };
 
+  // Debug current month data
+  console.log('[Holiday Calendar] Current month data:', {
+    monthKey: currentMonthKey,
+    hasData: !!holidayData[currentMonthKey],
+    recurring: currentMonthData.recurring?.length || 0,
+    specific: currentMonthData.specific?.length || 0,
+    allKeys: Object.keys(holidayData)
+  });
+
   useEffect(() => {
     fetchData();
     // Pre-load adjacent months for instant navigation
@@ -208,20 +217,22 @@ const AdminHolidayCalendarScreen = () => {
     const specific = currentMonthData.specific.filter(h => h.holiday_date === dateStr);
     
     // Debug logging for specific dates
-    if (day === 19) { // Today's date for debugging
-      console.log('[Holiday Calendar] Debug for day', day, ':', {
+    if (day === 21) { // March 21 has specific holidays according to test data
+      console.log('[Holiday Calendar] Debug for day', day, '(March 21):', {
         dateStr,
         dayOfWeek,
         currentMonthData: {
           recurring: currentMonthData.recurring?.length || 0,
-          specific: currentMonthData.specific?.length || 0
+          specific: currentMonthData.specific?.length || 0,
+          recurring_sample: currentMonthData.recurring?.slice(0, 2),
+          specific_sample: currentMonthData.specific?.slice(0, 2)
         },
         filtered: {
           recurring: recurring.length,
-          specific: specific.length
-        },
-        sample_recurring: currentMonthData.recurring?.slice(0, 2),
-        sample_specific: currentMonthData.specific?.slice(0, 2)
+          specific: specific.length,
+          recurring_data: recurring,
+          specific_data: specific
+        }
       });
     }
     
