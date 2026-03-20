@@ -1,4 +1,4 @@
-import { AlertCircle, TrendingDown } from 'lucide-react';
+import { AlertCircle, TrendingDown, FileText } from 'lucide-react';
 import { useEffect, useState, memo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,9 +17,9 @@ interface LeaveBalanceCardsProps {
 }
 
 const LEAVE_TYPES = [
-  { id: 'sick', name: 'Sick Leave', icon: '🏥', color: 'from-red-500 to-red-600', bgColor: 'bg-red-50', textColor: 'text-gray-900', max: 5 },
-  { id: 'paid', name: 'Paid Leave', icon: '💵', color: 'from-green-500 to-green-600', bgColor: 'bg-green-50', textColor: 'text-gray-900', max: 10 },
-  { id: 'unpaid', name: 'Unpaid Leave', icon: '📄', color: 'from-gray-500 to-gray-600', bgColor: 'bg-gray-50', textColor: 'text-gray-900', max: 10 },
+  { id: 'sick', name: 'Sick Leave', color: 'from-red-500 to-red-600', bgColor: 'bg-red-50', textColor: 'text-gray-900', max: 5 },
+  { id: 'paid', name: 'Paid Leave', color: 'from-green-500 to-green-600', bgColor: 'bg-green-50', textColor: 'text-gray-900', max: 10 },
+  { id: 'unpaid', name: 'Unpaid Leave', color: 'from-gray-500 to-gray-600', bgColor: 'bg-gray-50', textColor: 'text-gray-900', max: 10 },
 ];
 
 export function LeaveBalanceCards({ balances, isLoading }: LeaveBalanceCardsProps) {
@@ -86,7 +86,9 @@ export function LeaveBalanceCards({ balances, isLoading }: LeaveBalanceCardsProp
           >
             {/* Header with Icon and Title */}
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">{type.icon}</span>
+              <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                <FileText className="w-4 h-4 text-amber-600" />
+              </div>
               <h3 className="text-sm font-semibold text-gray-900">{type.name}</h3>
             </div>
 
