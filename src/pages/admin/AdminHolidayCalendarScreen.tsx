@@ -49,8 +49,10 @@ const AdminHolidayCalendarScreen = () => {
   // Modal states
   const [recurringModalOpen, setRecurringModalOpen] = useState(false);
   const [specificModalOpen, setSpecificModalOpen] = useState(false);
+  const [workApplicationsModalOpen, setWorkApplicationsModalOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDateWorkApps, setSelectedDateWorkApps] = useState<any[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [holidayType, setHolidayType] = useState<HolidayType>("public_holiday");
   const [holidayReason, setHolidayReason] = useState("");
@@ -244,6 +246,63 @@ const AdminHolidayCalendarScreen = () => {
       takingHoliday: Math.max(0, allEmployees.size - approvedWorkApps.length)
     };
   }, [currentDate, holidayData.recurring, holidayData.specific, workApplications]);
+
+  // Handle work applications modal
+  const handleWorkApplicationsClick = async (day: number) => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    
+    setSelectedDate(dateStr);
+    const dayWorkApps = workApplications[dateStr] || [];
+    setSelectedDateWorkApps(dayWorkApps);
+    setWorkApplicationsModalOpen(true);
+  };
+
+  // Approve/Reject work application
+  const handleWorkApplicationAction = async (applicationId: string, action: 'approved' | 'rejected') => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { error } = await supabase
+        .from('employee_work_applications')
+        .update({ 
+          status: action,
+          approved_by: session.user.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', applicationId);
+
+      if (!error) {
+        toast({
+          title: "Success",
+          description: `Work application ${action} successfully.`,
+        });
+        
+        // Refresh data
+        await fetchHolidayData();
+        
+        // Update modal data
+        const updatedApps = selectedDateWorkApps.map(app => 
+          app.id === applicationId ? { ...app, status: action } : app
+        );
+        setSelectedDateWorkApps(updatedApps);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update application status.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update application status.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleDayHeaderClick = (dayIndex: number) => {
     setSelectedDay(dayIndex);
@@ -649,12 +708,19 @@ const AdminHolidayCalendarScreen = () => {
                         </span>
                       </div>
                       {holidays.workApplications > 0 && (
-                        <div className="flex items-center gap-1 text-[9px]">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleWorkApplicationsClick(day);
+                          }}
+                          className="flex items-center gap-1 text-[9px] hover:bg-blue-100 px-1 py-0.5 rounded transition-colors"
+                          title="Click to view work applications"
+                        >
                           <span className="text-blue-600 font-medium">W:{holidays.comingToWork}</span>
                           {holidays.pendingWork > 0 && (
                             <span className="text-orange-600 font-medium">P:{holidays.pendingWork}</span>
                           )}
-                        </div>
+                        </button>
                       )}
                     </div>
                   )}
@@ -821,6 +887,79 @@ const AdminHolidayCalendarScreen = () => {
                 </Button>
                 <Button variant="outline" onClick={() => setSpecificModalOpen(false)}>
                   Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Work Applications Modal */}
+        <Dialog open={workApplicationsModalOpen} onOpenChange={setWorkApplicationsModalOpen}>
+          <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Work Applications</DialogTitle>
+              <DialogDescription>
+                Employees who want to work on {selectedDate && new Date(selectedDate).toLocaleDateString()}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {selectedDateWorkApps.length > 0 ? (
+                <div className="space-y-3">
+                  {selectedDateWorkApps.map((app) => (
+                    <div key={app.id} className="p-4 border rounded-lg">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">{app.profiles.full_name}</h4>
+                          <p className="text-sm text-gray-600 mt-1">{app.reason}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Applied: {new Date(app.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            app.status === 'approved' 
+                              ? 'bg-green-100 text-green-700'
+                              : app.status === 'rejected'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {app.status === 'pending' && (
+                        <div className="flex gap-2 mt-3 pt-3 border-t">
+                          <Button
+                            size="sm"
+                            onClick={() => handleWorkApplicationAction(app.id, 'approved')}
+                            className="flex-1 bg-green-600 hover:bg-green-700"
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleWorkApplicationAction(app.id, 'rejected')}
+                            className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-500">No work applications for this date</p>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4 border-t">
+                <Button variant="outline" onClick={() => setWorkApplicationsModalOpen(false)}>
+                  Close
                 </Button>
               </div>
             </div>
