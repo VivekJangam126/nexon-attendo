@@ -21,14 +21,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    console.log('[Holiday API] Request received:', {
+    const callId = req.query.callId || 'unknown';
+    console.log(`[Holiday API ${callId}] Request received:`, {
       method: req.method,
       url: req.url,
       query: req.query
     });
 
     if (req.method === 'GET') {
-      return await getHolidays(req, res);
+      return await getHolidays(req, res, callId as string);
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
@@ -46,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
  * GET /api/holidays
  * Get all holidays (admin) or employee's holidays (employee)
  */
-async function getHolidays(req: VercelRequest, res: VercelResponse) {
+async function getHolidays(req: VercelRequest, res: VercelResponse, callId: string = 'unknown') {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
@@ -101,6 +102,7 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
           holiday_date,
           reason,
           holiday_type,
+          work_applications_allowed,
           profiles!inner(id, full_name, email)
         `)
         .eq('holiday_date', date as string);
@@ -130,7 +132,8 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
 
     // If view=employee, always return employee's own holidays
     if (view === 'employee') {
-      return await getEmployeeHolidays(user, targetYear, targetMonth, start_date as string, end_date as string, res);
+      console.log(`[Holiday API ${callId}] Employee view requested, calling getEmployeeHolidays`);
+      return await getEmployeeHolidays(user, targetYear, targetMonth, start_date as string, end_date as string, res, callId);
     }
 
     // Admin access detection (optimized)
@@ -138,7 +141,10 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
                    (profile.full_name?.toLowerCase() === 'siddhesh lalit jadhav') ||
                    (profile.email?.toLowerCase().includes('admin') && !profile.email?.toLowerCase().includes('employee'));
 
+    console.log('[Holiday API] Admin check result:', { isAdmin, fullName: profile.full_name, email: profile.email });
+
     if (isAdmin) {
+      console.log('[Holiday API] Admin access granted, fetching all holidays');
       // Admin: Get all holidays with optimized queries
       const startDateStr = (start_date as string) || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-01`;
       const endDateStr = (end_date as string) || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-31`;
@@ -151,6 +157,7 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
             id,
             employee_id,
             day_of_week,
+            work_applications_allowed,
             profiles!inner(id, full_name)
           `),
         supabase
@@ -161,6 +168,7 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
             holiday_date,
             reason,
             holiday_type,
+            work_applications_allowed,
             profiles!inner(id, full_name)
           `)
           .gte('holiday_date', startDateStr)
@@ -174,8 +182,9 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
         month: targetMonth
       });
     } else {
+      console.log(`[Holiday API ${callId}] Employee access, calling getEmployeeHolidays`);
       // Employee: Get only their holidays
-      return await getEmployeeHolidays(user, targetYear, targetMonth, start_date as string, end_date as string, res);
+      return await getEmployeeHolidays(user, targetYear, targetMonth, start_date as string, end_date as string, res, callId);
     }
 
   } catch (error: any) {
@@ -189,10 +198,12 @@ async function getHolidays(req: VercelRequest, res: VercelResponse) {
 /**
  * Get holidays for a specific employee (used when view=employee)
  */
-async function getEmployeeHolidays(user: any, targetYear: number, targetMonth: number, start_date: string, end_date: string, res: VercelResponse) {
+async function getEmployeeHolidays(user: any, targetYear: number, targetMonth: number, start_date: string, end_date: string, res: VercelResponse, callId: string = 'unknown') {
   try {
     const startDateStr = start_date || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-01`;
     const endDateStr = end_date || `${targetYear}-${targetMonth.toString().padStart(2, '0')}-31`;
+
+    console.log(`[Employee Holidays ${callId}] Fetching for user:`, user.id, 'Date range:', startDateStr, 'to', endDateStr);
 
     // Parallel queries for better performance
     const [recurringResult, specificResult] = await Promise.all([
@@ -207,6 +218,12 @@ async function getEmployeeHolidays(user: any, targetYear: number, targetMonth: n
         .gte('holiday_date', startDateStr)
         .lte('holiday_date', endDateStr)
     ]);
+
+    console.log(`[Employee Holidays ${callId}] Raw results:`, {
+      recurring: recurringResult.data?.length,
+      specific: specificResult.data?.length,
+      specificSample: specificResult.data?.[0]
+    });
 
     return res.status(200).json({
       recurring_holidays: recurringResult.data || [],

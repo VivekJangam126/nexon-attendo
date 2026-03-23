@@ -75,4 +75,4 @@ CREATE TRIGGER update_work_applications_updated_at
     EXECUTE FUNCTION update_work_applications_updated_at();
 
 -- Insert some test data (optional)
--- This will be handled by the application
+-- This will be handled by the application  

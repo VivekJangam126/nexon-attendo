@@ -97,7 +97,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
  */
 async function createSpecificHolidays(req: VercelRequest, res: VercelResponse) {
   try {
-    const { employee_ids, holiday_date, reason, holiday_type } = req.body;
+    const { employee_ids, holiday_date, reason, holiday_type, work_applications_allowed = false } = req.body;
+
+    // Ensure work_applications_allowed is explicitly a boolean
+    const workAllowed = work_applications_allowed === true || work_applications_allowed === 'true';
 
     if (!employee_ids || !Array.isArray(employee_ids) || employee_ids.length === 0) {
       return res.status(400).json({ error: 'employee_ids array is required' });
@@ -115,7 +118,11 @@ async function createSpecificHolidays(req: VercelRequest, res: VercelResponse) {
       employee_ids: employee_ids.length,
       holiday_date,
       reason,
-      holiday_type
+      holiday_type,
+      work_applications_allowed_raw: work_applications_allowed,
+      work_applications_allowed_converted: workAllowed,
+      work_applications_allowed_type: typeof work_applications_allowed,
+      raw_body: req.body
     });
 
     // Create records for each employee
@@ -123,13 +130,23 @@ async function createSpecificHolidays(req: VercelRequest, res: VercelResponse) {
       employee_id,
       holiday_date,
       reason,
-      holiday_type: holiday_type || 'company_event'
+      holiday_type: holiday_type || 'company_event',
+      work_applications_allowed: workAllowed
     }));
+
+    console.log('[Specific Holiday API] Records to insert:', JSON.stringify(records, null, 2));
 
     const { data, error } = await supabase
       .from('employee_specific_holidays')
       .upsert(records, { onConflict: 'employee_id,holiday_date' })
       .select();
+
+    console.log('[Specific Holiday API] Upsert result:', { 
+      success: !error, 
+      rowCount: data?.length,
+      sampleRow: data?.[0],
+      error: error?.message 
+    });
 
     if (error) {
       console.error('[Specific Holiday API] Database error:', error);

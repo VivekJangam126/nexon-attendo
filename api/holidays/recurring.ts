@@ -102,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
  */
 async function createRecurringHolidays(req: VercelRequest, res: VercelResponse) {
   try {
-    const { employee_ids, day_of_week } = req.body;
+    const { employee_ids, day_of_week, work_applications_allowed = false } = req.body;
 
     if (!employee_ids || !Array.isArray(employee_ids) || employee_ids.length === 0) {
       return res.status(400).json({ error: 'employee_ids array is required' });
@@ -114,13 +114,15 @@ async function createRecurringHolidays(req: VercelRequest, res: VercelResponse) 
 
     console.log('[Recurring Holiday API] Creating recurring holidays:', {
       employee_ids: employee_ids.length,
-      day_of_week
+      day_of_week,
+      work_applications_allowed
     });
 
     // Create records for each employee
     const records = employee_ids.map(employee_id => ({
       employee_id,
-      day_of_week
+      day_of_week,
+      work_applications_allowed
     }));
 
     const { data, error } = await supabase

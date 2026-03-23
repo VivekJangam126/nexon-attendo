@@ -26,8 +26,8 @@ const holidayCache = new Map<string, {
   timestamp: number;
 }>();
 
-// Cache TTL: 5 minutes
-const CACHE_TTL = 5 * 60 * 1000;
+// Cache TTL: 15 minutes (increased from 5 minutes)
+const CACHE_TTL = 15 * 60 * 1000;
 
 interface Employee {
   id: string;
@@ -40,6 +40,7 @@ const AdminHolidayCalendarScreen = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [navigationLoading, setNavigationLoading] = useState(false);
   const [holidayData, setHolidayData] = useState<{
     recurring: RecurringHoliday[];
     specific: SpecificHoliday[];
@@ -56,6 +57,7 @@ const AdminHolidayCalendarScreen = () => {
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [holidayType, setHolidayType] = useState<HolidayType>("public_holiday");
   const [holidayReason, setHolidayReason] = useState("");
+  const [workApplicationsAllowed, setWorkApplicationsAllowed] = useState(false);
   const [viewHolidaysModalOpen, setViewHolidaysModalOpen] = useState(false);
   const [selectedDateHolidays, setSelectedDateHolidays] = useState<any[]>([]);
 
@@ -65,30 +67,42 @@ const AdminHolidayCalendarScreen = () => {
     "July", "August", "September", "October", "November", "December"
   ];
 
-  // Memoize cache key to avoid recalculation
+  // Memoize cache key to avoid recalculation - use quarter-based caching
   const cacheKey = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    return `${year}-${month}`;
+    const quarter = Math.floor(month / 3); // 0, 1, 2, 3 for each quarter
+    return `${year}-Q${quarter}`;
   }, [currentDate]);
 
-  // Memoize date range for current month
+  // Memoize date range for current quarter for better caching
   const dateRange = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    const startDate = new Date(year, month, 1).toISOString().split("T")[0];
-    const endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
+    const quarter = Math.floor(month / 3);
+    
+    // Fetch data for the entire quarter (3 months)
+    const startMonth = quarter * 3;
+    const endMonth = startMonth + 3;
+    
+    const startDate = new Date(year, startMonth, 1).toISOString().split("T")[0];
+    const endDate = new Date(year, endMonth, 0).toISOString().split("T")[0];
+    
     return { startDate, endDate };
   }, [currentDate]);
 
   // Optimized data fetching with caching
-  const fetchHolidayData = useCallback(async () => {
+  const fetchHolidayData = useCallback(async (isNavigation = false) => {
     // Check cache first
     const cached = holidayCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       console.log('[Admin Holiday Calendar] Using cached data for', cacheKey);
       setHolidayData(cached.data);
       return;
+    }
+
+    if (isNavigation) {
+      setNavigationLoading(true);
     }
 
     try {
@@ -107,11 +121,8 @@ const AdminHolidayCalendarScreen = () => {
         supabase
           .from('employee_work_applications')
           .select(`
-            id,
-            employee_id,
-            holiday_date,
-            status,
-            profiles!inner(full_name)
+            *,
+            employee:profiles!employee_work_applications_employee_id_fkey(full_name, email)
           `)
           .gte('holiday_date', dateRange.startDate)
           .lte('holiday_date', dateRange.endDate)
@@ -144,9 +155,15 @@ const AdminHolidayCalendarScreen = () => {
           workAppsByDate[app.holiday_date].push(app);
         });
         setWorkApplications(workAppsByDate);
+      } else {
+        setWorkApplications({});
       }
     } catch (error) {
       console.error("Error fetching holiday data:", error);
+    } finally {
+      if (isNavigation) {
+        setNavigationLoading(false);
+      }
     }
   }, [cacheKey, dateRange.startDate, dateRange.endDate]);
 
@@ -188,7 +205,7 @@ const AdminHolidayCalendarScreen = () => {
   // Fetch data when month changes
   useEffect(() => {
     if (!loading) {
-      fetchHolidayData();
+      fetchHolidayData(true); // Pass true to indicate this is navigation
     }
   }, [cacheKey, fetchHolidayData, loading]);
 
@@ -234,7 +251,7 @@ const AdminHolidayCalendarScreen = () => {
     const approvedWorkApps = dayWorkApps.filter(app => app.status === 'approved');
     const pendingWorkApps = dayWorkApps.filter(app => app.status === 'pending');
 
-    return { 
+    const result = { 
       recurring, 
       specific, 
       total: allEmployees.size,
@@ -245,6 +262,8 @@ const AdminHolidayCalendarScreen = () => {
       pendingWork: pendingWorkApps.length,
       takingHoliday: Math.max(0, allEmployees.size - approvedWorkApps.length)
     };
+
+    return result;
   }, [currentDate, holidayData.recurring, holidayData.specific, workApplications]);
 
   // Handle work applications modal
@@ -280,14 +299,40 @@ const AdminHolidayCalendarScreen = () => {
           description: `Work application ${action} successfully.`,
         });
         
-        // Refresh data
-        await fetchHolidayData();
+        // Update local state immediately
+        setWorkApplications(prev => {
+          const updated = { ...prev };
+          Object.keys(updated).forEach(date => {
+            updated[date] = updated[date].map(app => 
+              app.id === applicationId 
+                ? { 
+                    ...app, 
+                    status: action,
+                    approved_by: session.user.id,
+                    approved_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                  }
+                : app
+            );
+          });
+          return updated;
+        });
         
-        // Update modal data
-        const updatedApps = selectedDateWorkApps.map(app => 
-          app.id === applicationId ? { ...app, status: action } : app
-        );
-        setSelectedDateWorkApps(updatedApps);
+        // Also update modal data if it's open
+        if (selectedDateWorkApps.length > 0) {
+          const updatedApps = selectedDateWorkApps.map(app => 
+            app.id === applicationId 
+              ? { 
+                  ...app, 
+                  status: action,
+                  approved_by: session.user.id,
+                  approved_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }
+              : app
+          );
+          setSelectedDateWorkApps(updatedApps);
+        }
       } else {
         toast({
           title: "Error",
@@ -307,6 +352,7 @@ const AdminHolidayCalendarScreen = () => {
   const handleDayHeaderClick = (dayIndex: number) => {
     setSelectedDay(dayIndex);
     setSelectedEmployees([]);
+    setWorkApplicationsAllowed(false);
     setRecurringModalOpen(true);
   };
 
@@ -317,6 +363,17 @@ const AdminHolidayCalendarScreen = () => {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     
     console.log('[Admin Calendar] Clicked on date:', dateStr);
+    
+    // Check if there are work applications for this date first
+    const dayWorkApps = workApplications[dateStr] || [];
+    if (dayWorkApps.length > 0) {
+      console.log('[Admin Calendar] Found work applications for this date:', dayWorkApps);
+      setSelectedDate(dateStr);
+      setSelectedDateWorkApps(dayWorkApps);
+      setWorkApplicationsModalOpen(true);
+      return; // Don't show holiday modal if there are work applications
+    }
+    
     setSelectedDate(dateStr);
     
     // Fetch existing holidays for this date
@@ -354,6 +411,7 @@ const AdminHolidayCalendarScreen = () => {
     setSelectedEmployees([]);
     setHolidayReason("");
     setHolidayType("public_holiday");
+    // Don't reset workApplicationsAllowed here - let admin choose each time
     setSpecificModalOpen(true);
   };
 
@@ -380,6 +438,7 @@ const AdminHolidayCalendarScreen = () => {
         body: JSON.stringify({
           employee_ids: selectedEmployees,
           day_of_week: selectedDay,
+          work_applications_allowed: workApplicationsAllowed,
         }),
       });
 
@@ -425,18 +484,24 @@ const AdminHolidayCalendarScreen = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
+      const payload = {
+        employee_ids: selectedEmployees,
+        holiday_date: selectedDate,
+        holiday_type: holidayType,
+        reason: holidayReason,
+        work_applications_allowed: workApplicationsAllowed,
+      };
+
+      console.log('[Admin] Creating specific holiday with payload:', payload);
+      console.log('[Admin] work_applications_allowed value:', workApplicationsAllowed, typeof workApplicationsAllowed);
+
       const response = await fetch("/api/holidays/specific", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          employee_ids: selectedEmployees,
-          holiday_date: selectedDate,
-          holiday_type: holidayType,
-          reason: holidayReason,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -446,6 +511,12 @@ const AdminHolidayCalendarScreen = () => {
         });
         
         setSpecificModalOpen(false);
+        
+        // Reset form state after successful creation
+        setSelectedEmployees([]);
+        setHolidayReason("");
+        setHolidayType("public_holiday");
+        setWorkApplicationsAllowed(false);
         
         // Invalidate cache and refresh data
         holidayCache.delete(cacheKey);
@@ -591,7 +662,7 @@ const AdminHolidayCalendarScreen = () => {
     }
   };
 
-  // Optimized navigation with debouncing
+  // Optimized navigation - don't clear cache, just change date
   const previousMonth = useCallback(() => {
     setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1));
   }, []);
@@ -626,13 +697,26 @@ const AdminHolidayCalendarScreen = () => {
             <div className="flex items-center gap-3">
               {/* Month Navigation */}
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={previousMonth}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={previousMonth}
+                  disabled={navigationLoading}
+                >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <span className="text-sm font-medium px-4">
+                <span className="text-sm font-medium px-4 flex items-center gap-2">
                   {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+                  {navigationLoading && (
+                    <div className="w-3 h-3 border border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                  )}
                 </span>
-                <Button variant="outline" size="sm" onClick={nextMonth}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={nextMonth}
+                  disabled={navigationLoading}
+                >
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
@@ -700,28 +784,16 @@ const AdminHolidayCalendarScreen = () => {
                   
                   {/* Show holiday and work application info */}
                   {hasAnyHoliday && (
-                    <div className="mt-0.5 flex flex-col items-center gap-0.5">
+                    <div className="mt-0.5 flex flex-col items-center gap-1">
+                      {/* Total holiday count */}
                       <div className="flex items-center justify-center gap-0.5">
                         <Users className={`w-2.5 h-2.5 ${isToday ? "text-green-700" : hasPublicHoliday ? "text-red-600" : "text-amber-600"}`} />
                         <span className={`text-[10px] font-medium ${isToday ? "text-green-800" : hasPublicHoliday ? "text-red-700" : "text-amber-700"}`}>
                           {holidays.total}
                         </span>
                       </div>
-                      {holidays.workApplications > 0 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleWorkApplicationsClick(day);
-                          }}
-                          className="flex items-center gap-1 text-[9px] hover:bg-blue-100 px-1 py-0.5 rounded transition-colors"
-                          title="Click to view work applications"
-                        >
-                          <span className="text-blue-600 font-medium">W:{holidays.comingToWork}</span>
-                          {holidays.pendingWork > 0 && (
-                            <span className="text-orange-600 font-medium">P:{holidays.pendingWork}</span>
-                          )}
-                        </button>
-                      )}
+                      
+                      {/* Work applications - removed from calendar display */}
                     </div>
                   )}
                   
@@ -767,6 +839,17 @@ const AdminHolidayCalendarScreen = () => {
                     </Label>
                   </div>
                 ))}
+              </div>
+
+              <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <Checkbox
+                  id="work-applications-allowed"
+                  checked={workApplicationsAllowed}
+                  onCheckedChange={setWorkApplicationsAllowed}
+                />
+                <Label htmlFor="work-applications-allowed" className="text-sm cursor-pointer flex-1">
+                  Allow employees to apply for work on this holiday
+                </Label>
               </div>
 
               <div className="flex gap-2">
@@ -881,6 +964,20 @@ const AdminHolidayCalendarScreen = () => {
                 ))}
               </div>
 
+              <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <Checkbox
+                  id="specific-work-applications-allowed"
+                  checked={workApplicationsAllowed}
+                  onCheckedChange={(checked) => {
+                    console.log('[Admin] Work applications checkbox changed:', checked, typeof checked);
+                    setWorkApplicationsAllowed(checked === true);
+                  }}
+                />
+                <Label htmlFor="specific-work-applications-allowed" className="text-sm cursor-pointer flex-1">
+                  Allow employees to apply for work on this holiday
+                </Label>
+              </div>
+
               <div className="flex gap-2">
                 <Button onClick={handleCreateSpecificHoliday} className="flex-1">
                   Confirm Holiday
@@ -895,9 +992,14 @@ const AdminHolidayCalendarScreen = () => {
 
         {/* Work Applications Modal */}
         <Dialog open={workApplicationsModalOpen} onOpenChange={setWorkApplicationsModalOpen}>
-          <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Work Applications</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <span>Work Applications</span>
+                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm font-bold">
+                  {selectedDateWorkApps.length}
+                </span>
+              </DialogTitle>
               <DialogDescription>
                 Employees who want to work on {selectedDate && new Date(selectedDate).toLocaleDateString()}
               </DialogDescription>
@@ -905,52 +1007,77 @@ const AdminHolidayCalendarScreen = () => {
 
             <div className="space-y-4">
               {selectedDateWorkApps.length > 0 ? (
-                <div className="space-y-3">
-                  {selectedDateWorkApps.map((app) => (
-                    <div key={app.id} className="p-4 border rounded-lg">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{app.profiles.full_name}</h4>
-                          <p className="text-sm text-gray-600 mt-1">{app.reason}</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Applied: {new Date(app.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            app.status === 'approved' 
-                              ? 'bg-green-100 text-green-700'
-                              : app.status === 'rejected'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }`}>
-                            {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-                          </span>
-                        </div>
+                <>
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50 rounded-lg">
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-green-600">
+                        {selectedDateWorkApps.filter(app => app.status === 'approved').length}
                       </div>
-                      
-                      {app.status === 'pending' && (
-                        <div className="flex gap-2 mt-3 pt-3 border-t">
-                          <Button
-                            size="sm"
-                            onClick={() => handleWorkApplicationAction(app.id, 'approved')}
-                            className="flex-1 bg-green-600 hover:bg-green-700"
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleWorkApplicationAction(app.id, 'rejected')}
-                            className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      )}
+                      <div className="text-xs text-gray-600">Approved</div>
                     </div>
-                  ))}
-                </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-blue-600">
+                        {selectedDateWorkApps.filter(app => app.status === 'pending').length}
+                      </div>
+                      <div className="text-xs text-gray-600">Pending</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-red-600">
+                        {selectedDateWorkApps.filter(app => app.status === 'rejected').length}
+                      </div>
+                      <div className="text-xs text-gray-600">Rejected</div>
+                    </div>
+                  </div>
+
+                  {/* Applications List */}
+                  <div className="space-y-3">
+                    {selectedDateWorkApps.map((app) => (
+                      <div key={app.id} className="p-4 border rounded-lg">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900">Employee {app.employee_id.substring(0, 8)}</h4>
+                            <p className="text-sm text-gray-600 mt-1">{app.reason}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Applied: {new Date(app.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              app.status === 'approved' 
+                                ? 'bg-green-100 text-green-700'
+                                : app.status === 'rejected'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {app.status === 'pending' && (
+                          <div className="flex gap-2 mt-3 pt-3 border-t">
+                            <Button
+                              size="sm"
+                              onClick={() => handleWorkApplicationAction(app.id, 'approved')}
+                              className="flex-1 bg-green-600 hover:bg-green-700"
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleWorkApplicationAction(app.id, 'rejected')}
+                              className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
               ) : (
                 <div className="text-center py-8">
                   <p className="text-sm text-gray-500">No work applications for this date</p>
@@ -965,6 +1092,139 @@ const AdminHolidayCalendarScreen = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Work Applications Section */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+              <Users className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Work Applications</h3>
+              <p className="text-sm text-gray-600">Employees requesting to work on holidays</p>
+            </div>
+          </div>
+
+          {Object.keys(workApplications).length > 0 ? (
+            <div className="space-y-6">
+              {/* Pending Applications */}
+              {Object.values(workApplications).flat().filter(app => app.status === 'pending').length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-3 h-3 rounded-full bg-blue-600"></div>
+                    <h4 className="font-medium text-gray-900">Pending Approval</h4>
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                      {Object.values(workApplications).flat().filter(app => app.status === 'pending').length}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {Object.entries(workApplications).map(([date, apps]) =>
+                      apps.filter(app => app.status === 'pending').map(app => (
+                        <div key={app.id} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h5 className="font-medium text-gray-900">{app.employee?.full_name || `Employee ${app.employee_id.substring(0, 8)}`}</h5>
+                              <p className="text-sm text-blue-700 font-medium">{new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                            </div>
+                            <span className="bg-blue-200 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                              Pending
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3">{app.reason}</p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleWorkApplicationAction(app.id, 'approved')}
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleWorkApplicationAction(app.id, 'rejected')}
+                              className="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Approved Applications */}
+              {Object.values(workApplications).flat().filter(app => app.status === 'approved').length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-3 h-3 rounded-full bg-green-600"></div>
+                    <h4 className="font-medium text-gray-900">Approved to Work</h4>
+                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
+                      {Object.values(workApplications).flat().filter(app => app.status === 'approved').length}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {Object.entries(workApplications).map(([date, apps]) =>
+                      apps.filter(app => app.status === 'approved').map(app => (
+                        <div key={app.id} className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h5 className="font-medium text-gray-900">{app.employee?.full_name || `Employee ${app.employee_id.substring(0, 8)}`}</h5>
+                              <p className="text-sm text-green-700 font-medium">{new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                            </div>
+                            <span className="bg-green-200 text-green-800 px-2 py-1 rounded text-xs font-medium">
+                              Approved
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">{app.reason}</p>
+                          <p className="text-xs text-gray-500">
+                            Approved on {new Date(app.approved_at || app.updated_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Rejected Applications */}
+              {Object.values(workApplications).flat().filter(app => app.status === 'rejected').length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-3 h-3 rounded-full bg-red-600"></div>
+                    <h4 className="font-medium text-gray-900">Rejected Applications</h4>
+                    <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
+                      {Object.values(workApplications).flat().filter(app => app.status === 'rejected').length}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {Object.entries(workApplications).map(([date, apps]) =>
+                      apps.filter(app => app.status === 'rejected').map(app => (
+                        <div key={app.id} className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h5 className="font-medium text-gray-900">{app.employee?.full_name || `Employee ${app.employee_id.substring(0, 8)}`}</h5>
+                              <p className="text-sm text-red-700 font-medium">{new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                            </div>
+                            <span className="bg-red-200 text-red-800 px-2 py-1 rounded text-xs font-medium">
+                              Rejected
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600">{app.reason}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <h4 className="text-sm font-medium text-gray-900 mb-1">No Work Applications</h4>
+              <p className="text-sm text-gray-500">No employees have requested to work on holidays this month</p>
+            </div>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );
