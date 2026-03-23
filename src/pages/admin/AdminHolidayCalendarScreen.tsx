@@ -44,6 +44,7 @@ const AdminHolidayCalendarScreen = () => {
     recurring: RecurringHoliday[];
     specific: SpecificHoliday[];
   }>({ recurring: [], specific: [] });
+  const [workApplications, setWorkApplications] = useState<{[key: string]: any[]}>({});
 
   // Modal states
   const [recurringModalOpen, setRecurringModalOpen] = useState(false);
@@ -94,14 +95,28 @@ const AdminHolidayCalendarScreen = () => {
 
       console.log('[Admin Holiday Calendar] Fetching fresh data for', cacheKey);
 
-      const response = await fetch(`/api/holidays?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      // Fetch holidays and work applications in parallel
+      const [holidayResponse, workAppsResult] = await Promise.all([
+        fetch(`/api/holidays?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }),
+        supabase
+          .from('employee_work_applications')
+          .select(`
+            id,
+            employee_id,
+            holiday_date,
+            status,
+            profiles!inner(full_name)
+          `)
+          .gte('holiday_date', dateRange.startDate)
+          .lte('holiday_date', dateRange.endDate)
+      ]);
 
-      if (response.ok) {
-        const data = await response.json();
+      if (holidayResponse.ok) {
+        const data = await holidayResponse.json();
         const holidayData = {
           recurring: data.recurring_holidays || [],
           specific: data.specific_holidays || []
@@ -115,6 +130,18 @@ const AdminHolidayCalendarScreen = () => {
 
         setHolidayData(holidayData);
         console.log('[Admin Holiday Calendar] Data cached for', cacheKey);
+      }
+
+      // Process work applications by date
+      if (workAppsResult.data) {
+        const workAppsByDate: {[key: string]: any[]} = {};
+        workAppsResult.data.forEach(app => {
+          if (!workAppsByDate[app.holiday_date]) {
+            workAppsByDate[app.holiday_date] = [];
+          }
+          workAppsByDate[app.holiday_date].push(app);
+        });
+        setWorkApplications(workAppsByDate);
       }
     } catch (error) {
       console.error("Error fetching holiday data:", error);
@@ -180,7 +207,7 @@ const AdminHolidayCalendarScreen = () => {
     return days;
   }, [currentDate]);
 
-  // Optimized holiday lookup with memoization
+  // Optimized holiday lookup with work applications
   const getHolidaysForDate = useCallback((day: number) => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
@@ -200,14 +227,23 @@ const AdminHolidayCalendarScreen = () => {
       h.holiday_type === 'public_holiday' || h.holiday_type === 'festival'
     );
 
+    // Get work applications for this date
+    const dayWorkApps = workApplications[dateStr] || [];
+    const approvedWorkApps = dayWorkApps.filter(app => app.status === 'approved');
+    const pendingWorkApps = dayWorkApps.filter(app => app.status === 'pending');
+
     return { 
       recurring, 
       specific, 
       total: allEmployees.size,
       hasPublicHoliday,
-      hasAnyHoliday: allEmployees.size > 0
+      hasAnyHoliday: allEmployees.size > 0,
+      workApplications: dayWorkApps.length,
+      comingToWork: approvedWorkApps.length,
+      pendingWork: pendingWorkApps.length,
+      takingHoliday: Math.max(0, allEmployees.size - approvedWorkApps.length)
     };
-  }, [currentDate, holidayData.recurring, holidayData.specific]);
+  }, [currentDate, holidayData.recurring, holidayData.specific, workApplications]);
 
   const handleDayHeaderClick = (dayIndex: number) => {
     setSelectedDay(dayIndex);
@@ -603,13 +639,23 @@ const AdminHolidayCalendarScreen = () => {
                     {day}
                   </div>
                   
-                  {/* Show employee count for holidays */}
+                  {/* Show holiday and work application info */}
                   {hasAnyHoliday && (
-                    <div className="mt-0.5 flex items-center justify-center gap-0.5">
-                      <Users className={`w-2.5 h-2.5 ${isToday ? "text-green-700" : hasPublicHoliday ? "text-red-600" : "text-amber-600"}`} />
-                      <span className={`text-[10px] font-medium ${isToday ? "text-green-800" : hasPublicHoliday ? "text-red-700" : "text-amber-700"}`}>
-                        {holidays.total}
-                      </span>
+                    <div className="mt-0.5 flex flex-col items-center gap-0.5">
+                      <div className="flex items-center justify-center gap-0.5">
+                        <Users className={`w-2.5 h-2.5 ${isToday ? "text-green-700" : hasPublicHoliday ? "text-red-600" : "text-amber-600"}`} />
+                        <span className={`text-[10px] font-medium ${isToday ? "text-green-800" : hasPublicHoliday ? "text-red-700" : "text-amber-700"}`}>
+                          {holidays.total}
+                        </span>
+                      </div>
+                      {holidays.workApplications > 0 && (
+                        <div className="flex items-center gap-1 text-[9px]">
+                          <span className="text-blue-600 font-medium">W:{holidays.comingToWork}</span>
+                          {holidays.pendingWork > 0 && (
+                            <span className="text-orange-600 font-medium">P:{holidays.pendingWork}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                   
