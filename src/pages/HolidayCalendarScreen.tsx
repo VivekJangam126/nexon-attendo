@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Calendar as CalendarIcon, Sun, FileText, ChevronDown, Briefcase, Clock } from "lucide-react";
+import { Calendar as CalendarIcon, Sun, FileText, Briefcase } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { RecurringHoliday, SpecificHoliday } from "@server";
 
@@ -35,7 +34,6 @@ const HolidayCalendarScreen = () => {
   const [specificHolidays, setSpecificHolidays] = useState<SpecificHoliday[]>([]);
   const [workApplications, setWorkApplications] = useState<WorkApplication[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [applyingForWork, setApplyingForWork] = useState<string | null>(null);
 
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -134,27 +132,22 @@ const HolidayCalendarScreen = () => {
     fetchHolidays();
   }, [fetchHolidays]);
 
-  // Filter holidays by selected month
-  const filteredHolidays = useMemo(() => {
-    if (selectedMonth === "all") {
-      return specificHolidays;
-    }
-    
-    const monthIndex = parseInt(selectedMonth);
-    return specificHolidays.filter(holiday => {
-      const holidayDate = new Date(holiday.holiday_date);
-      return holidayDate.getMonth() === monthIndex;
-    });
-  }, [specificHolidays, selectedMonth]);
-
-  // Group holidays by month for the filter dropdown
+  // Group holidays by month
   const holidaysByMonth = useMemo(() => {
-    const months: { [key: number]: number } = {};
+    const grouped: { [key: string]: SpecificHoliday[] } = {};
+    
     specificHolidays.forEach(holiday => {
-      const month = new Date(holiday.holiday_date).getMonth();
-      months[month] = (months[month] || 0) + 1;
+      const date = new Date(holiday.holiday_date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthName = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+      
+      if (!grouped[monthKey]) {
+        grouped[monthKey] = [];
+      }
+      grouped[monthKey].push(holiday);
     });
-    return months;
+    
+    return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b));
   }, [specificHolidays]);
 
   // Check if employee has applied to work on a specific date
@@ -286,180 +279,167 @@ const HolidayCalendarScreen = () => {
           )}
         </div>
 
-        {/* Specific Holidays */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-amber-600" />
-              <h3 className="text-lg font-semibold text-gray-900">Assigned Holidays</h3>
-            </div>
-            
-            {/* Month Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Filter by month:</span>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="All months" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">
-                    All months ({specificHolidays.length})
-                  </SelectItem>
-                  {Object.entries(holidaysByMonth).map(([month, count]) => (
-                    <SelectItem key={month} value={month}>
-                      {monthNames[parseInt(month)]} ({count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+        {/* Specific Holidays - Grouped by Month */}
+        <div className="space-y-6">
+          {holidaysByMonth.length > 0 ? (
+            holidaysByMonth.map(([monthKey, holidays]) => {
+              const firstHoliday = holidays[0];
+              const date = new Date(firstHoliday.holiday_date);
+              const monthName = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+              
+              return (
+                <div key={monthKey} className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
+                  {/* Month Header */}
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200">
+                    <CalendarIcon className="w-5 h-5 text-amber-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">{monthName}</h3>
+                    <span className="ml-auto bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-medium">
+                      {holidays.length} {holidays.length === 1 ? 'holiday' : 'holidays'}
+                    </span>
+                  </div>
 
-          {filteredHolidays.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {filteredHolidays.map((holiday) => {
-                const holidayDate = new Date(holiday.holiday_date);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                holidayDate.setHours(0, 0, 0, 0);
-                
-                const isToday = holidayDate.getTime() === today.getTime();
-                const isPast = holidayDate < today;
-                const isFuture = holidayDate > today;
-                const workApp = hasWorkApplication(holiday.holiday_date);
+                  {/* Holiday Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                    {holidays.map((holiday) => {
+                      const holidayDate = new Date(holiday.holiday_date);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      holidayDate.setHours(0, 0, 0, 0);
+                      
+                      const isToday = holidayDate.getTime() === today.getTime();
+                      const isPast = holidayDate < today;
+                      const isFuture = holidayDate > today;
+                      const workApp = hasWorkApplication(holiday.holiday_date);
 
-                return (
-                  <div
-                    key={holiday.id}
-                    className={`relative overflow-hidden rounded-lg border transition-all duration-200 hover:shadow-sm ${
-                      isToday
-                        ? "bg-green-50 border-green-200"
-                        : isPast
-                        ? "bg-gray-50 border-gray-200 opacity-60"
-                        : workApp
-                        ? "bg-blue-50 border-blue-200"
-                        : "bg-amber-50 border-amber-200"
-                    }`}
-                  >
-                    {/* Holiday Header */}
-                    <div className="p-3">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                              isToday 
-                                ? "bg-green-100" 
-                                : isPast 
-                                ? "bg-gray-100" 
-                                : workApp 
-                                ? "bg-blue-100" 
-                                : "bg-amber-100"
-                            }`}>
-                              <FileText className={`w-3 h-3 ${
-                                isToday 
-                                  ? "text-green-600" 
-                                  : isPast 
-                                  ? "text-gray-500" 
-                                  : workApp 
-                                  ? "text-blue-600" 
-                                  : "text-amber-600"
-                              }`} />
-                            </div>
-                            <div>
-                              <h4 className="text-xs font-medium text-gray-800 leading-tight">{holiday.reason}</h4>
-                              <p className="text-[10px] text-gray-500 font-normal">
-                                {holiday.holiday_type?.replace('_', ' ')}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-1">
-                            <p className="text-[10px] text-gray-600 font-normal">
-                              {holidayDate.toLocaleDateString("en-US", {
-                                weekday: "short",
-                                day: "numeric",
-                                month: "short",
-                              })}
-                            </p>
-                            
-                            {/* Status Badges - Only show if work application exists */}
-                            {workApp && (
-                              <div className="flex flex-wrap gap-1">
-                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium border ${
-                                  workApp.status === 'approved' 
-                                    ? 'bg-green-100 text-green-700 border-green-200'
-                                    : workApp.status === 'rejected'
-                                    ? 'bg-red-100 text-red-700 border-red-200'
-                                    : 'bg-blue-100 text-blue-700 border-blue-200'
+                      return (
+                        <div
+                          key={holiday.id}
+                          className={`relative overflow-hidden rounded-lg border transition-all duration-200 hover:shadow-sm ${
+                            isToday
+                              ? "bg-green-50 border-green-200"
+                              : isPast
+                              ? "bg-gray-50 border-gray-200 opacity-60"
+                              : workApp
+                              ? "bg-blue-50 border-blue-200"
+                              : "bg-amber-50 border-amber-200"
+                          }`}
+                        >
+                          {/* Holiday Header */}
+                          <div className="p-3">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                    isToday 
+                                      ? "bg-green-100" 
+                                      : isPast 
+                                      ? "bg-gray-100" 
+                                      : workApp 
+                                      ? "bg-blue-100" 
+                                      : "bg-amber-100"
+                                  }`}>
+                                    <FileText className={`w-3 h-3 ${
+                                      isToday 
+                                        ? "text-green-600" 
+                                        : isPast 
+                                        ? "text-gray-500" 
+                                        : workApp 
+                                        ? "text-blue-600" 
+                                        : "text-amber-600"
+                                    }`} />
+                                  </div>
+                                  <div>
+                                    <h4 className="text-xs font-medium text-gray-800 leading-tight">{holiday.reason}</h4>
+                                    <p className="text-[10px] text-gray-500 font-normal">
+                                      {holiday.holiday_type?.replace('_', ' ')}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                <div className="space-y-1">
+                                  <p className="text-[10px] text-gray-600 font-normal">
+                                    {holidayDate.toLocaleDateString("en-US", {
+                                      weekday: "short",
+                                      day: "numeric",
+                                      month: "short",
+                                    })}
+                                  </p>
+                                  
+                                  {/* Status Badges - Only show if work application exists */}
+                                  {workApp && (
+                                    <div className="flex flex-wrap gap-1">
+                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium border ${
+                                        workApp.status === 'approved' 
+                                          ? 'bg-green-100 text-green-700 border-green-200'
+                                          : workApp.status === 'rejected'
+                                          ? 'bg-red-100 text-red-700 border-red-200'
+                                          : 'bg-blue-100 text-blue-700 border-blue-200'
+                                      }`}>
+                                        {workApp.status === 'approved' ? 'Approved' : 
+                                         workApp.status === 'rejected' ? 'Rejected' : 'Applied'}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Date Display */}
+                              <div className="text-right">
+                                <div className={`text-lg font-semibold ${
+                                  isToday ? "text-green-600" : isPast ? "text-gray-400" : workApp ? "text-blue-600" : "text-amber-600"
                                 }`}>
-                                  {workApp.status === 'approved' ? 'Approved' : 
-                                   workApp.status === 'rejected' ? 'Rejected' : 'Applied'}
-                                </span>
+                                  {holidayDate.getDate()}
+                                </div>
+                                <div className="text-[9px] font-medium text-gray-500 uppercase">
+                                  {holidayDate.toLocaleDateString("en-US", { month: "short" })}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Work Application Details - Only if exists */}
+                            {workApp && workApp.reason && (
+                              <div className="mt-2 p-2 bg-white/50 rounded border border-white/60">
+                                <p className="text-[9px] text-gray-600">
+                                  <span className="text-gray-500">Applied:</span> {workApp.reason}
+                                </p>
                               </div>
                             )}
                           </div>
-                        </div>
-                        
-                        {/* Date Display */}
-                        <div className="text-right">
-                          <div className={`text-lg font-semibold ${
-                            isToday ? "text-green-600" : isPast ? "text-gray-400" : workApp ? "text-blue-600" : "text-amber-600"
-                          }`}>
-                            {holidayDate.getDate()}
-                          </div>
-                          <div className="text-[9px] font-medium text-gray-500 uppercase">
-                            {holidayDate.toLocaleDateString("en-US", { month: "short" })}
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* Work Application Details - Only if exists */}
-                      {workApp && workApp.reason && (
-                        <div className="mt-2 p-2 bg-white/50 rounded border border-white/60">
-                          <p className="text-[9px] text-gray-600">
-                            <span className="text-gray-500">Applied:</span> {workApp.reason}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Apply to Work Button - Only show if admin allowed work applications */}
-                    {!isPast && !workApp && holiday.work_applications_allowed === true && (
-                      <div className="px-3 pb-3">
-                        <Button
-                          onClick={() => handleApplyToWork(holiday.holiday_date, `Want to work on ${holiday.reason}`)}
-                          disabled={applyingForWork === holiday.holiday_date}
-                          className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 rounded text-[10px] shadow-sm hover:shadow transition-all duration-200"
-                        >
-                          {applyingForWork === holiday.holiday_date ? (
-                            <div className="flex items-center justify-center gap-1">
-                              <div className="w-2.5 h-2.5 border border-white/30 border-t-white rounded-full animate-spin" />
-                              <span>Applying...</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center gap-1">
-                              <Briefcase className="w-2.5 h-2.5" />
-                              <span>Apply to Work</span>
+                          {/* Apply to Work Button - Only show if admin allowed work applications */}
+                          {!isPast && !workApp && holiday.work_applications_allowed === true && (
+                            <div className="px-3 pb-3">
+                              <Button
+                                onClick={() => handleApplyToWork(holiday.holiday_date, `Want to work on ${holiday.reason}`)}
+                                disabled={applyingForWork === holiday.holiday_date}
+                                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium py-1.5 rounded text-[10px] shadow-sm hover:shadow transition-all duration-200"
+                              >
+                                {applyingForWork === holiday.holiday_date ? (
+                                  <div className="flex items-center justify-center gap-1">
+                                    <div className="w-2.5 h-2.5 border border-white/30 border-t-white rounded-full animate-spin" />
+                                    <span>Applying...</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Briefcase className="w-2.5 h-2.5" />
+                                    <span>Apply to Work</span>
+                                  </div>
+                                )}
+                              </Button>
                             </div>
                           )}
-                        </Button>
-                      </div>
-                    )}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })
           ) : (
-            <div className="text-center py-8">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-900">
-                {selectedMonth === "all" ? "No holidays assigned" : `No holidays in ${monthNames[parseInt(selectedMonth)]}`}
-              </p>
-              <p className="text-xs text-gray-500">
-                {selectedMonth === "all" 
-                  ? "Your admin hasn't assigned any holidays yet" 
-                  : "Try selecting a different month"}
-              </p>
+              <p className="text-sm font-medium text-gray-900">No holidays assigned</p>
+              <p className="text-xs text-gray-500">Your admin hasn't assigned any holidays yet</p>
             </div>
           )}
         </div>
