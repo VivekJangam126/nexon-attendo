@@ -1,5 +1,5 @@
 import { LeaveService } from '../../services/leave.service';
-import { supabase } from '../../supabase/client';
+import { supabaseAdmin } from '../../supabase/client';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -29,7 +29,7 @@ export default async function handler(req: any, res: any) {
       console.log('[Balance API] LeaveService returned:', balance?.length, 'records');
       
       // Fetch with leave_type details - using explicit filter
-      const { data: balanceWithTypes, error } = await supabase
+      const { data: balanceWithTypes, error } = await supabaseAdmin
         .from('employee_leave_balance')
         .select(`
           id,

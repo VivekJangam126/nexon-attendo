@@ -1,5 +1,5 @@
 import { LeaveService } from '../../services/leave.service';
-import { supabase } from '../../supabase/client';
+import { supabaseAdmin } from '../../supabase/client';
 
 /**
  * API Handler: Recalculate Leave Balance

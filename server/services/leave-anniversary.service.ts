@@ -1,4 +1,4 @@
-import { supabase } from '../supabase/client';
+import { supabaseAdmin } from '../supabase/client';
 import { LeaveService } from './leave.service';
 
 /**
@@ -57,7 +57,7 @@ export class LeaveAnniversaryService {
       console.log('[LeaveAnniversaryService] Checking anniversary for employee:', employeeId);
 
       // Get employee's enrollment date
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile, error: profileError } = await supabaseAdmin
         .from('profiles')
         .select('created_at, full_name')
         .eq('id', employeeId)
@@ -79,7 +79,7 @@ export class LeaveAnniversaryService {
       console.log('[LeaveAnniversaryService] Current employment year:', yearStartStr, 'to', yearEndStr);
 
       // Check if balance already exists for current employment year
-      const { data: existingBalance, error: balanceError } = await supabase
+      const { data: existingBalance, error: balanceError } = await supabaseAdmin
         .from('employee_leave_balance')
         .select('id')
         .eq('employee_id', employeeId)
@@ -94,7 +94,7 @@ export class LeaveAnniversaryService {
       console.log('[LeaveAnniversaryService] Creating new balance for current employment year');
 
       // Get all leave types
-      const { data: leaveTypes, error: typesError } = await supabase
+      const { data: leaveTypes, error: typesError } = await supabaseAdmin
         .from('leave_types')
         .select('*') as any;
 
@@ -139,7 +139,7 @@ export class LeaveAnniversaryService {
    */
   static async getCurrentEmploymentYear(employeeId: string): Promise<{ start: string; end: string } | null> {
     try {
-      const { data: profile, error } = await supabase
+      const { data: profile, error } = await supabaseAdmin
         .from('profiles')
         .select('created_at')
         .eq('id', employeeId)
@@ -175,7 +175,7 @@ export class LeaveAnniversaryService {
         return [];
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('employee_leave_balance')
         .select('*')
         .eq('employee_id', employeeId)
@@ -201,7 +201,7 @@ export class LeaveAnniversaryService {
    */
   static async getAllYearsBalance(employeeId: string): Promise<any[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('employee_leave_balance')
         .select('*')
         .eq('employee_id', employeeId)
