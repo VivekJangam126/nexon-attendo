@@ -60,6 +60,10 @@ export const useLeaveBalance = (year?: number) => {
 
   return useQuery({
     queryKey: ['leaveBalance', year],
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache
+    refetchInterval: 5000, // Refetch every 5 seconds
+    refetchOnWindowFocus: true, // Refetch when window gains focus
     queryFn: async () => {
       const params = year ? `?year=${year}` : '';
       const response = await fetch(`${API_BASE}/leave/balance${params}`, {
