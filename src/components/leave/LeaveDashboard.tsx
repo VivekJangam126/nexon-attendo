@@ -19,40 +19,9 @@ export function LeaveDashboard() {
 
   // Auto-recalculate balance when component loads
   useEffect(() => {
-    const recalculateBalance = async () => {
-      if (!profile?.id) return;
-      
-      try {
-        console.log('[LeaveDashboard] Auto-recalculating leave balance...');
-        const response = await fetch('/api/leave/recalculate-balance', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ employeeId: profile.id }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          console.log('[LeaveDashboard] Balance recalculated:', result.message);
-          
-          // Refresh the balance data
-          queryClient.invalidateQueries({ queryKey: ['leaveBalance'] });
-        } else {
-          const errorText = await response.text();
-          console.warn('[LeaveDashboard] Failed to recalculate balance:', {
-            status: response.status,
-            statusText: response.statusText,
-            body: errorText
-          });
-        }
-      } catch (error) {
-        console.error('[LeaveDashboard] Error recalculating balance:', error);
-      }
-    };
-
-    // Recalculate balance when component loads
-    recalculateBalance();
+    // Disabled auto-recalculate to prevent 500 errors
+    // The balance will be calculated when leave requests are approved
+    console.log('[LeaveDashboard] Auto-recalculate disabled');
   }, [profile?.id, queryClient]);
 
   // Calculate statistics
