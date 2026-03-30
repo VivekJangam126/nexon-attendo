@@ -191,13 +191,21 @@ export class LeaveService {
 
   // Get employee's leave requests
   static async getEmployeeLeaveRequests(employeeId: string): Promise<LeaveRequest[]> {
+    console.log('[LeaveService] getEmployeeLeaveRequests called with employeeId:', employeeId);
+    
     const { data, error } = await supabaseAdmin
       .from('leave_requests')
       .select(`*`)
       .eq('employee_id', employeeId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    console.log('[LeaveService] Query result:', { data, error, count: data?.length });
+    
+    if (error) {
+      console.error('[LeaveService] Error fetching leave requests:', error);
+      throw error;
+    }
+    
     return data || [];
   }
 
