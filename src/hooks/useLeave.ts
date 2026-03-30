@@ -96,7 +96,7 @@ export const useLeavePolicies = () => {
 };
 
 export const useEmployeeLeaveRequests = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -111,7 +111,7 @@ export const useEmployeeLeaveRequests = () => {
         event: '*',
         schema: 'public',
         table: 'leave_requests',
-        filter: `employee_id=eq.${user.id}`,
+        filter: `employee_id=eq.${profile?.id || user.id}`,
       },
       (payload) => {
         console.log('[useEmployeeLeaveRequests] Real-time update received:', payload);
@@ -123,18 +123,24 @@ export const useEmployeeLeaveRequests = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, queryClient]);
+  }, [user, profile?.id, queryClient]);
 
   return useQuery({
     queryKey: ['employeeLeaveRequests'],
     queryFn: async () => {
-      if (!user?.id) {
+      // Use profile.id instead of user.id for database queries
+      const userId = profile?.id || user?.id;
+      
+      if (!userId) {
+        console.log('[useEmployeeLeaveRequests] No user ID available');
         return [];
       }
       
+      console.log('[useEmployeeLeaveRequests] Fetching for user ID:', userId);
+      
       const response = await fetch(`${API_BASE}/leave/my-requests`, {
         headers: {
-          'x-user-id': user.id,
+          'x-user-id': userId,
         },
       });
       
@@ -148,7 +154,7 @@ export const useEmployeeLeaveRequests = () => {
       console.log('[useEmployeeLeaveRequests] Received data:', data);
       return Array.isArray(data) ? data : [];
     },
-    enabled: !!user,
+    enabled: !!user && !!profile,
     staleTime: 0, // Always fetch fresh data
     cacheTime: 0, // Don't cache
     refetchOnWindowFocus: true,
