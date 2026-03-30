@@ -25,6 +25,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { employeeService, officeService, attendanceService } from "@server";
+import { supabase } from "@/lib/supabase";
 import type { EmployeeWithAttendance, Office } from "@server";
 
 type AttendanceStatus = "present" | "late" | "absent" | "holiday" | "not_marked";
@@ -77,6 +78,14 @@ const AdminEmployeeDetailScreen = () => {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
   const [todayCheckoutTime, setTodayCheckoutTime] = useState<string | null>(null);
+  
+  // Custom roles and designations
+  const [customRoles, setCustomRoles] = useState<string[]>([]);
+  const [customDesignations, setCustomDesignations] = useState<string[]>([]);
+  const [newCustomRole, setNewCustomRole] = useState("");
+  const [newCustomDesignation, setNewCustomDesignation] = useState("");
+  const [isAddingRole, setIsAddingRole] = useState(false);
+  const [isAddingDesignation, setIsAddingDesignation] = useState(false);
 
   useEffect(() => {
     const fetchEmployeeData = async () => {
@@ -116,8 +125,34 @@ const AdminEmployeeDetailScreen = () => {
       const { offices: officeList } = await officeService.getActiveOffices();
       setOffices(officeList);
     };
+    
+    const fetchCustomRolesAndDesignations = async () => {
+      try {
+        const { data: rolesData } = await supabase
+          .from('custom_roles')
+          .select('name')
+          .order('name');
+        
+        const { data: designationsData } = await supabase
+          .from('custom_designations')
+          .select('name')
+          .order('name');
+        
+        if (rolesData) {
+          setCustomRoles(rolesData.map(r => r.name));
+        }
+        
+        if (designationsData) {
+          setCustomDesignations(designationsData.map(d => d.name));
+        }
+      } catch (error) {
+        console.error('Error fetching custom roles/designations:', error);
+      }
+    };
+    
     fetchEmployeeData();
     fetchOffices();
+    fetchCustomRolesAndDesignations();
   }, [id]);
 
   const formatCheckInTime = (isoString: string | null) => {
@@ -218,6 +253,70 @@ const AdminEmployeeDetailScreen = () => {
       }
     } else {
       toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
+    }
+  };
+
+  const handleAddCustomRole = async () => {
+    if (!newCustomRole.trim()) {
+      toast({ title: "Error", description: "Please enter a role name", variant: "destructive" });
+      return;
+    }
+    
+    setIsAddingRole(true);
+    
+    try {
+      const { error } = await supabase
+        .from('custom_roles')
+        .insert({ name: newCustomRole.trim() });
+      
+      if (error) {
+        if (error.code === '23505') { // Unique constraint violation
+          toast({ title: "Error", description: "This role already exists", variant: "destructive" });
+        } else {
+          toast({ title: "Error", description: "Failed to add custom role", variant: "destructive" });
+        }
+      } else {
+        toast({ title: "Success", description: "Custom role added successfully" });
+        setCustomRoles([...customRoles, newCustomRole.trim()].sort());
+        setEditForm({...editForm, role_type: newCustomRole.trim() as any});
+        setNewCustomRole("");
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add custom role", variant: "destructive" });
+    } finally {
+      setIsAddingRole(false);
+    }
+  };
+
+  const handleAddCustomDesignation = async () => {
+    if (!newCustomDesignation.trim()) {
+      toast({ title: "Error", description: "Please enter a designation name", variant: "destructive" });
+      return;
+    }
+    
+    setIsAddingDesignation(true);
+    
+    try {
+      const { error } = await supabase
+        .from('custom_designations')
+        .insert({ name: newCustomDesignation.trim() });
+      
+      if (error) {
+        if (error.code === '23505') { // Unique constraint violation
+          toast({ title: "Error", description: "This designation already exists", variant: "destructive" });
+        } else {
+          toast({ title: "Error", description: "Failed to add custom designation", variant: "destructive" });
+        }
+      } else {
+        toast({ title: "Success", description: "Custom designation added successfully" });
+        setCustomDesignations([...customDesignations, newCustomDesignation.trim()].sort());
+        setEditForm({...editForm, designation: newCustomDesignation.trim()});
+        setNewCustomDesignation("");
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add custom designation", variant: "destructive" });
+    } finally {
+      setIsAddingDesignation(false);
     }
   };
 
@@ -536,28 +635,70 @@ const AdminEmployeeDetailScreen = () => {
                   onChange={(e) => setEditForm({...editForm, role_type: e.target.value as any})} 
                   className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
-                  <option value="Employee">Employee</option>
-                  <option value="Intern">Intern</option>
-                  <option value="Unpaid Intern">Unpaid Intern</option>
-                  <option value="Paid Intern">Paid Intern</option>
+                  {customRoles.map((role) => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
                 </select>
+                
+                {/* Add Custom Role */}
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <label className="block text-xs font-medium text-blue-900 mb-2">Add Custom Role</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={newCustomRole} 
+                      onChange={(e) => setNewCustomRole(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleAddCustomRole()}
+                      placeholder="e.g., Senior Developer, Team Lead"
+                      className="flex-1 px-3 py-2 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      disabled={isAddingRole}
+                    />
+                    <button
+                      onClick={handleAddCustomRole}
+                      disabled={isAddingRole || !newCustomRole.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isAddingRole ? 'Adding...' : 'Add'}
+                    </button>
+                  </div>
+                </div>
               </div>
               
               <div>
                 <label className="block text-sm font-medium mb-2">Designation</label>
                 <select 
-                  value={editForm.designation} 
+                  value={editForm.designation || ''} 
                   onChange={(e) => setEditForm({...editForm, designation: e.target.value})} 
                   className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="">Select designation</option>
-                  <option value="Software Developer">Software Developer</option>
-                  <option value="Frontend Developer">Frontend Developer</option>
-                  <option value="Backend Developer">Backend Developer</option>
-                  <option value="HR Executive">HR Executive</option>
-                  <option value="Project Manager">Project Manager</option>
-                  <option value="UI/UX Designer">UI/UX Designer</option>
+                  {customDesignations.map((designation) => (
+                    <option key={designation} value={designation}>{designation}</option>
+                  ))}
                 </select>
+                
+                {/* Add Custom Designation */}
+                <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                  <label className="block text-xs font-medium text-green-900 mb-2">Add Custom Designation</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={newCustomDesignation} 
+                      onChange={(e) => setNewCustomDesignation(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleAddCustomDesignation()}
+                      placeholder="e.g., DevOps Engineer, QA Lead"
+                      className="flex-1 px-3 py-2 border border-green-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                      disabled={isAddingDesignation}
+                    />
+                    <button
+                      onClick={handleAddCustomDesignation}
+                      disabled={isAddingDesignation || !newCustomDesignation.trim()}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isAddingDesignation ? 'Adding...' : 'Add'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
             

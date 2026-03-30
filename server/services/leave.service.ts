@@ -251,7 +251,9 @@ export class LeaveService {
       query = query.eq('employee_id', filters.employeeId);
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    // Order by start_date descending to show most recent leaves first
+    // No limit - show full history
+    const { data, error } = await query.order('start_date', { ascending: false });
 
     if (error) throw error;
 
@@ -262,11 +264,20 @@ export class LeaveService {
         .select('id, full_name, email')
         .in('id', employeeIds);
 
+      const leaveTypeIds = [...new Set(data.map((r: any) => r.leave_type_id).filter(Boolean))];
+      const { data: leaveTypes } = await supabase
+        .from('leave_types')
+        .select('id, name')
+        .in('id', leaveTypeIds);
+
       if (employees) {
         const employeeMap = new Map(employees.map((e: any) => [e.id, e]));
+        const leaveTypeMap = new Map((leaveTypes || []).map((lt: any) => [lt.id, lt]));
+        
         return data.map((request: any) => ({
           ...request,
           employee: employeeMap.get(request.employee_id),
+          leave_type: leaveTypeMap.get(request.leave_type_id),
         }));
       }
     }

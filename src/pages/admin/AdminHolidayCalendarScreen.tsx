@@ -784,7 +784,7 @@ const AdminHolidayCalendarScreen = () => {
                   
                   {/* Show holiday and work application info */}
                   {hasAnyHoliday && (
-                    <div className="mt-0.5 flex flex-col items-center gap-1">
+                    <div className="mt-0.5 flex flex-col items-center gap-1 w-full px-0.5">
                       {/* Total holiday count */}
                       <div className="flex items-center justify-center gap-0.5">
                         <Users className={`w-2.5 h-2.5 ${isToday ? "text-green-700" : hasPublicHoliday ? "text-red-600" : "text-amber-600"}`} />
@@ -793,7 +793,14 @@ const AdminHolidayCalendarScreen = () => {
                         </span>
                       </div>
                       
-                      {/* Work applications - removed from calendar display */}
+                      {/* Show holiday reason if there's a specific holiday */}
+                      {holidays.specific.length > 0 && holidays.specific[0].reason && (
+                        <div className={`text-[9px] text-center leading-tight truncate w-full ${
+                          isToday ? "text-green-700" : hasPublicHoliday ? "text-red-600" : "text-amber-600"
+                        }`} title={holidays.specific[0].reason}>
+                          {holidays.specific[0].reason}
+                        </div>
+                      )}
                     </div>
                   )}
                   
