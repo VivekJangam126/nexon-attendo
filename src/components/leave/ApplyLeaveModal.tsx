@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertCircle, FileText } from 'lucide-react';
+import { AlertCircle, FileText, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useLeaveBalance } from '@/hooks/useLeave';
@@ -42,6 +42,9 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
   const [description, setDescription] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
   const { user } = useAuth();
   const { data: balances = [] } = useLeaveBalance();
   const queryClient = useQueryClient();
@@ -51,6 +54,79 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
   const remaining = leaveBalance?.remaining_leaves || selectedLeaveType?.max || 0;
   const used = leaveBalance?.used_leaves || 0;
   const total = leaveBalance?.total_leaves || selectedLeaveType?.max || 0;
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB');
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      setError('Only images (JPG, PNG, GIF) and PDF files are allowed');
+      return;
+    }
+
+    setSelectedFile(file);
+    setError('');
+
+    // Create preview for images
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setPreviewUrl('');
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setPreviewUrl('');
+  };
+
+  const uploadToCloudinary = async (file: File): Promise<string> => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    
+    if (!cloudName || cloudName === 'your_cloud_name_here') {
+      throw new Error('Cloudinary is not configured. Please set VITE_CLOUDINARY_CLOUD_NAME in your .env file');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'leave_attachments');
+    // Only these parameters are allowed for unsigned uploads
+    // Do NOT add folder, access_mode, or resource_type - they must be configured in the preset
+
+    try {
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/upload`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Cloudinary error:', errorData);
+        throw new Error(errorData.error?.message || 'Failed to upload file');
+      }
+
+      const data = await response.json();
+      return data.secure_url;
+    } catch (error) {
+      console.error('Cloudinary upload error:', error);
+      throw error;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +151,22 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
     setLoading(true);
 
     try {
+      let attachmentUrl = null;
+
+      // Upload file to Cloudinary if selected
+      if (selectedFile) {
+        setUploadingFile(true);
+        try {
+          attachmentUrl = await uploadToCloudinary(selectedFile);
+        } catch (uploadError) {
+          setError('Failed to upload attachment. Please try again.');
+          setLoading(false);
+          setUploadingFile(false);
+          return;
+        }
+        setUploadingFile(false);
+      }
+
       const { data, error: insertError } = await supabase
         .from('leave_requests')
         .insert({
@@ -84,6 +176,7 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
           end_date: endDate,
           reason: description,
           status: 'pending',
+          attachment_url: attachmentUrl,
         })
         .select()
         .single();
@@ -102,6 +195,8 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
       setEndDate('');
       setLeaveTypeId('');
       setDescription('');
+      setSelectedFile(null);
+      setPreviewUrl('');
       onOpenChange(false);
       if (onSuccess) onSuccess();
       
@@ -264,6 +359,71 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
             </p>
           </div>
 
+          {/* File Upload (Optional) */}
+          <div>
+            <label className="text-xs font-semibold text-foreground uppercase tracking-wide block mb-1.5">
+              Attachment (Optional)
+            </label>
+            
+            {!selectedFile ? (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary/50 transition-colors">
+                <input
+                  type="file"
+                  id="file-upload"
+                  accept="image/*,.pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="flex flex-col items-center justify-center cursor-pointer"
+                >
+                  <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                  <p className="text-xs text-gray-600 font-medium mb-1">
+                    Click to upload supporting document
+                  </p>
+                  <p className="text-[10px] text-gray-500">
+                    Images or PDF (Max 5MB)
+                  </p>
+                </label>
+              </div>
+            ) : (
+              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                <div className="flex items-start gap-3">
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      className="w-16 h-16 object-cover rounded border border-gray-200"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-gray-200 rounded border border-gray-300 flex items-center justify-center">
+                      <ImageIcon className="w-6 h-6 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-900 truncate">
+                      {selectedFile.name}
+                    </p>
+                    <p className="text-[10px] text-gray-500">
+                      {(selectedFile.size / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveFile}
+                    className="p-1 hover:bg-gray-200 rounded transition-colors"
+                  >
+                    <X className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+            )}
+            <p className="text-[9px] text-muted-foreground mt-1">
+              Upload medical certificate or supporting document (optional)
+            </p>
+          </div>
+
           {/* Error Message */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 flex gap-2">
@@ -286,16 +446,16 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
               variant="outline"
               onClick={() => onOpenChange(false)}
               className="h-9 text-xs"
-              disabled={loading}
+              disabled={loading || uploadingFile}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={loading || !leaveTypeId}
+              disabled={loading || uploadingFile || !leaveTypeId}
               className="h-9 text-xs bg-primary hover:bg-primary/90 text-white"
             >
-              {loading ? 'Submitting...' : 'Submit'}
+              {uploadingFile ? 'Uploading...' : loading ? 'Submitting...' : 'Submit'}
             </Button>
           </div>
         </form>
