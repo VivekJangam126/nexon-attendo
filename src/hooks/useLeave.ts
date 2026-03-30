@@ -145,10 +145,12 @@ export const useEmployeeLeaveRequests = () => {
       }
       
       const data = await response.json();
+      console.log('[useEmployeeLeaveRequests] Received data:', data);
       return Array.isArray(data) ? data : [];
     },
     enabled: !!user,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
