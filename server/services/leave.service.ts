@@ -1,11 +1,11 @@
-import { supabase } from '../supabase/client';
+import { supabaseAdmin } from '../supabase/client';
 import { LeaveRequest, EmployeeLeaveBalance, LeaveType, LeavePolicy, LeaveAnalytics } from '../types/leave';
 import { LeaveAnniversaryService } from './leave-anniversary.service';
 
 export class LeaveService {
   // Get leave types
   static async getLeaveTypes(): Promise<LeaveType[]> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdminAdmin
       .from('leave_types')
       .select('*')
       .order('name');
@@ -47,7 +47,7 @@ export class LeaveService {
       const yearEndStr = LeaveAnniversaryService.formatDateForDB(employmentYear.end);
 
       // Get all leave types
-      const { data: leaveTypes, error: typesError } = await supabase
+      const { data: leaveTypes, error: typesError } = await supabaseAdmin
         .from('leave_types')
         .select('*');
 
@@ -61,7 +61,7 @@ export class LeaveService {
       // Create balance for each leave type
       for (const type of leaveTypes) {
         try {
-          const { data: balance, error: insertError } = await supabase
+          const { data: balance, error: insertError } = await supabaseAdmin
             .from('employee_leave_balance')
             .insert({
               employee_id: employeeId,
@@ -79,7 +79,7 @@ export class LeaveService {
           if (insertError) {
             // If duplicate, try to fetch existing
             if (insertError.code === 'PGRST116' || insertError.code === '23505') {
-              const { data: existing } = await supabase
+              const { data: existing } = await supabaseAdmin
                 .from('employee_leave_balance')
                 .select('*')
                 .eq('employee_id', employeeId)
@@ -106,7 +106,7 @@ export class LeaveService {
 
   // Get leave policies
   static async getLeavePolicies(): Promise<LeavePolicy[]> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('leave_policies')
       .select('*')
       .order('created_at');
@@ -136,7 +136,7 @@ export class LeaveService {
       throw new Error('End date must be after start date');
     }
 
-    const { data: overlapping, error: overlapError } = await supabase
+    const { data: overlapping, error: overlapError } = await supabaseAdmin
       .from('leave_requests')
       .select('*')
       .eq('employee_id', employeeId)
@@ -156,7 +156,7 @@ export class LeaveService {
       throw new Error('Unable to determine employment year');
     }
 
-    const { data: balance, error: balanceError } = await supabase
+    const { data: balance, error: balanceError } = await supabaseAdmin
       .from('employee_leave_balance')
       .select('*')
       .eq('employee_id', employeeId)
@@ -172,7 +172,7 @@ export class LeaveService {
       throw new Error(`Insufficient leave balance. Available: ${(balance as any).remaining_leaves} days`);
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('leave_requests')
       .insert({
         employee_id: employeeId,
@@ -191,7 +191,7 @@ export class LeaveService {
 
   // Get employee's leave requests
   static async getEmployeeLeaveRequests(employeeId: string): Promise<LeaveRequest[]> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('leave_requests')
       .select(`*`)
       .eq('employee_id', employeeId)
@@ -205,7 +205,7 @@ export class LeaveService {
   static async getEmployeesOnLeaveToday(): Promise<any[]> {
     const today = new Date().toISOString().split('T')[0];
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('leave_requests')
       .select('*')
       .eq('status', 'approved')
@@ -217,7 +217,7 @@ export class LeaveService {
 
     if (data && data.length > 0) {
       const employeeIds = [...new Set(data.map((r: any) => r.employee_id))];
-      const { data: employees } = await supabase
+      const { data: employees } = await supabaseAdmin
         .from('profiles')
         .select('id, full_name, email')
         .in('id', employeeIds);
@@ -259,13 +259,13 @@ export class LeaveService {
 
     if (data && data.length > 0) {
       const employeeIds = [...new Set(data.map((r: any) => r.employee_id))];
-      const { data: employees } = await supabase
+      const { data: employees } = await supabaseAdmin
         .from('profiles')
         .select('id, full_name, email')
         .in('id', employeeIds);
 
       const leaveTypeIds = [...new Set(data.map((r: any) => r.leave_type_id).filter(Boolean))];
-      const { data: leaveTypes } = await supabase
+      const { data: leaveTypes } = await supabaseAdmin
         .from('leave_types')
         .select('id, name')
         .in('id', leaveTypeIds);
@@ -287,7 +287,7 @@ export class LeaveService {
 
   // Admin: Approve leave request
   static async approveLeaveRequest(leaveRequestId: string, adminComment?: string): Promise<void> {
-    const { data: leaveRequest, error: fetchError } = await supabase
+    const { data: leaveRequest, error: fetchError } = await supabaseAdmin
       .from('leave_requests')
       .select('*')
       .eq('id', leaveRequestId)
@@ -306,7 +306,7 @@ export class LeaveService {
     console.log('[approveLeaveRequest] Leave Type ID:', (leaveRequest as any).leave_type_id);
 
     // Update request status
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('leave_requests')
       .update({
         status: 'approved',
@@ -323,7 +323,7 @@ export class LeaveService {
     // Update leave balance - simple approach
     if ((leaveRequest as any).leave_type_id) {
       // Get the balance record - just find ANY record for this employee and leave type
-      const { data: balances, error: balanceError } = await supabase
+      const { data: balances, error: balanceError } = await supabaseAdmin
         .from('employee_leave_balance')
         .select('*')
         .eq('employee_id', (leaveRequest as any).employee_id)
@@ -351,7 +351,7 @@ export class LeaveService {
           total: balance.total_leaves,
         });
 
-        const { error: updateBalanceError } = await supabase
+        const { error: updateBalanceError } = await supabaseAdmin
           .from('employee_leave_balance')
           .update({
             used_leaves: newUsedLeaves,
@@ -376,7 +376,7 @@ export class LeaveService {
 
   // Admin: Reject leave request
   static async rejectLeaveRequest(leaveRequestId: string, adminComment: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('leave_requests')
       .update({
         status: 'rejected',
@@ -395,23 +395,23 @@ export class LeaveService {
     monthStart.setDate(1);
     const monthStartStr = monthStart.toISOString().split('T')[0];
 
-    const { count: totalCount, error: totalError } = await supabase
+    const { count: totalCount, error: totalError } = await supabaseAdmin
       .from('leave_requests')
       .select('*', { count: 'exact', head: true });
 
-    const { count: pendingCount, error: pendingError } = await supabase
+    const { count: pendingCount, error: pendingError } = await supabaseAdmin
       .from('leave_requests')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending');
 
-    const { count: todayCount, error: todayError } = await supabase
+    const { count: todayCount, error: todayError } = await supabaseAdmin
       .from('leave_requests')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'approved')
       .lte('start_date', today)
       .gte('end_date', today);
 
-    const { count: monthCount, error: monthError } = await supabase
+    const { count: monthCount, error: monthError } = await supabaseAdmin
       .from('leave_requests')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'approved')
@@ -456,7 +456,7 @@ export class LeaveService {
       
       // Get all leave balances for current employment year
       console.log('[LeaveService] Fetching leave balances...');
-      const { data: balances, error: balanceError } = await supabase
+      const { data: balances, error: balanceError } = await supabaseAdmin
         .from('employee_leave_balance')
         .select('*')
         .eq('employee_id', employeeId);
@@ -493,7 +493,7 @@ export class LeaveService {
         
         // Get all approved leave requests for this employee and leave type in current employment year
         // Use the employment year date range instead of calendar year
-        const { data: approvedRequests, error: requestError } = await supabase
+        const { data: approvedRequests, error: requestError } = await supabaseAdmin
           .from('leave_requests')
           .select('leave_days')
           .eq('employee_id', employeeId)
@@ -527,7 +527,7 @@ export class LeaveService {
           console.log('[LeaveService] Balance needs update, updating...');
           
           // Update the balance record
-          const { data: updatedBalance, error: updateError } = await supabase
+          const { data: updatedBalance, error: updateError } = await supabaseAdmin
             .from('employee_leave_balance')
             .update({
               used_leaves: totalUsedLeaves,
@@ -581,7 +581,7 @@ export class LeaveService {
       console.log('[LeaveService] Recalculating leave balance for all employees...');
 
       // Get all active employees
-      const { data: employees, error: employeeError } = await supabase
+      const { data: employees, error: employeeError } = await supabaseAdmin
         .from('profiles')
         .select('id, full_name')
         .eq('role', 'employee')
