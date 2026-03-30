@@ -99,15 +99,17 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
       throw new Error('Cloudinary is not configured. Please set VITE_CLOUDINARY_CLOUD_NAME in your .env file');
     }
 
+    // Determine resource type based on file type
+    const resourceType = file.type.startsWith('image/') ? 'image' : 'raw';
+    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', 'leave_attachments');
-    // Only these parameters are allowed for unsigned uploads
-    // Do NOT add folder, access_mode, or resource_type - they must be configured in the preset
 
     try {
+      // Use the correct endpoint based on resource type
       const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/upload`,
+        `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
         {
           method: 'POST',
           body: formData,
