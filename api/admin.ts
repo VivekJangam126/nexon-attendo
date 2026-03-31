@@ -84,7 +84,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: 'Missing leaveRequestId' });
         }
 
-        const { error } = await supabaseAdmin
+        // Get the leave request details
+        const { data: leaveRequest, error: fetchError } = await supabaseAdmin
+          .from('leave_requests')
+          .select('*')
+          .eq('id', leaveRequestId)
+          .single();
+
+        if (fetchError || !leaveRequest) {
+          return res.status(404).json({ error: 'Leave request not found' });
+        }
+
+        // Calculate days
+        const startDate = new Date(leaveRequest.start_date);
+        const endDate = new Date(leaveRequest.end_date);
+        const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+        // Update leave request status
+        const { error: updateError } = await supabaseAdmin
           .from('leave_requests')
           .update({
             status: 'approved',
@@ -94,7 +111,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           })
           .eq('id', leaveRequestId);
 
-        if (error) throw error;
+        if (updateError) throw updateError;
+
+        // Update employee leave balance
+        const year = startDate.getFullYear();
+        const { data: balance } = await supabaseAdmin
+          .from('employee_leave_balance')
+          .select('*')
+          .eq('employee_id', leaveRequest.employee_id)
+          .eq('leave_type_id', leaveRequest.leave_type_id)
+          .eq('year', year)
+          .single();
+
+        if (balance) {
+          await supabaseAdmin
+            .from('employee_leave_balance')
+            .update({
+              used_leaves: (balance.used_leaves || 0) + days,
+              remaining_leaves: (balance.remaining_leaves || 0) - days
+            })
+            .eq('id', balance.id);
+        }
+
         return res.status(200).json({ success: true });
       }
     }
@@ -129,11 +167,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .from('leave_requests')
           .select('*');
 
+        const today = new Date().toISOString().split('T')[0];
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+
         const analytics = {
-          totalRequests: requests?.length || 0,
-          pending: requests?.filter((r: any) => r.status === 'pending').length || 0,
-          approved: requests?.filter((r: any) => r.status === 'approved').length || 0,
-          rejected: requests?.filter((r: any) => r.status === 'rejected').length || 0,
+          total_requests: requests?.length || 0,
+          pending_requests: requests?.filter((r: any) => r.status === 'pending').length || 0,
+          approved_requests: requests?.filter((r: any) => r.status === 'approved').length || 0,
+          rejected_requests: requests?.filter((r: any) => r.status === 'rejected').length || 0,
+          employees_on_leave_today: requests?.filter((r: any) => 
+            r.status === 'approved' && 
+            r.start_date <= today && 
+            r.end_date >= today
+          ).length || 0,
+          leaves_this_month: requests?.filter((r: any) => {
+            const startDate = new Date(r.start_date);
+            return startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear;
+          }).length || 0,
         };
 
         return res.status(200).json(analytics);
