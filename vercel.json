@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "/api/:path*"
+      "destination": "/api"
     },
     {
       "source": "/(.*)",
@@ -22,17 +22,17 @@
         },
         {
           "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
+          "value": "GET, POST, PUT, PATCH, DELETE, OPTIONS"
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
+          "value": "Content-Type, Authorization, x-user-id, x-user-role"
         }
       ]
     }
   ],
   "functions": {
-    "api/**/*.ts": {
+    "api/index.ts": {
       "memory": 1024,
       "maxDuration": 10
     }
