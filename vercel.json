@@ -4,8 +4,12 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "/api"
+      "source": "/api/leave/:path*",
+      "destination": "/api/leave"
+    },
+    {
+      "source": "/api/admin/:path*",
+      "destination": "/api/admin"
     },
     {
       "source": "/(.*)",
@@ -32,7 +36,11 @@
     }
   ],
   "functions": {
-    "api/index.ts": {
+    "api/leave.ts": {
+      "memory": 1024,
+      "maxDuration": 10
+    },
+    "api/admin.ts": {
       "memory": 1024,
       "maxDuration": 10
     }
