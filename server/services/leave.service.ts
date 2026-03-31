@@ -247,7 +247,7 @@ export class LeaveService {
     status?: string;
     employeeId?: string;
   }): Promise<any[]> {
-    let query = supabase
+    let query = supabaseAdmin
       .from('leave_requests')
       .select('*');
 
