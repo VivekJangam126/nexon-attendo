@@ -1,29 +1,29 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Import all handlers
-import employeesHandler from './employees';
-import holidaysHandler from './holidays';
-import userInfoHandler from './user-info';
-import sendNotificationHandler from './send-notification';
+// Import all handlers from server/api
+import employeesHandler from '../server/api/employees';
+import holidaysHandler from '../server/api/holidays';
+import userInfoHandler from '../server/api/user-info';
+import sendNotificationHandler from '../server/api/send-notification';
 
 // Leave handlers
-import applyHandler from './leave/apply';
-import balanceHandler from './leave/balance';
-import myRequestsHandler from './leave/my-requests';
-import policiesHandler from './leave/policies';
-import recalculateBalanceHandler from './leave/recalculate-balance';
+import applyHandler from '../server/api/leave/apply';
+import balanceHandler from '../server/api/leave/balance';
+import myRequestsHandler from '../server/api/leave/my-requests';
+import policiesHandler from '../server/api/leave/policies';
+import recalculateBalanceHandler from '../server/api/leave/recalculate-balance';
 
 // Admin leave handlers
-import analyticsHandler from './admin/leave/analytics';
-import approveHandler from './admin/leave/approve';
-import employeesOnLeaveHandler from './admin/leave/employees-on-leave';
-import rejectHandler from './admin/leave/reject';
-import requestsHandler from './admin/leave/requests';
-import recalculateAllBalancesHandler from './admin/leave/recalculate-all-balances';
+import analyticsHandler from '../server/api/admin/leave/analytics';
+import approveHandler from '../server/api/admin/leave/approve';
+import employeesOnLeaveHandler from '../server/api/admin/leave/employees-on-leave';
+import rejectHandler from '../server/api/admin/leave/reject';
+import requestsHandler from '../server/api/admin/leave/requests';
+import recalculateAllBalancesHandler from '../server/api/admin/leave/recalculate-all-balances';
 
 // Holiday handlers
-import recurringHolidaysHandler from './holidays/recurring';
-import specificHolidaysHandler from './holidays/specific';
+import recurringHolidaysHandler from '../server/api/holidays/recurring';
+import specificHolidaysHandler from '../server/api/holidays/specific';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const path = req.url?.replace('/api', '') || '/';
