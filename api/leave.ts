@@ -87,6 +87,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // /api/leave/apply
+    if (path === '/apply' || path.startsWith('/apply?')) {
+      if (req.method === 'POST') {
+        const userId = req.headers['x-user-id'] as string;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const { leaveTypeId, startDate, endDate, reason, attachmentUrl } = req.body;
+        if (!startDate || !endDate) {
+          return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const { data, error } = await supabaseAdmin
+          .from('leave_requests')
+          .insert({
+            employee_id: userId,
+            leave_type_id: leaveTypeId,
+            start_date: startDate,
+            end_date: endDate,
+            reason: reason || '',
+            attachment_url: attachmentUrl,
+            status: 'pending',
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[Apply] Error:', error);
+          throw error;
+        }
+
+        return res.status(201).json(data);
+      }
+    }
+
     return res.status(404).json({ error: 'Route not found', path });
   } catch (error: any) {
     console.error('[Leave API] Error:', error);

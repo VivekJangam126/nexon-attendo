@@ -84,56 +84,70 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: 'Missing leaveRequestId' });
         }
 
-        // Get the leave request details
-        const { data: leaveRequest, error: fetchError } = await supabaseAdmin
-          .from('leave_requests')
-          .select('*')
-          .eq('id', leaveRequestId)
-          .single();
+        try {
+          // Get the leave request details
+          const { data: leaveRequest, error: fetchError } = await supabaseAdmin
+            .from('leave_requests')
+            .select('*')
+            .eq('id', leaveRequestId)
+            .single();
 
-        if (fetchError || !leaveRequest) {
-          return res.status(404).json({ error: 'Leave request not found' });
-        }
+          if (fetchError || !leaveRequest) {
+            console.error('[Approve] Fetch error:', fetchError);
+            return res.status(404).json({ error: 'Leave request not found' });
+          }
 
-        // Calculate days
-        const startDate = new Date(leaveRequest.start_date);
-        const endDate = new Date(leaveRequest.end_date);
-        const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          // Calculate days
+          const startDate = new Date(leaveRequest.start_date);
+          const endDate = new Date(leaveRequest.end_date);
+          const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-        // Update leave request status
-        const { error: updateError } = await supabaseAdmin
-          .from('leave_requests')
-          .update({
-            status: 'approved',
-            admin_comment: adminComment,
-            reviewed_at: new Date().toISOString(),
-            reviewed_by: userId
-          })
-          .eq('id', leaveRequestId);
-
-        if (updateError) throw updateError;
-
-        // Update employee leave balance
-        const year = startDate.getFullYear();
-        const { data: balance } = await supabaseAdmin
-          .from('employee_leave_balance')
-          .select('*')
-          .eq('employee_id', leaveRequest.employee_id)
-          .eq('leave_type_id', leaveRequest.leave_type_id)
-          .eq('year', year)
-          .single();
-
-        if (balance) {
-          await supabaseAdmin
-            .from('employee_leave_balance')
+          // Update leave request status
+          const { error: updateError } = await supabaseAdmin
+            .from('leave_requests')
             .update({
-              used_leaves: (balance.used_leaves || 0) + days,
-              remaining_leaves: (balance.remaining_leaves || 0) - days
+              status: 'approved',
+              admin_comment: adminComment,
+              reviewed_at: new Date().toISOString(),
+              reviewed_by: userId
             })
-            .eq('id', balance.id);
-        }
+            .eq('id', leaveRequestId);
 
-        return res.status(200).json({ success: true });
+          if (updateError) {
+            console.error('[Approve] Update error:', updateError);
+            throw updateError;
+          }
+
+          // Try to update employee leave balance (don't fail if balance doesn't exist)
+          try {
+            const year = startDate.getFullYear();
+            const { data: balance } = await supabaseAdmin
+              .from('employee_leave_balance')
+              .select('*')
+              .eq('employee_id', leaveRequest.employee_id)
+              .eq('leave_type_id', leaveRequest.leave_type_id)
+              .eq('year', year)
+              .single();
+
+            if (balance) {
+              await supabaseAdmin
+                .from('employee_leave_balance')
+                .update({
+                  used_leaves: (balance.used_leaves || 0) + days,
+                  remaining_leaves: (balance.remaining_leaves || 0) - days
+                })
+                .eq('id', balance.id);
+            }
+          } catch (balanceError) {
+            console.warn('[Approve] Balance update failed (non-critical):', balanceError);
+            // Continue anyway - balance update is optional
+          }
+
+          return res.status(200).json({ success: true });
+        } catch (error: any) {
+          console.error('[Approve] Error:', error);
+          return res.status(500).json({ error: error.message || 'Failed to approve leave' });
+        }
       }
     }
 
