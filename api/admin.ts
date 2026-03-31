@@ -122,6 +122,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // /api/admin/leave/analytics
+    if (path === '/leave/analytics' || path.startsWith('/leave/analytics?')) {
+      if (req.method === 'GET') {
+        const { data: requests } = await supabaseAdmin
+          .from('leave_requests')
+          .select('*');
+
+        const analytics = {
+          totalRequests: requests?.length || 0,
+          pending: requests?.filter((r: any) => r.status === 'pending').length || 0,
+          approved: requests?.filter((r: any) => r.status === 'approved').length || 0,
+          rejected: requests?.filter((r: any) => r.status === 'rejected').length || 0,
+        };
+
+        return res.status(200).json(analytics);
+      }
+    }
+
+    // /api/admin/leave/employees-on-leave
+    if (path === '/leave/employees-on-leave' || path.startsWith('/leave/employees-on-leave?')) {
+      if (req.method === 'GET') {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const { data, error } = await supabaseAdmin
+          .from('leave_requests')
+          .select('*, employee:profiles(id, full_name, email)')
+          .eq('status', 'approved')
+          .lte('start_date', today)
+          .gte('end_date', today);
+
+        if (error) throw error;
+        return res.status(200).json(data || []);
+      }
+    }
+
     return res.status(404).json({ error: 'Route not found', path });
   } catch (error: any) {
     console.error('[Admin API] Error:', error);
