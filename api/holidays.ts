@@ -51,9 +51,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // GET /api/holidays - Get holidays for date range
     if (req.method === 'GET' && (path === '/' || path === '')) {
-      const { start_date, end_date, view } = req.query;
+      const { start_date, end_date, date } = req.query;
       
-      console.log('[Holidays API] GET holidays:', { start_date, end_date, view });
+      console.log('[Holidays API] GET holidays:', { start_date, end_date, date });
 
       // Get user profile
       const { data: profile } = await supabase
@@ -66,48 +66,131 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(404).json({ error: 'Profile not found' });
       }
 
-      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: { autoRefreshToken: false, persistSession: false }
-      });
-
-      if (profile.role === 'admin') {
-        // Admin: Get all holidays
-        const { data: recurring, error: recurringError } = await supabaseAdmin
-          .from('master_recurring_holidays')
-          .select('*');
-
-        const { data: specific, error: specificError } = await supabaseAdmin
-          .from('master_specific_holidays')
-          .select('*');
-
-        if (recurringError || specificError) {
-          console.error('[Holidays API] Error fetching holidays:', recurringError || specificError);
-          return res.status(500).json({ error: 'Failed to fetch holidays' });
+      // If specific date requested, get holidays for that date (admin only)
+      if (date && typeof date === 'string') {
+        if (profile.role !== 'admin') {
+          return res.status(403).json({ error: 'Admin access required' });
         }
 
-        return res.json({ recurring, specific });
-      } else {
-        // Employee: Get their holidays
-        const { data: recurring, error: recurringError } = await supabaseAdmin
+        const dayOfWeek = new Date(date).getDay();
+        const employees: Array<{ id: string; name: string; reason: string }> = [];
+
+        // Get employees with recurring holiday on this day
+        const { data: recurringData } = await supabase
+          .from('employee_recurring_holidays')
+          .select('employee_id, profiles!inner(id, full_name)')
+          .eq('day_of_week', dayOfWeek);
+
+        if (recurringData) {
+          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          recurringData.forEach((item: any) => {
+            employees.push({
+              id: item.employee_id,
+              name: item.profiles.full_name,
+              reason: `Weekly holiday (${dayNames[dayOfWeek]})`,
+            });
+          });
+        }
+
+        // Get employees with specific holiday on this date
+        const { data: specificData } = await supabase
+          .from('employee_specific_holidays')
+          .select('employee_id, reason, profiles!inner(id, full_name)')
+          .eq('holiday_date', date);
+
+        if (specificData) {
+          specificData.forEach((item: any) => {
+            if (!employees.find(e => e.id === item.employee_id)) {
+              employees.push({
+                id: item.employee_id,
+                name: item.profiles.full_name,
+                reason: item.reason,
+              });
+            }
+          });
+        }
+
+        return res.json({ employees });
+      }
+
+      // Admin: Get all holidays
+      if (profile.role === 'admin') {
+        console.log('[Holidays API] Fetching all holidays for admin');
+
+        const { data: recurringHolidays, error: recurringError } = await supabase
           .from('employee_recurring_holidays')
           .select('*')
-          .eq('employee_id', user.id);
+          .order('day_of_week', { ascending: true });
 
-        const { data: specific, error: specificError } = await supabaseAdmin
+        let specificQuery = supabase
           .from('employee_specific_holidays')
           .select('*')
-          .eq('employee_id', user.id);
+          .order('holiday_date', { ascending: true });
+
+        if (start_date && typeof start_date === 'string') {
+          specificQuery = specificQuery.gte('holiday_date', start_date);
+        }
+
+        if (end_date && typeof end_date === 'string') {
+          specificQuery = specificQuery.lte('holiday_date', end_date);
+        }
+
+        const { data: specificHolidays, error: specificError } = await specificQuery;
 
         if (recurringError || specificError) {
           console.error('[Holidays API] Error fetching holidays:', recurringError || specificError);
-          return res.status(500).json({ error: 'Failed to fetch holidays' });
+          return res.status(500).json({
+            error: recurringError?.message || specificError?.message,
+          });
         }
 
-        return res.json({ recurring, specific });
+        console.log('[Holidays API] Found recurring:', recurringHolidays?.length, 'specific:', specificHolidays?.length);
+
+        return res.json({
+          recurring_holidays: recurringHolidays || [],
+          specific_holidays: specificHolidays || [],
+        });
       }
+
+      // Employee: Get own holidays
+      console.log('[Holidays API] Fetching holidays for employee:', user.id);
+
+      const { data: recurringHolidays, error: recurringError } = await supabase
+        .from('employee_recurring_holidays')
+        .select('*')
+        .eq('employee_id', user.id)
+        .order('day_of_week', { ascending: true });
+
+      let specificQuery = supabase
+        .from('employee_specific_holidays')
+        .select('*')
+        .eq('employee_id', user.id)
+        .order('holiday_date', { ascending: true });
+
+      if (start_date && typeof start_date === 'string') {
+        specificQuery = specificQuery.gte('holiday_date', start_date);
+      }
+
+      if (end_date && typeof end_date === 'string') {
+        specificQuery = specificQuery.lte('holiday_date', end_date);
+      }
+
+      const { data: specificHolidays, error: specificError } = await specificQuery;
+
+      if (recurringError || specificError) {
+        console.error('[Holidays API] Error fetching holidays:', recurringError || specificError);
+        return res.status(500).json({
+          error: recurringError?.message || specificError?.message,
+        });
+      }
+
+      return res.json({
+        recurring_holidays: recurringHolidays || [],
+        specific_holidays: specificHolidays || [],
+      });
     }
 
-    // POST /api/holidays/specific - Create specific holidays
+    // POST /api/holidays/specific - Create specific holidays (admin only)
     if (req.method === 'POST' && path === '/specific') {
       const { data: profile } = await supabase
         .from('profiles')
@@ -119,29 +202,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(403).json({ error: 'Admin access required' });
       }
 
-      const { employee_id, holiday_date, reason } = req.body;
+      const { employee_ids, holiday_date, holiday_type, reason } = req.body;
 
-      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: { autoRefreshToken: false, persistSession: false }
-      });
+      if (!employee_ids || !Array.isArray(employee_ids) || employee_ids.length === 0) {
+        return res.status(400).json({ error: 'employee_ids must be a non-empty array' });
+      }
 
-      const { error } = await supabaseAdmin
+      if (!holiday_date || !reason) {
+        return res.status(400).json({ error: 'Missing required fields: holiday_date, reason' });
+      }
+
+      // Create holiday records
+      const records = employee_ids.map(employee_id => ({
+        employee_id,
+        holiday_date,
+        holiday_type,
+        reason,
+      }));
+
+      const { data, error } = await supabase
         .from('employee_specific_holidays')
-        .insert([{
-          employee_id,
-          holiday_date,
-          reason,
-        }]);
+        .upsert(records, { onConflict: 'employee_id,holiday_date' })
+        .select();
 
       if (error) {
-        console.error('[Holidays API] Error creating holiday:', error);
+        console.error('[Holidays API] Database error creating specific holidays:', error);
         return res.status(400).json({ error: error.message });
       }
 
-      return res.json({ success: true, message: 'Holiday created' });
+      return res.json({ success: true, count: data?.length || 0, message: 'Holidays created' });
     }
 
-    // POST /api/holidays/recurring - Create recurring holidays
+    // POST /api/holidays/recurring - Create recurring holidays (admin only)
     if (req.method === 'POST' && path === '/recurring') {
       const { data: profile } = await supabase
         .from('profiles')
@@ -153,26 +245,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(403).json({ error: 'Admin access required' });
       }
 
-      const { employee_id, day_of_week, reason } = req.body;
+      const { employee_ids, day_of_week } = req.body;
 
-      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-        auth: { autoRefreshToken: false, persistSession: false }
-      });
+      if (!employee_ids || !Array.isArray(employee_ids) || employee_ids.length === 0) {
+        return res.status(400).json({ error: 'employee_ids must be a non-empty array' });
+      }
 
-      const { error } = await supabaseAdmin
+      if (day_of_week === undefined || typeof day_of_week !== 'number' || day_of_week < 0 || day_of_week > 6) {
+        return res.status(400).json({ error: 'day_of_week must be a number between 0 and 6' });
+      }
+
+      // Create holiday records
+      const records = employee_ids.map(employee_id => ({
+        employee_id,
+        day_of_week,
+      }));
+
+      const { data, error } = await supabase
         .from('employee_recurring_holidays')
-        .insert([{
-          employee_id,
-          day_of_week,
-          reason,
-        }]);
+        .upsert(records, { onConflict: 'employee_id,day_of_week' })
+        .select();
 
       if (error) {
-        console.error('[Holidays API] Error creating recurring holiday:', error);
+        console.error('[Holidays API] Database error creating recurring holidays:', error);
         return res.status(400).json({ error: error.message });
       }
 
-      return res.json({ success: true, message: 'Recurring holiday created' });
+      return res.json({ success: true, count: data?.length || 0, message: 'Recurring holidays created' });
     }
 
     // Default: Not found
