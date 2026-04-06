@@ -6,7 +6,12 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDY5MTg1NCwiZXhwIjoyMDg2MjY3ODU0fQ.846KQ7v9nbH5-4COTqEgBGrboFFKrTG7w3AGPP4uIqk';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const path = req.url?.replace('/api/holidays', '') || '/';
+  // Strip query parameters from URL before path matching
+  let path = '';
+  if (req.url) {
+    const url = req.url.split('?')[0];
+    path = url.replace('/api/holidays', '') || '/';
+  }
   
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
