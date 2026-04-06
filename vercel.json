@@ -59,22 +59,6 @@
     "api/admin.ts": {
       "memory": 1024,
       "maxDuration": 10
-    },
-    "api/holidays.ts": {
-      "memory": 1024,
-      "maxDuration": 10
-    },
-    "api/employees.ts": {
-      "memory": 1024,
-      "maxDuration": 10
-    },
-    "api/payroll.ts": {
-      "memory": 1024,
-      "maxDuration": 30
-    },
-    "api/send-report-email.ts": {
-      "memory": 1024,
-      "maxDuration": 30
     }
   }
 }
