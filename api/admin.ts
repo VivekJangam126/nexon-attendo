@@ -208,17 +208,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // /api/admin/leave/employees-on-leave
     if (path === '/leave/employees-on-leave' || path.startsWith('/leave/employees-on-leave?')) {
       if (req.method === 'GET') {
-        const today = new Date().toISOString().split('T')[0];
-        
-        const { data, error } = await supabaseAdmin
-          .from('leave_requests')
-          .select('*, employee:profiles(id, full_name, email)')
-          .eq('status', 'approved')
-          .lte('start_date', today)
-          .gte('end_date', today);
+        try {
+          console.log('[DEBUG] Starting employees-on-leave endpoint');
+          
+          const today = new Date().toISOString().split('T')[0];
+          console.log('[DEBUG] Today date:', today);
+          
+          // Simplified query - just get the data without joins
+          console.log('[DEBUG] Querying leave_requests...');
+          const { data, error } = await supabaseAdmin
+            .from('leave_requests')
+            .select('*')
+            .eq('status', 'approved')
+            .lte('start_date', today)
+            .gte('end_date', today);
 
-        if (error) throw error;
-        return res.status(200).json(data || []);
+          console.log('[DEBUG] Query error:', error);
+          console.log('[DEBUG] Query data count:', data?.length || 0);
+
+          if (error) {
+            console.error('[DEBUG] Database error:', error.message, error.code);
+            return res.status(500).json({ 
+              error: `Database error: ${error.message}`,
+              code: error.code 
+            });
+          }
+
+          // Return raw data without enrichment to test
+          console.log('[DEBUG] Returning data:', data?.length || 0, 'records');
+          return res.status(200).json(data || []);
+        } catch (err: any) {
+          console.error('[DEBUG] Exception in endpoint:', err);
+          return res.status(500).json({ 
+            error: `Exception: ${err.message}`,
+            type: err.constructor.name
+          });
+        }
       }
     }
 

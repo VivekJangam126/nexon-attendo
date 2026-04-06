@@ -309,7 +309,9 @@ export const useEmployeesOnLeaveToday = () => {
   useEffect(() => {
     if (!user || profile?.role !== 'admin') return;
 
-    // Subscribe to leave request changes
+    let timeoutId: NodeJS.Timeout;
+
+    // Subscribe to leave request changes with debouncing
     const channel = supabase.channel('on_leave_today').on(
       'postgres_changes',
       {
@@ -318,11 +320,17 @@ export const useEmployeesOnLeaveToday = () => {
         table: 'leave_requests',
       },
       () => {
-        queryClient.invalidateQueries({ queryKey: ['employeesOnLeaveToday'] });
+        // Debounce invalidation to prevent excessive refetches
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          console.log('[Employees On Leave] Invalidating due to real-time change');
+          queryClient.invalidateQueries({ queryKey: ['employeesOnLeaveToday'] });
+        }, 500); // Wait 500ms before invalidating
       }
     ).subscribe();
 
     return () => {
+      clearTimeout(timeoutId);
       supabase.removeChannel(channel);
     };
   }, [user, profile?.role, queryClient]);
@@ -330,18 +338,30 @@ export const useEmployeesOnLeaveToday = () => {
   return useQuery({
     queryKey: ['employeesOnLeaveToday'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/admin/leave/employees-on-leave`, {
-        headers: {
-          'x-user-id': user?.id || '',
-          'x-user-role': profile?.role || '',
-        },
-      });
-      if (!response.ok) throw new Error('Failed to fetch employees on leave');
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
+      try {
+        const response = await fetch(`${API_BASE}/admin/leave/employees-on-leave`, {
+          headers: {
+            'x-user-id': user?.id || '',
+            'x-user-role': profile?.role || '',
+          },
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Server error: ${response.status}`);
+        }
+        const data = await response.json();
+        console.log('[Employees On Leave] Fetched successfully:', data?.length, 'records');
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error('[Employees On Leave] Fetch error:', error);
+        throw error;
+      }
     },
     enabled: !!user && profile?.role === 'admin',
     staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 3, // Retry up to 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+    throwOnError: false, // Prevent uncaught errors from crashes
   });
 };
 
@@ -352,7 +372,9 @@ export const useLeaveAnalytics = () => {
   useEffect(() => {
     if (!user || profile?.role !== 'admin') return;
 
-    // Subscribe to leave request changes
+    let timeoutId: NodeJS.Timeout;
+
+    // Subscribe to leave request changes with debouncing
     const channel = supabase.channel('analytics').on(
       'postgres_changes',
       {
@@ -361,11 +383,17 @@ export const useLeaveAnalytics = () => {
         table: 'leave_requests',
       },
       () => {
-        queryClient.invalidateQueries({ queryKey: ['leaveAnalytics'] });
+        // Debounce invalidation to prevent excessive refetches
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          console.log('[Leave Analytics] Invalidating due to real-time change');
+          queryClient.invalidateQueries({ queryKey: ['leaveAnalytics'] });
+        }, 500); // Wait 500ms before invalidating
       }
     ).subscribe();
 
     return () => {
+      clearTimeout(timeoutId);
       supabase.removeChannel(channel);
     };
   }, [user, profile?.role, queryClient]);
@@ -373,17 +401,29 @@ export const useLeaveAnalytics = () => {
   return useQuery({
     queryKey: ['leaveAnalytics'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/admin/leave/analytics`, {
-        headers: {
-          'x-user-id': user?.id || '',
-          'x-user-role': profile?.role || '',
-        },
-      });
-      if (!response.ok) throw new Error('Failed to fetch analytics');
-      return response.json();
+      try {
+        const response = await fetch(`${API_BASE}/admin/leave/analytics`, {
+          headers: {
+            'x-user-id': user?.id || '',
+            'x-user-role': profile?.role || '',
+          },
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Server error: ${response.status}`);
+        }
+        console.log('[Leave Analytics] Fetched successfully');
+        return response.json();
+      } catch (error) {
+        console.error('[Leave Analytics] Fetch error:', error);
+        throw error;
+      }
     },
     enabled: !!user && profile?.role === 'admin',
     staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 3, // Retry up to 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+    throwOnError: false, // Prevent uncaught errors from crashes
   });
 };
 
