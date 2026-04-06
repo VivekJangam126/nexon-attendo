@@ -72,6 +72,7 @@ const AdminEmployeeDetailScreen = () => {
     office_location: "",
     designation: "",
     role_type: "Employee" as 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern',
+    gender: "" as 'male' | 'female' | '',
   });
   const [isSaving, setIsSaving] = useState(false);
   const [breakRefreshTrigger, setBreakRefreshTrigger] = useState(0); // Add refresh trigger
@@ -222,6 +223,7 @@ const AdminEmployeeDetailScreen = () => {
         office_location: employee.office_location || "",
         designation: employee.designation || "",
         role_type: employee.role_type || "Employee",
+        gender: (employee as any).gender || "",
       });
       setShowEditDialog(true);
     }
@@ -237,6 +239,7 @@ const AdminEmployeeDetailScreen = () => {
       office_location: editForm.office_location,
       designation: editForm.designation,
       role_type: editForm.role_type,
+      gender: editForm.gender || null,
     });
     
     setIsSaving(false);
@@ -394,23 +397,23 @@ const AdminEmployeeDetailScreen = () => {
     <AdminLayout>
       <div className="flex flex-col min-h-full pb-20 md:pb-0">
         {/* Header */}
-        <div className="px-4 sm:px-6 lg:px-8 pt-2 pb-2 border-b border-border">
+        <div className="px-3 sm:px-6 lg:px-8 pt-2 pb-2 border-b border-border">
           <div className="flex items-center justify-between mb-2">
-            <button onClick={() => navigate("/admin/employees")} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
-              <ArrowLeft className="w-4.5 h-4.5" />
+            <button onClick={() => navigate("/admin/employees")} className="p-1 hover:bg-muted rounded-lg transition-colors">
+              <ArrowLeft className="w-5 h-5 sm:w-4.5 sm:h-4.5" />
             </button>
-            <button onClick={handleOpenEditDialog} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
-              <Edit className="w-4.5 h-4.5" />
+            <button onClick={handleOpenEditDialog} className="p-1 hover:bg-muted rounded-lg transition-colors">
+              <Edit className="w-5 h-5 sm:w-4.5 sm:h-4.5" />
             </button>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-amber-100 rounded-full flex items-center justify-center">
-              <span className="text-base font-semibold text-amber-700">{employee.full_name.split(" ").map((n: string) => n[0]).join("")}</span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-11 sm:h-11 bg-amber-100 rounded-full flex-shrink-0 flex items-center justify-center">
+              <span className="text-xs sm:text-base font-semibold text-amber-700">{employee.full_name.split(" ").map((n: string) => n[0]).join("")}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-base font-semibold mb-0.5 truncate">{employee.full_name}</h1>
-              <p className="text-sm text-muted-foreground truncate">{employee.email}</p>
-              <div className="flex items-center gap-2 mt-1">
+              <h1 className="text-sm sm:text-base font-semibold mb-0.5 line-clamp-1">{employee.full_name}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">{employee.email}</p>
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                 <StatusBadge status={todayStatus} />
                 {!isActive && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-destructive-muted text-destructive">Deactivated</span>}
               </div>
@@ -419,28 +422,28 @@ const AdminEmployeeDetailScreen = () => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 px-4 sm:px-6 lg:px-8 py-3 overflow-y-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="flex-1 px-3 sm:px-6 lg:px-8 py-2 sm:py-3 overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-2 sm:gap-3">
             {/* Left column */}
-            <div className="space-y-2.5">
+            <div className="space-y-2 sm:space-y-2.5">
               <div className="animate-fade-in-up">
-                <h2 className="text-overline mb-2">Account Controls</h2>
+                <h2 className="text-overline text-xs sm:text-sm mb-1.5 sm:mb-2">Account Controls</h2>
                 <div className="card-elevated divide-y divide-border">
-                  <div className="flex items-center gap-3 p-3">
-                    <div className="w-9 h-9 bg-accent rounded-lg flex items-center justify-center"><Shield className="w-4.5 h-4.5 text-primary" /></div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Role</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{employee.role_type || 'Employee'}</p>
+                  <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-accent rounded-lg flex-shrink-0 flex items-center justify-center"><Shield className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-primary" /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-medium">Role</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{employee.role_type || 'Employee'}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3">
-                    <div className="w-9 h-9 bg-accent rounded-lg flex items-center justify-center"><UserCheck className="w-4.5 h-4.5 text-primary" /></div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Account Status</p>
+                  <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-accent rounded-lg flex-shrink-0 flex items-center justify-center"><UserCheck className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-primary" /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-medium">Account Status</p>
                       <p className="text-xs text-muted-foreground">{isActive ? "Active" : "Deactivated"}</p>
                     </div>
-                    <button onClick={handleToggleActive} className="text-primary">
-                      {isActive ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
+                    <button onClick={handleToggleActive} className="text-primary flex-shrink-0">
+                      {isActive ? <ToggleRight className="w-6 h-6 sm:w-8 sm:h-8" /> : <ToggleLeft className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />}
                     </button>
                   </div>
                 </div>
@@ -448,7 +451,7 @@ const AdminEmployeeDetailScreen = () => {
 
               {/* Contact Info */}
               <div className="animate-fade-in-up" style={{ animationDelay: "0.05s" }}>
-                <h2 className="text-overline mb-2">Contact Information</h2>
+                <h2 className="text-overline text-xs sm:text-sm mb-1.5 sm:mb-2">Contact Information</h2>
                 <div className="card-elevated divide-y divide-border">
                   {[
                     { icon: Mail, label: "Email", value: employee.email },
@@ -456,9 +459,9 @@ const AdminEmployeeDetailScreen = () => {
                     { icon: Briefcase, label: "Role", value: employee.role_type || 'Employee' },
                     { icon: Briefcase, label: "Designation", value: employee.designation || 'Not Assigned' },
                   ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3">
-                      <div className="w-9 h-9 bg-accent rounded-lg flex items-center justify-center"><item.icon className="w-4.5 h-4.5 text-primary" /></div>
-                      <div className="flex-1 min-w-0"><p className="text-xs text-muted-foreground">{item.label}</p><p className="text-sm font-medium truncate">{item.value}</p></div>
+                    <div key={i} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3">
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 bg-accent rounded-lg flex-shrink-0 flex items-center justify-center"><item.icon className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-primary" /></div>
+                      <div className="flex-1 min-w-0"><p className="text-xs text-muted-foreground">{item.label}</p><p className="text-xs sm:text-sm font-medium truncate">{item.value}</p></div>
                     </div>
                   ))}
                 </div>
@@ -466,15 +469,15 @@ const AdminEmployeeDetailScreen = () => {
 
               {/* Audit */}
               <div className="animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-                <h2 className="text-overline mb-2">Audit Trail</h2>
+                <h2 className="text-overline text-xs sm:text-sm mb-1.5 sm:mb-2">Audit Trail</h2>
                 <div className="card-elevated divide-y divide-border">
                   {[
-                    { icon: Calendar, label: "Join Date", value: new Date(employee.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) },
-                    { icon: Calendar, label: "Last Updated", value: new Date(employee.updated_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) },
+                    { icon: Calendar, label: "Join Date", value: new Date(employee.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) },
+                    { icon: Calendar, label: "Last Updated", value: new Date(employee.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) },
                   ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3">
-                      <div className="w-9 h-9 bg-accent rounded-lg flex items-center justify-center"><item.icon className="w-4.5 h-4.5 text-primary" /></div>
-                      <div className="flex-1 min-w-0"><p className="text-xs text-muted-foreground">{item.label}</p><p className="text-sm font-medium truncate">{item.value}</p></div>
+                    <div key={i} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3">
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 bg-accent rounded-lg flex-shrink-0 flex items-center justify-center"><item.icon className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-primary" /></div>
+                      <div className="flex-1 min-w-0"><p className="text-xs text-muted-foreground">{item.label}</p><p className="text-xs sm:text-sm font-medium truncate">{item.value}</p></div>
                     </div>
                   ))}
                 </div>
@@ -482,19 +485,19 @@ const AdminEmployeeDetailScreen = () => {
             </div>
 
             {/* Right column */}
-            <div className="space-y-2.5">
+            <div className="space-y-2 sm:space-y-2.5">
               {/* Stats */}
               <div className="animate-fade-in-up" style={{ animationDelay: "0.15s" }}>
-                <h2 className="text-overline mb-2">Monthly Statistics</h2>
-                <div className="grid grid-cols-4 gap-2">
+                <h2 className="text-overline text-xs sm:text-sm mb-2">Monthly Statistics</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
                   {[
                     { value: `${stats.attendanceRate}%`, label: "Rate", color: "text-primary" },
                     { value: stats.presentCount, label: "Present", color: "text-success" },
                     { value: stats.lateCount, label: "Late", color: "text-warning" },
                     { value: stats.absentCount, label: "Absent", color: "text-destructive" },
                   ].map((s, i) => (
-                    <div key={i} className="card-elevated p-2.5 text-center">
-                      <p className={`text-xl font-semibold ${s.color}`}>{s.value}</p>
+                    <div key={i} className="card-elevated p-2 sm:p-2.5 text-center">
+                      <p className={`text-base sm:text-xl font-semibold ${s.color}`}>{s.value}</p>
                       <p className="text-xs text-muted-foreground">{s.label}</p>
                     </div>
                   ))}
@@ -592,15 +595,15 @@ const AdminEmployeeDetailScreen = () => {
 
         {/* Edit Profile Dialog */}
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-sm sm:max-w-md lg:max-w-lg w-[95%] sm:w-full max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Employee Profile</DialogTitle>
               <DialogDescription>Update employee information</DialogDescription>
             </DialogHeader>
             
-            <div className="space-y-4 py-4">
+            <div className="space-y-3 py-3 max-h-[75vh] overflow-y-auto">
               <div>
-                <label className="block text-sm font-medium mb-2">Email</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Email</label>
                 <input 
                   type="email" 
                   value={editForm.email} 
@@ -608,16 +611,16 @@ const AdminEmployeeDetailScreen = () => {
                   autoComplete="off"
                   autoFocus={false}
                   onFocus={(e) => e.target.blur()}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full px-3 py-1.5 border border-border rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2">Office Location</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Office Location</label>
                 <select 
                   value={editForm.office_location} 
                   onChange={(e) => setEditForm({...editForm, office_location: e.target.value})} 
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full px-3 py-1.5 border border-border rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="">Select office</option>
                   {offices.map((office) => (
@@ -629,11 +632,11 @@ const AdminEmployeeDetailScreen = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2">Role</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Role</label>
                 <select 
                   value={editForm.role_type} 
                   onChange={(e) => setEditForm({...editForm, role_type: e.target.value as any})} 
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full px-3 py-1.5 border border-border rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   {customRoles.map((role) => (
                     <option key={role} value={role}>{role}</option>
@@ -641,22 +644,22 @@ const AdminEmployeeDetailScreen = () => {
                 </select>
                 
                 {/* Add Custom Role */}
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <label className="block text-xs font-medium text-blue-900 mb-2">Add Custom Role</label>
-                  <div className="flex gap-2">
+                <div className="mt-2 p-2.5 bg-blue-50 rounded-lg border border-blue-200">
+                  <label className="block text-xs font-medium text-blue-900 mb-1.5">Add Custom Role</label>
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input 
                       type="text" 
                       value={newCustomRole} 
                       onChange={(e) => setNewCustomRole(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleAddCustomRole()}
-                      placeholder="e.g., Senior Developer, Team Lead"
-                      className="flex-1 px-3 py-2 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      placeholder="e.g., Senior Developer"
+                      className="flex-1 px-2.5 py-1.5 border border-blue-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                       disabled={isAddingRole}
                     />
                     <button
                       onClick={handleAddCustomRole}
                       disabled={isAddingRole || !newCustomRole.trim()}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                     >
                       {isAddingRole ? 'Adding...' : 'Add'}
                     </button>
@@ -665,11 +668,24 @@ const AdminEmployeeDetailScreen = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2">Designation</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Gender</label>
+                <select 
+                  value={editForm.gender || ''} 
+                  onChange={(e) => setEditForm({...editForm, gender: e.target.value as any})} 
+                  className="w-full px-3 py-1.5 border border-border rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">Not Set</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Designation</label>
                 <select 
                   value={editForm.designation || ''} 
                   onChange={(e) => setEditForm({...editForm, designation: e.target.value})} 
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full px-3 py-1.5 border border-border rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   <option value="">Select designation</option>
                   {customDesignations.map((designation) => (
@@ -678,22 +694,22 @@ const AdminEmployeeDetailScreen = () => {
                 </select>
                 
                 {/* Add Custom Designation */}
-                <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                  <label className="block text-xs font-medium text-green-900 mb-2">Add Custom Designation</label>
-                  <div className="flex gap-2">
+                <div className="mt-2 p-2.5 bg-green-50 rounded-lg border border-green-200">
+                  <label className="block text-xs font-medium text-green-900 mb-1.5">Add Custom Designation</label>
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input 
                       type="text" 
                       value={newCustomDesignation} 
                       onChange={(e) => setNewCustomDesignation(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleAddCustomDesignation()}
-                      placeholder="e.g., DevOps Engineer, QA Lead"
-                      className="flex-1 px-3 py-2 border border-green-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                      placeholder="e.g., QA Lead"
+                      className="flex-1 px-2.5 py-1.5 border border-green-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20"
                       disabled={isAddingDesignation}
                     />
                     <button
                       onClick={handleAddCustomDesignation}
                       disabled={isAddingDesignation || !newCustomDesignation.trim()}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                     >
                       {isAddingDesignation ? 'Adding...' : 'Add'}
                     </button>
@@ -702,17 +718,17 @@ const AdminEmployeeDetailScreen = () => {
               </div>
             </div>
             
-            <DialogFooter className="flex gap-3">
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3">
               <button 
                 onClick={() => setShowEditDialog(false)} 
-                className="flex-1 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+                className="w-full px-4 py-1.5 sm:py-2 border border-border rounded-lg text-xs sm:text-sm font-medium hover:bg-muted transition-colors"
                 disabled={isSaving}
               >
                 Cancel
               </button>
               <button 
                 onClick={handleSaveEdit} 
-                className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+                className="w-full px-4 py-1.5 sm:py-2 bg-primary text-primary-foreground rounded-lg text-xs sm:text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
                 disabled={isSaving}
               >
                 {isSaving ? (

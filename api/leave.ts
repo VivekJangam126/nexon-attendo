@@ -95,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        const { leaveTypeId, startDate, endDate, reason, attachmentUrl } = req.body;
+        const { leaveTypeId, startDate, endDate, reason, attachmentUrl, attachmentType } = req.body;
         if (!startDate || !endDate) {
           return res.status(400).json({ error: 'Missing required fields' });
         }
@@ -109,6 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             end_date: endDate,
             reason: reason || '',
             attachment_url: attachmentUrl,
+            attachment_type: attachmentType,
             status: 'pending',
             created_at: new Date().toISOString()
           })

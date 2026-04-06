@@ -27,6 +27,7 @@ export function AddEmployeeModal({ open, onOpenChange, onSuccess }: AddEmployeeM
     roleType: "Employee" as 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern',
     password: "",
     confirmPassword: "",
+    gender: "" as 'male' | 'female' | '',
   });
   const [offices, setOffices] = useState<Office[]>([]);
   const [showPassword, setShowPassword] = useState(false);
@@ -62,6 +63,7 @@ export function AddEmployeeModal({ open, onOpenChange, onSuccess }: AddEmployeeM
       roleType: "Employee",
       password: "",
       confirmPassword: "",
+      gender: "",
     });
     setError(null);
     setShowPassword(false);
@@ -73,7 +75,7 @@ export function AddEmployeeModal({ open, onOpenChange, onSuccess }: AddEmployeeM
     setError(null);
 
     // Validation
-    if (!form.fullName || !form.email || !form.officeId || !form.designation || !form.roleType || !form.password || !form.confirmPassword) {
+    if (!form.fullName || !form.email || !form.officeId || !form.designation || !form.roleType || !form.password || !form.confirmPassword || !form.gender) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -99,6 +101,7 @@ export function AddEmployeeModal({ open, onOpenChange, onSuccess }: AddEmployeeM
         office_id: form.officeId,
         designation: form.designation,
         role_type: form.roleType,
+        gender: form.gender,
       });
 
       if (regError || !success || !userId) {
@@ -184,6 +187,21 @@ export function AddEmployeeModal({ open, onOpenChange, onSuccess }: AddEmployeeM
                   autoComplete="off"
                   className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" 
                 />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-foreground uppercase tracking-wide block mb-1.5">
+                  Gender *
+                </label>
+                <select 
+                  value={form.gender} 
+                  onChange={(e) => updateField("gender", e.target.value)} 
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                >
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
               </div>
             </div>
           </div>

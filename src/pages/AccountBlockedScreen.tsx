@@ -14,8 +14,8 @@ const configs: Record<BlockReason, { icon: typeof ShieldX; title: string; descri
   },
   rejected: {
     icon: XCircle,
-    title: "Registration Rejected",
-    description: "Your registration request has been rejected. Please contact HR or your manager for more information.",
+    title: "Your Access Has Been Denied",
+    description: "Your registration request has been rejected by an administrator. You do not have access to this system.",
     color: "bg-destructive",
     bgColor: "bg-destructive-muted",
   },
@@ -52,9 +52,14 @@ const AccountBlockedScreen = () => {
         </div>
 
         {reason === "rejected" && (
-          <div className="card-elevated w-full max-w-sm p-5 mb-6 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-            <p className="text-sm font-medium mb-1">Rejection Reason</p>
-            <p className="text-sm text-muted-foreground">Incomplete documentation. Please re-register with valid details or contact HR.</p>
+          <div className="card-elevated w-full max-w-sm p-5 mb-6 animate-fade-in-up bg-red-50 border border-red-200" style={{ animationDelay: "0.1s" }}>
+            <div className="flex items-start gap-3">
+              <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-red-900 mb-1">Access Denied</p>
+                <p className="text-sm text-red-700">Your registration does not meet the requirements. Please contact HR for more information or re-register with valid details.</p>
+              </div>
+            </div>
           </div>
         )}
 

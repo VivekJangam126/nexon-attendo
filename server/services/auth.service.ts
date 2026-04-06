@@ -26,68 +26,80 @@ export const authService = {
    * @returns AuthResponse with user, session, and error
    */
   async login(email: string, password: string, ipAddress?: string): Promise<AuthResponse> {
-    // ============================================
-    // RATE LIMITING CHECK (FIRST LINE OF DEFENSE)
-    // ============================================
-    const clientIP = ipAddress || 'unknown';
-    console.log('🔒 [RATE LIMIT] Checking login rate limit for:', clientIP, email);
+    console.log('🔐 [AUTH.login] START - email:', email);
     
-    const rateLimitCheck = await rateLimitService.checkLogin(clientIP, email);
-    
-    if (!rateLimitCheck.allowed) {
-      console.log('  ❌ Rate limit exceeded');
-      return {
-        user: null,
-        session: null,
-        error: {
-          name: 'RateLimitError',
-          message: `Too many login attempts. Please try again at ${rateLimitCheck.resetAt.toLocaleTimeString()}.`,
-        } as any,
-      };
-    }
-    
-    console.log(`  ✅ Rate limit OK (${rateLimitCheck.remaining} remaining)`);
+    try {
+      // ============================================
+      // RATE LIMITING CHECK (FIRST LINE OF DEFENSE)
+      // ============================================
+      const clientIP = ipAddress || 'unknown';
+      console.log('🔒 [RATE LIMIT] Checking login rate limit for:', clientIP, email);
+      
+      const rateLimitCheck = await rateLimitService.checkLogin(clientIP, email);
+      
+      if (!rateLimitCheck.allowed) {
+        console.log('  ❌ Rate limit exceeded');
+        return {
+          user: null,
+          session: null,
+          error: {
+            name: 'RateLimitError',
+            message: `Too many login attempts. Please try again at ${rateLimitCheck.resetAt.toLocaleTimeString()}.`,
+          } as any,
+        };
+      }
+      
+      console.log(`  ✅ Rate limit OK (${rateLimitCheck.remaining} remaining)`);
 
-    // Step 1: Authenticate with Supabase
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+      // Step 1: Authenticate with Supabase
+      console.log('🔐 [AUTH] Attempting Supabase auth signin for:', email);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      return {
-        user: null,
-        session: null,
-        error,
-      };
-    }
+      if (error) {
+        console.log('🔐 [AUTH] Supabase auth error:', error.message);
+        return {
+          user: null,
+          session: null,
+          error,
+        };
+      }
 
-    if (!data.user) {
-      return {
-        user: null,
-        session: null,
-        error: {
-          name: 'AuthError',
-          message: 'Authentication failed',
-        } as any,
-      };
-    }
+      console.log('🔐 [AUTH] Supabase auth successful, user ID:', data.user?.id);
 
-    // Step 2: Check user profile status
-    const { profile } = await profileService.getProfile(data.user.id);
+      if (!data.user) {
+        console.log('🔐 [AUTH] No user returned from Supabase');
+        return {
+          user: null,
+          session: null,
+          error: {
+            name: 'AuthError',
+            message: 'Authentication failed',
+          } as any,
+        };
+      }
 
-    if (!profile) {
-      // Profile doesn't exist - sign out and block
-      await supabase.auth.signOut();
-      return {
-        user: null,
-        session: null,
-        error: {
-          name: 'ProfileError',
-          message: 'User profile not found',
-        } as any,
-      };
-    }
+      // Step 2: Check user profile status
+      console.log('🔐 [PROFILE] Fetching profile for user:', data.user.id);
+      const { profile } = await profileService.getProfile(data.user.id);
+
+      if (!profile) {
+        // Profile doesn't exist - sign out and block
+        console.log('🔐 [PROFILE] Profile not found, signing out');
+        await supabase.auth.signOut();
+        return {
+          user: null,
+          session: null,
+          error: {
+            name: 'ProfileError',
+            message: 'User profile not found',
+          } as any,
+        };
+      }
+
+      console.log('🔐 [PROFILE] Profile found - Status:', profile.status, 'Role:', profile.role);
 
     // SINGLE OFFICE MODE: Auto-assign office if missing (safety net)
     if (profile.role === 'employee' && !profile.office_location) {
@@ -121,6 +133,7 @@ export const authService = {
     // Step 3: Enforce status-based login restrictions
     if (profile.status === 'pending') {
       // Pending users cannot login
+      console.log('🔐 [STATUS] User is pending - blocking login');
       await supabase.auth.signOut();
       return {
         user: null,
@@ -135,6 +148,7 @@ export const authService = {
 
     if (profile.status === 'rejected') {
       // Rejected users cannot login
+      console.log('🔐 [STATUS] User is rejected - blocking login');
       await supabase.auth.signOut();
       return {
         user: null,
@@ -149,6 +163,7 @@ export const authService = {
 
     if (profile.status === 'blocked') {
       // Blocked users cannot login
+      console.log('🔐 [STATUS] User is blocked - blocking login');
       await supabase.auth.signOut();
       return {
         user: null,
@@ -163,6 +178,7 @@ export const authService = {
 
     // Step 4: Only 'active' users can proceed
     if (profile.status === 'active') {
+      console.log('🔐 [STATUS] User is active - allowing login');
       return {
         user: data.user,
         session: data.session,
@@ -171,6 +187,7 @@ export const authService = {
     }
 
     // Fallback: Unknown status
+    console.log('🔐 [STATUS] Unknown status:', profile.status, '- blocking login');
     await supabase.auth.signOut();
     return {
       user: null,
@@ -180,6 +197,18 @@ export const authService = {
         message: 'Invalid account status',
       } as any,
     };
+    } catch (err) {
+      console.error('🔐 [AUTH] Unexpected error in login:', err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      return {
+        user: null,
+        session: null,
+        error: {
+          name: 'UnexpectedError',
+          message: 'An unexpected error occurred during login: ' + errorMsg,
+        } as any,
+      };
+    }
   },
 
   /**

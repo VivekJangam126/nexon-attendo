@@ -10,6 +10,7 @@ export interface RegistrationData {
   office_id: string;
   designation?: string;
   role_type?: 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern';
+  gender?: 'male' | 'female';
   profile_photo?: File; // For admin use (server-side)
   profile_photo_url?: string; // For client-side registration
 }

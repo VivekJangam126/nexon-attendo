@@ -19,26 +19,12 @@ const LoginScreen = () => {
       console.log('👤 Profile status:', profile.status, 'Role:', profile.role);
     }
     
-    // Check if user came from registration-pending page or if URL has specific flag
-    const cameFromRegistrationPending = document.referrer.includes('/registration-pending') || 
-                                       window.location.search.includes('from=registration-pending');
-    console.log('🔍 Came from registration-pending:', cameFromRegistrationPending);
-    
     // If we're still loading auth state, wait
     if (loading) {
       return;
     }
     
-    // If user came from registration-pending, force logout and don't redirect
-    if (cameFromRegistrationPending) {
-      if (user) {
-        console.log('🔄 Force logging out user from registration-pending');
-        logout();
-      }
-      return;
-    }
-    
-    // Normal redirect logic for authenticated users
+    // Normal redirect logic for authenticated users - ONLY if they have a valid account
     if (user && profile && !isLoading) {
       if (profile.role === 'employee') {
         if (profile.status === 'pending') {
@@ -63,46 +49,60 @@ const LoginScreen = () => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
+    console.log('🔐 [LOGIN] Starting login process...');
 
     if (!email || !password) {
       setError("Please enter your email and password");
       setIsLoading(false);
+      console.log('❌ [LOGIN] Missing email or password');
       return;
     }
 
     try {
+      console.log('🔐 [LOGIN] Calling login service with email:', email);
       const { error: loginError } = await login(email, password);
+      console.log('🔐 [LOGIN] Login service response - Error:', loginError);
 
       if (loginError) {
         const errorMsg = loginError.message.toLowerCase();
+        console.log('🔐 [LOGIN] Error message:', errorMsg);
         
         if (errorMsg.includes('too many') || errorMsg.includes('rate limit')) {
+          console.log('🔐 [LOGIN] Rate limit error');
           setError(loginError.message);
           setIsLoading(false);
           return;
         }
         
         if (errorMsg.includes('jwt') || errorMsg.includes('token') || errorMsg.includes('expired') || errorMsg.includes('invalid')) {
+          console.log('🔐 [LOGIN] JWT/Token error');
           setError("Login failed. Please ensure your device date and time are correct and synced with network time, then try again.");
           setIsLoading(false);
           return;
         }
         
         if (errorMsg.includes('pending')) {
+          console.log('🔐 [LOGIN] Account pending - redirecting');
           navigate("/registration-pending");
         } else if (errorMsg.includes('rejected')) {
+          console.log('🔐 [LOGIN] Account rejected - redirecting');
           navigate("/account-blocked?reason=rejected");
         } else if (errorMsg.includes('blocked') || errorMsg.includes('deactivated')) {
+          console.log('🔐 [LOGIN] Account blocked - redirecting');
           navigate("/account-blocked?reason=deactivated");
         } else {
+          console.log('🔐 [LOGIN] Generic error:', loginError.message);
           setError(loginError.message);
         }
         setIsLoading(false);
       } else {
+        console.log('🔐 [LOGIN] Login successful!');
         setIsLoading(false);
       }
     } catch (err) {
-      setError("An unexpected error occurred. Please try again.");
+      console.error('🔐 [LOGIN] Catch block error:', err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError("An unexpected error occurred. Please try again: " + errorMsg);
       setIsLoading(false);
     }
   };

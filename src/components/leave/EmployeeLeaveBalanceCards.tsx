@@ -1,6 +1,7 @@
 import { useEmployeeLeaveBalanceCards } from '@/hooks/useLeave';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface EmployeeLeaveBalanceCardsProps {
   employeeId: string;
@@ -8,14 +9,32 @@ interface EmployeeLeaveBalanceCardsProps {
 
 // Hardcoded leave type IDs from database
 const LEAVE_TYPE_IDS = {
-  PAID: '11111111-1111-1111-1111-111111111111',
-  UNPAID: '22222222-2222-2222-2222-222222222222',
   SICK: '33333333-3333-3333-3333-333333333333',
+  CASUAL: '44444444-4444-4444-4444-444444444444',
+  MY_LEAVE: '55555555-5555-5555-5555-555555555555',
 };
 
 export function EmployeeLeaveBalanceCards({ employeeId }: EmployeeLeaveBalanceCardsProps) {
   const { data: balances = [], isLoading, refetch } = useEmployeeLeaveBalanceCards(employeeId);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [gender, setGender] = useState<string | null>(null);
+  const [genderLoading, setGenderLoading] = useState(true);
+
+  // Fetch employee gender
+  useEffect(() => {
+    const fetchGender = async () => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('gender')
+        .eq('id', employeeId)
+        .single();
+      
+      setGender(profile?.gender || null);
+      setGenderLoading(false);
+    };
+
+    fetchGender();
+  }, [employeeId]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -23,12 +42,12 @@ export function EmployeeLeaveBalanceCards({ employeeId }: EmployeeLeaveBalanceCa
     setIsRefreshing(false);
   };
 
-  if (isLoading) {
+  if (isLoading || genderLoading) {
     return (
       <div className="space-y-2">
         <h2 className="text-overline">Leave Balance</h2>
-        <div className="grid grid-cols-3 gap-2.5">
-          {[1, 2, 3].map((i) => (
+        <div className="grid grid-cols-2 gap-2.5">
+          {[1, 2].map((i) => (
             <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
@@ -37,28 +56,28 @@ export function EmployeeLeaveBalanceCards({ employeeId }: EmployeeLeaveBalanceCa
   }
 
   // Find specific leave types by ID
-  const paidLeave = balances.find((b: any) => b.leave_type_id === LEAVE_TYPE_IDS.PAID) || {
-    total_leaves: 10,
-    used_leaves: 0,
-    remaining_leaves: 10,
-  };
-  
-  const unpaidLeave = balances.find((b: any) => b.leave_type_id === LEAVE_TYPE_IDS.UNPAID) || {
-    total_leaves: 10,
-    used_leaves: 0,
-    remaining_leaves: 10,
-  };
-  
   const sickLeave = balances.find((b: any) => b.leave_type_id === LEAVE_TYPE_IDS.SICK) || {
-    total_leaves: 5,
+    total_leaves: 6,
     used_leaves: 0,
-    remaining_leaves: 5,
+    remaining_leaves: 6,
+  };
+  
+  const casualLeave = balances.find((b: any) => b.leave_type_id === LEAVE_TYPE_IDS.CASUAL) || {
+    total_leaves: 19,
+    used_leaves: 0,
+    remaining_leaves: 19,
   };
 
+  const myLeave = gender === 'female' ? (balances.find((b: any) => b.leave_type_id === LEAVE_TYPE_IDS.MY_LEAVE) || {
+    total_leaves: 12,
+    used_leaves: 0,
+    remaining_leaves: 12,
+  }) : null;
+
   const leaveCards = [
-    { name: 'Paid Leave', ...paidLeave },
-    { name: 'Unpaid Leave', ...unpaidLeave },
     { name: 'Sick Leave', ...sickLeave },
+    { name: 'Casual Leave', ...casualLeave },
+    ...(myLeave ? [{ name: 'My Leave', ...myLeave }] : []),
   ];
 
   return (
@@ -74,7 +93,7 @@ export function EmployeeLeaveBalanceCards({ employeeId }: EmployeeLeaveBalanceCa
           <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
       </div>
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className={`grid ${leaveCards.length > 2 ? 'grid-cols-3' : 'grid-cols-2'} gap-2.5`}>
         {leaveCards.map((leave, index) => {
           const total = leave.total_leaves || 0;
           const remaining = leave.remaining_leaves || 0;

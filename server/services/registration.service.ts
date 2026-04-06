@@ -145,7 +145,7 @@ export const registrationService = {
    */
   async registerEmployee(data: RegistrationData): Promise<RegistrationResponse> {
     try {
-      const { email, password, full_name, office_id, designation, role_type, profile_photo, profile_photo_url } = data;
+      const { email, password, full_name, office_id, designation, role_type, gender, profile_photo, profile_photo_url } = data;
 
       console.log('🔍 [REGISTRATION] Starting employee registration...');
       console.log('  Email:', email);
@@ -186,10 +186,15 @@ export const registrationService = {
       });
 
       if (authError) {
+        console.log('  ❌ Auth signup error:', authError);
+        console.log('  Error message:', authError.message);
+        console.log('  Error status:', authError.status);
+        console.log('  Email:', email);
+        console.log('  Password length:', password.length);
         return {
           success: false,
           userId: null,
-          error: new Error(authError.message),
+          error: new Error(authError.message || 'Failed to create authentication user'),
         };
       }
 
@@ -305,7 +310,10 @@ export const registrationService = {
           office_location: office_id, // Use office_location column name
           designation: designation || 'Not Assigned',
           role_type: role_type || 'Employee',
+          gender: gender || null,
           profile_photo_url: profilePhotoUrl,
+          shift_mode: 'fixed', // Default to fixed shift
+          shift_type: 'evening', // Default to evening shift (10 AM - 7 PM)
         });
 
       if (profileError) {

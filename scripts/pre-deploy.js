@@ -60,9 +60,9 @@ if (!existsSync(vercelConfigPath)) {
 
 // Check 4: API endpoint
 console.log('4️⃣  Checking API endpoint...');
-const apiPath = join(process.cwd(), 'api', 'send-notification.ts');
+const apiPath = join(process.cwd(), 'server', 'api', 'send-notification.ts');
 if (!existsSync(apiPath)) {
-  errors.push('API endpoint api/send-notification.ts not found');
+  errors.push('API endpoint server/api/send-notification.ts not found');
 }
 
 // Check 5: TypeScript configuration

@@ -42,11 +42,12 @@ export const employeeService = {
     try {
       const today = new Date().toISOString().split('T')[0];
 
-      // Fetch all profiles (excluding admins)
+      // Fetch all profiles (excluding admins and rejected employees)
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .eq('role', 'employee')
+        .neq('status', 'rejected') // Exclude rejected employees
         .order('full_name', { ascending: true });
 
       if (profilesError) throw profilesError;
@@ -581,7 +582,7 @@ export const employeeService = {
   },
 
   /**
-   * Update employee profile (email, role, office, designation, role_type)
+   * Update employee profile (email, role, office, designation, role_type, gender)
    */
   async updateEmployeeProfile(
     userId: string,
@@ -591,6 +592,7 @@ export const employeeService = {
       office_location?: string;
       designation?: string;
       role_type?: 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern';
+      gender?: string | null;
     }
   ): Promise<{ success: boolean; error: Error | null }> {
     try {

@@ -10,7 +10,7 @@ const faqs = [
   },
   { 
     q: "Why is my attendance marked as Late?", 
-    a: "If you mark attendance after 9:15 AM (the grace period), it will be recorded as Late." 
+    a: "If you mark attendance after 10:15 AM (the grace period), it will be recorded as Late." 
   },
   { 
     q: "What if I can't connect to office Wi-Fi?", 
@@ -83,7 +83,7 @@ const HelpSupportScreen = () => {
                 <Phone className="w-6 h-6 text-white" />
               </div>
               <h3 className="text-base font-bold text-gray-900 mb-2">Phone Support</h3>
-              <p className="text-sm text-gray-600 mb-4">9 AM - 6 PM weekdays</p>
+              <p className="text-sm text-gray-600 mb-4">10 AM - 6 PM weekdays</p>
               <a 
                 href="tel:+91976540079"
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-lg font-semibold text-sm hover:from-green-700 hover:to-green-600 transition-all duration-300 shadow-md hover:shadow-lg w-full justify-center"
@@ -136,7 +136,7 @@ const HelpSupportScreen = () => {
               <ul className="space-y-2 text-sm text-blue-800">
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <span>Mark attendance within designated window (9:00 AM - 9:15 AM)</span>
+                  <span>Mark attendance within designated window (10:00 AM - 10:15 AM)</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />

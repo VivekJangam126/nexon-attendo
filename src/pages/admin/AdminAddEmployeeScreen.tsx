@@ -16,6 +16,7 @@ const AdminAddEmployeeScreen = () => {
     roleType: "Employee" as 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern',
     password: "",
     confirmPassword: "",
+    gender: "" as 'male' | 'female' | '',
   });
   const [offices, setOffices] = useState<Office[]>([]);
   const [showPassword, setShowPassword] = useState(false);
@@ -45,7 +46,7 @@ const AdminAddEmployeeScreen = () => {
     setError(null);
 
     // Validation
-    if (!form.fullName || !form.email || !form.officeId || !form.designation || !form.roleType || !form.password || !form.confirmPassword) {
+    if (!form.fullName || !form.email || !form.officeId || !form.designation || !form.roleType || !form.password || !form.confirmPassword || !form.gender) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -71,6 +72,7 @@ const AdminAddEmployeeScreen = () => {
         office_id: form.officeId,
         designation: form.designation,
         role_type: form.roleType,
+        gender: form.gender,
       });
 
       if (regError || !success || !userId) {
@@ -205,22 +207,37 @@ const AdminAddEmployeeScreen = () => {
 
                     <div>
                       <label className="text-xs font-semibold text-foreground uppercase tracking-wide block mb-1.5">
-                        Designation *
+                        Gender *
                       </label>
                       <select 
-                        value={form.designation} 
-                        onChange={(e) => updateField("designation", e.target.value)} 
+                        value={form.gender} 
+                        onChange={(e) => updateField("gender", e.target.value)} 
                         className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                       >
-                        <option value="">Select designation</option>
-                        <option value="Software Developer">Software Developer</option>
-                        <option value="Frontend Developer">Frontend Developer</option>
-                        <option value="Backend Developer">Backend Developer</option>
-                        <option value="HR Executive">HR Executive</option>
-                        <option value="Project Manager">Project Manager</option>
-                        <option value="UI/UX Designer">UI/UX Designer</option>
+                        <option value="">Select gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-foreground uppercase tracking-wide block mb-1.5">
+                      Designation *
+                    </label>
+                    <select 
+                      value={form.designation} 
+                      onChange={(e) => updateField("designation", e.target.value)} 
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    >
+                      <option value="">Select designation</option>
+                      <option value="Software Developer">Software Developer</option>
+                      <option value="Frontend Developer">Frontend Developer</option>
+                      <option value="Backend Developer">Backend Developer</option>
+                      <option value="HR Executive">HR Executive</option>
+                      <option value="Project Manager">Project Manager</option>
+                      <option value="UI/UX Designer">UI/UX Designer</option>
+                    </select>
                   </div>
                 </div>
               </div>

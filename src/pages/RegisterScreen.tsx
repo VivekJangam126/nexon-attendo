@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Building2, Eye, EyeOff, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 import { registrationService, officeService } from "@server";
+import { validatePassword, getPasswordStrengthColor, getPasswordStrengthLabel } from "@/utils/passwordValidator";
 import type { Office } from "@server";
 
 const RegisterScreen = () => {
@@ -14,6 +15,7 @@ const RegisterScreen = () => {
     confirmPassword: "",
     roleType: "Employee" as 'Employee' | 'Intern' | 'Unpaid Intern' | 'Paid Intern',
     designation: "",
+    gender: "" as 'male' | 'female' | '',
   });
   const [offices, setOffices] = useState<Office[]>([]);
   const [showPassword, setShowPassword] = useState(false);
@@ -60,18 +62,25 @@ const RegisterScreen = () => {
       return;
     }
 
+    if (!form.gender) {
+      setError("Please select your gender.");
+      return;
+    }
+
     if (!form.password) {
       setError("Password is required.");
       return;
     }
 
-    if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match.");
+    // Validate password strength
+    const passwordValidation = validatePassword(form.password);
+    if (!passwordValidation.isValid) {
+      setError(passwordValidation.errors[0]);
       return;
     }
 
-    if (form.password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match.");
       return;
     }
 
@@ -86,12 +95,19 @@ const RegisterScreen = () => {
         office_id: form.officeId,
         role_type: form.roleType,
         designation: form.designation,
+        gender: form.gender,
       });
 
       if (success) {
         navigate("/registration-pending");
       } else {
-        setError(registrationError || "Registration failed. Please try again.");
+        // Extract error message from Error object if needed
+        const errorMessage = registrationError instanceof Error 
+          ? registrationError.message 
+          : typeof registrationError === 'string' 
+            ? registrationError 
+            : "Registration failed. Please try again.";
+        setError(errorMessage);
       }
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
@@ -255,6 +271,24 @@ const RegisterScreen = () => {
               </select>
             </div>
 
+            {/* Gender */}
+            <div>
+              <label htmlFor="gender" className="block text-xs font-medium text-gray-900 mb-1">
+                Gender <span className="text-red-600">*</span>
+              </label>
+              <select
+                id="gender"
+                value={form.gender}
+                onChange={(e) => updateField("gender", e.target.value as any)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all appearance-none bg-white"
+                disabled={isLoading}
+              >
+                <option value="">Select your gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+
             {/* Designation */}
             <div>
               <label htmlFor="designation" className="block text-xs font-medium text-gray-900 mb-1">
@@ -275,15 +309,15 @@ const RegisterScreen = () => {
             {/* Password */}
             <div>
               <label htmlFor="password" className="block text-xs font-medium text-gray-900 mb-1">
-                Password
+                Password <span className="text-red-600">*</span>
               </label>
-              <div className="relative">
+              <div className="relative mb-2">
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={form.password}
                   onChange={(e) => updateField("password", e.target.value)}
-                  placeholder="Create a password"
+                  placeholder="Create a strong password"
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all pr-10"
                   disabled={isLoading}
                   autoComplete="new-password"
@@ -297,12 +331,97 @@ const RegisterScreen = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+
+              {/* Password Strength Indicator */}
+              {form.password && (
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    {(() => {
+                      const validation = validatePassword(form.password);
+                      return (
+                        <>
+                          {/* Strength Bar */}
+                          <div className="flex gap-1">
+                            {[0, 1, 2, 3].map((i) => (
+                              <div
+                                key={i}
+                                className={`flex-1 h-1 rounded-full transition-all ${
+                                  validation.strength === 'strong' ? 'bg-green-500' :
+                                  validation.strength === 'good' ? 'bg-blue-500' :
+                                  validation.strength === 'fair' ? 'bg-yellow-500' :
+                                  'bg-red-500'
+                                } ${i < (validation.isValid ? 4 : Object.values(validation.requirements).filter(Boolean).length) ? 'opacity-100' : 'opacity-30'}`}
+                              />
+                            ))}
+                          </div>
+                          
+                          {/* Strength Label */}
+                          <p className="text-xs font-medium">
+                            Strength: <span className={`${
+                              validation.strength === 'strong' ? 'text-green-600' :
+                              validation.strength === 'good' ? 'text-blue-600' :
+                              validation.strength === 'fair' ? 'text-yellow-600' :
+                              'text-red-600'
+                            }`}>
+                              {getPasswordStrengthLabel(validation.strength)}
+                            </span>
+                          </p>
+
+                          {/* Requirements Checklist */}
+                          <div className="bg-gray-50 rounded-lg p-2 space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              {validation.requirements.minLength || validation.requirements.maxLength ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <XCircle className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
+                              )}
+                              <span className="text-xs text-gray-700">8-16 characters</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {validation.requirements.uppercase ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <XCircle className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
+                              )}
+                              <span className="text-xs text-gray-700">1 uppercase letter (A-Z)</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {validation.requirements.lowercase ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <XCircle className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
+                              )}
+                              <span className="text-xs text-gray-700">1 lowercase letter (a-z)</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {validation.requirements.number ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <XCircle className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
+                              )}
+                              <span className="text-xs text-gray-700">1 number (0-9)</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {validation.requirements.specialChar ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <XCircle className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
+                              )}
+                              <span className="text-xs text-gray-700">1 special character (!@#$%^&*)</span>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Confirm Password */}
             <div>
               <label htmlFor="confirmPassword" className="block text-xs font-medium text-gray-900 mb-1">
-                Confirm Password
+                Confirm Password <span className="text-red-600">*</span>
               </label>
               <div className="relative">
                 <input
@@ -324,6 +443,18 @@ const RegisterScreen = () => {
                   {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {form.password && form.confirmPassword && form.password === form.confirmPassword && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Passwords match
+                </p>
+              )}
+              {form.password && form.confirmPassword && form.password !== form.confirmPassword && (
+                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                  <XCircle className="w-3.5 h-3.5" />
+                  Passwords do not match
+                </p>
+              )}
             </div>
 
             {/* Submit Button */}

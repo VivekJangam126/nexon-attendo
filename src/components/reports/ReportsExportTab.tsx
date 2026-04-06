@@ -692,7 +692,7 @@ export const ReportsExportTab = () => {
       }); // Show all records - autoTable will handle pagination
       
       const tableData = sortedRecords.map(record => {
-        let statusDisplay = record.status.toUpperCase();
+        const statusDisplay = record.status.toUpperCase();
         return [
           record.employeeName,
           record.email,

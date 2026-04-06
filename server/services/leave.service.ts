@@ -121,7 +121,8 @@ export class LeaveService {
     leaveTypeId: string,
     startDate: string,
     endDate: string,
-    reason: string
+    reason: string,
+    employeeGender?: string | null
   ): Promise<LeaveRequest> {
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -134,6 +135,51 @@ export class LeaveService {
 
     if (end < start) {
       throw new Error('End date must be after start date');
+    }
+
+    // Validate "My Leave" eligibility
+    const MY_LEAVE_ID = '55555555-5555-5555-5555-555555555555';
+    if (leaveTypeId === MY_LEAVE_ID) {
+      // If gender not provided, fetch from profiles table
+      if (!employeeGender) {
+        const { data: profile, error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .select('gender')
+          .eq('id', employeeId)
+          .single();
+
+        if (profileError) throw new Error('Unable to verify employee details');
+        employeeGender = profile?.gender;
+      }
+
+      // Only female employees can use "My Leave"
+      if (employeeGender !== 'female') {
+        throw new Error('My Leave is only available for female employees');
+      }
+
+      // Check if employee already has a "My Leave" in the current month
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonthNum = now.getMonth() + 1;
+      const currentMonth = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}`;
+      
+      // Calculate last day of current month
+      const lastDayOfMonth = new Date(currentYear, currentMonthNum, 0).getDate();
+      const monthEnd = `${currentMonth}-${String(lastDayOfMonth).padStart(2, '0')}`;
+      
+      const { data: monthlyLeaves, error: monthlyError } = await supabaseAdmin
+        .from('leave_requests')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .eq('leave_type_id', leaveTypeId)
+        .eq('status', 'approved')
+        .gte('start_date', `${currentMonth}-01`)
+        .lte('start_date', monthEnd);
+
+      if (monthlyError) throw monthlyError;
+      if (monthlyLeaves && monthlyLeaves.length >= 1) {
+        throw new Error('You can only request one My Leave per calendar month');
+      }
     }
 
     const { data: overlapping, error: overlapError } = await supabaseAdmin
@@ -304,6 +350,20 @@ export class LeaveService {
     if (fetchError) throw fetchError;
     if (!leaveRequest) throw new Error('Leave request not found');
 
+    // Validate "My Leave" approval - only for female employees
+    const MY_LEAVE_ID = '55555555-5555-5555-5555-555555555555';
+    if ((leaveRequest as any).leave_type_id === MY_LEAVE_ID) {
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('gender')
+        .eq('id', (leaveRequest as any).employee_id)
+        .single();
+
+      if (profileError || profile?.gender !== 'female') {
+        throw new Error('My Leave can only be approved for female employees');
+      }
+    }
+
     const start = new Date((leaveRequest as any).start_date);
     const end = new Date((leaveRequest as any).end_date);
     const leaveDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -328,9 +388,9 @@ export class LeaveService {
       throw updateError;
     }
 
-    // Update leave balance - simple approach
+    // Update leave balance
     if ((leaveRequest as any).leave_type_id) {
-      // Get the balance record - just find ANY record for this employee and leave type
+      // Get the balance record
       const { data: balances, error: balanceError } = await supabaseAdmin
         .from('employee_leave_balance')
         .select('*')
@@ -339,18 +399,18 @@ export class LeaveService {
 
       console.log('[approveLeaveRequest] Found balances:', balances?.length || 0);
 
-      if (balanceError) {
+      if (balanceError && balanceError.code !== 'PGRST116') {
         console.error('[approveLeaveRequest] Balance fetch error:', balanceError);
         throw balanceError;
       }
 
       if (balances && balances.length > 0) {
-        // Use the first balance record found
+        // Balance exists - UPDATE it
         const balance = balances[0] as any;
         const newUsedLeaves = (balance.used_leaves || 0) + leaveDays;
-        const newRemainingLeaves = (balance.total_leaves || 0) - newUsedLeaves;
+        const newRemainingLeaves = Math.max(0, (balance.total_leaves || 0) - newUsedLeaves);
 
-        console.log('[approveLeaveRequest] Updating balance:', {
+        console.log('[approveLeaveRequest] Updating existing balance:', {
           balance_id: balance.id,
           old_used: balance.used_leaves,
           new_used: newUsedLeaves,
@@ -375,9 +435,45 @@ export class LeaveService {
 
         console.log('[approveLeaveRequest] Balance updated successfully!');
       } else {
-        console.error('[approveLeaveRequest] No balance record found for employee');
-        console.error('[approveLeaveRequest] Employee ID:', (leaveRequest as any).employee_id);
-        console.error('[approveLeaveRequest] Leave Type ID:', (leaveRequest as any).leave_type_id);
+        // Balance doesn't exist - CREATE it
+        console.log('[approveLeaveRequest] Balance not found, creating new balance record');
+        
+        // Get leave type to find max_per_year
+        const { data: leaveType, error: ltError } = await supabaseAdmin
+          .from('leave_types')
+          .select('max_per_year')
+          .eq('id', (leaveRequest as any).leave_type_id)
+          .single();
+
+        if (ltError) {
+          console.error('[approveLeaveRequest] Leave type fetch error:', ltError);
+          throw ltError;
+        }
+
+        const totalLeaves = leaveType?.max_per_year || 12;
+        const newRemainingLeaves = Math.max(0, totalLeaves - leaveDays);
+
+        const { data: newBalance, error: insertError } = await supabaseAdmin
+          .from('employee_leave_balance')
+          .insert({
+            employee_id: (leaveRequest as any).employee_id,
+            leave_type_id: (leaveRequest as any).leave_type_id,
+            total_leaves: totalLeaves,
+            used_leaves: leaveDays,
+            remaining_leaves: newRemainingLeaves,
+            year: new Date().getFullYear(),
+            employment_year_start: `${new Date().getFullYear()}-01-01`,
+            employment_year_end: `${new Date().getFullYear()}-12-31`,
+          } as any)
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('[approveLeaveRequest] Balance insert error:', insertError);
+          throw insertError;
+        }
+
+        console.log('[approveLeaveRequest] New balance record created:', newBalance?.id);
       }
     }
   }

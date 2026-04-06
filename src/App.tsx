@@ -38,6 +38,7 @@ import NotificationSettingsScreen from "./pages/admin/settings/NotificationSetti
 import EmployeeManagementScreen from "./pages/admin/settings/EmployeeManagementScreen";
 import LeaveManagementPage from "./pages/LeaveManagement";
 import AdminLeaveManagementPage from "./pages/admin/LeaveManagement";
+import ShiftManagementPage from "./pages/admin/ShiftManagementPage";
 import AdminAnalyticsScreen from "./pages/admin/AdminAnalyticsScreen";
 import AdminPerformanceDashboard from "./pages/admin/AdminPerformanceDashboard";
 import AdminHolidayCalendarScreen from "./pages/admin/AdminHolidayCalendarScreen";
@@ -78,6 +79,7 @@ const App = () => (
           <Route path="/admin/dashboard" element={<AdminDashboardScreen />} />
           <Route path="/admin/employees" element={<AdminEmployeesScreen />} />
           <Route path="/admin/employee/:id" element={<AdminEmployeeDetailScreen />} />
+          <Route path="/admin/shifts" element={<ShiftManagementPage />} />
           <Route path="/admin/pending-approvals" element={<AdminPendingApprovalsScreen />} />
           <Route path="/admin/reports" element={<AdminReportsNewScreen />} />
           <Route path="/admin/history" element={<AdminHistoryReportsScreen />} />

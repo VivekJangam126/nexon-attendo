@@ -103,6 +103,14 @@ const AttendanceErrorScreen = () => {
           action: "Contact HR to assign your office location",
           actionButton: "back" as const,
         };
+      case "NO_SHIFT_ASSIGNED":
+        return {
+          icon: Clock,
+          title: "No Shift Assigned",
+          description: "Your shift has not been assigned yet. Please contact admin to assign your shift (Morning or Evening).",
+          action: "Contact HR to get your shift assignment",
+          actionButton: "back" as const,
+        };
       case "ATTENDANCE_CLOSED":
         return {
           icon: Clock,

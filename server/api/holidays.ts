@@ -17,7 +17,7 @@ export default async function handler(req: Request, res: Response) {
   let pathname = '';
   if (url) {
     // Remove /api/holidays prefix if present
-    let cleanUrl = url.replace('/api/holidays', '');
+    const cleanUrl = url.replace('/api/holidays', '');
     
     // Remove query parameters to get clean pathname
     const queryIndex = cleanUrl.indexOf('?');

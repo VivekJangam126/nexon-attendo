@@ -58,8 +58,8 @@ const EmployeeManagementScreen = () => {
     const matchesSearch = emp.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.email.toLowerCase().includes(searchQuery.toLowerCase());
     
-    // Status filter
-    const matchesStatus = statusFilter === 'all' || emp.status === statusFilter;
+    // Status filter - exclude rejected employees
+    const matchesStatus = (statusFilter === 'all' || emp.status === statusFilter) && emp.status !== 'rejected';
     
     return matchesSearch && matchesStatus;
   });

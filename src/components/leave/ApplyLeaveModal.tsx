@@ -30,10 +30,23 @@ interface ApplyLeaveModalProps {
 
 // Hardcoded leave type IDs matching the database
 const LEAVE_TYPES = [
-  { id: '11111111-1111-1111-1111-111111111111', name: 'Paid Leave', icon: '💵', color: 'text-green-600', max: 10 },
-  { id: '22222222-2222-2222-2222-222222222222', name: 'Unpaid Leave', icon: '📄', color: 'text-orange-600', max: 10 },
-  { id: '33333333-3333-3333-3333-333333333333', name: 'Sick Leave', icon: '🏥', color: 'text-red-600', max: 5 },
+  { id: '33333333-3333-3333-3333-333333333333', name: 'Sick Leave', icon: '🏥', color: 'text-red-600', max: 6 },
+  { id: '44444444-4444-4444-4444-444444444444', name: 'Casual Leave', icon: '📅', color: 'text-blue-600', max: 19 },
+  { id: '55555555-5555-5555-5555-555555555555', name: 'My Leave', icon: '👩', color: 'text-pink-600', max: 12 },
 ];
+
+// Get available leave types based on gender
+function getAvailableLeaveTypes(gender?: string | null) {
+  const baseTypes = LEAVE_TYPES.filter(t => t.name !== 'My Leave');
+  
+  // Only show "My Leave" for female employees
+  if (gender === 'female') {
+    const myLeave = LEAVE_TYPES.find(t => t.name === 'My Leave');
+    return myLeave ? [...baseTypes, myLeave] : baseTypes;
+  }
+  
+  return baseTypes;
+}
 
 export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveModalProps) {
   const [startDate, setStartDate] = useState<string>('');
@@ -45,15 +58,16 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>('');
-  const { user } = useAuth();
-  const { data: balances = [] } = useLeaveBalance();
+  const { user, profile } = useAuth();
+  const { data: balances = [] } = useLeaveBalance() as { data: any[] };
   const queryClient = useQueryClient();
 
-  const selectedLeaveType = LEAVE_TYPES.find(t => t.id === leaveTypeId);
-  const leaveBalance = balances.find(b => b.leave_type_id === leaveTypeId);
+  const selectedLeaveType = getAvailableLeaveTypes(profile?.gender).find(t => t.id === leaveTypeId);
+  const leaveBalance = (balances as any[]).find(b => b.leave_type_id === leaveTypeId);
   const remaining = leaveBalance?.remaining_leaves || selectedLeaveType?.max || 0;
   const used = leaveBalance?.used_leaves || 0;
   const total = leaveBalance?.total_leaves || selectedLeaveType?.max || 0;
+  const isMyLeave = selectedLeaveType?.name === 'My Leave';
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -65,26 +79,38 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
       return;
     }
 
-    // Validate file type
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf'];
-    if (!validTypes.includes(file.type)) {
-      setError('Only images (JPG, PNG, GIF) and PDF files are allowed');
+    // Validate file type - Check both MIME type and file extension
+    const validMimeTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    const validExtensions = ['.jpg', '.jpeg', '.png', '.gif'];
+    
+    const fileName = file.name.toLowerCase();
+    const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+    const isValidMimeType = validMimeTypes.includes(file.type);
+    const isValidExtension = validExtensions.includes(fileExtension);
+
+    // Accept if either MIME type or extension is valid
+    if (!isValidMimeType && !isValidExtension) {
+      setError('Only image formats (JPG, JPEG, PNG, GIF) are accepted');
+      console.error(`Invalid file: MIME=${file.type}, Extension=${fileExtension}`);
+      return;
+    }
+
+    // Additional check: ensure MIME type starts with 'image/' if MIME is provided
+    if (file.type && !file.type.startsWith('image/')) {
+      setError('Only image formats (JPG, JPEG, PNG, GIF) are accepted');
       return;
     }
 
     setSelectedFile(file);
     setError('');
+    console.log(`File selected: ${file.name} (${file.type}, ${file.size} bytes)`);
 
-    // Create preview for images
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setPreviewUrl('');
-    }
+    // Create preview for all selected files (they're all images)
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleRemoveFile = () => {
@@ -99,30 +125,40 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
       throw new Error('Cloudinary is not configured. Please set VITE_CLOUDINARY_CLOUD_NAME in your .env file');
     }
 
-    // Determine resource type based on file type
-    const resourceType = file.type.startsWith('image/') ? 'image' : 'raw';
-    
+    console.log(`Starting upload: ${file.name} to Cloudinary`);
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', 'leave_attachments');
+    formData.append('resource_type', 'image');
 
     try {
-      // Use the correct endpoint based on resource type
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
+      // Upload image to Cloudinary using image endpoint
+      const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+      console.log(`Upload URL: ${uploadUrl}`);
+
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log(`Response status: ${response.status}`);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Cloudinary error:', errorData);
-        throw new Error(errorData.error?.message || 'Failed to upload file');
+        const errorData = await response.json().catch(() => ({
+          error: { message: `HTTP ${response.status}` }
+        }));
+        console.error('Cloudinary error response:', errorData);
+        
+        if (errorData.error?.message) {
+          throw new Error(`Upload failed: ${errorData.error.message}`);
+        } else {
+          throw new Error(`Upload failed with status ${response.status}`);
+        }
       }
 
       const data = await response.json();
+      console.log(`Upload successful, URL: ${data.secure_url}`);
       return data.secure_url;
     } catch (error) {
       console.error('Cloudinary upload error:', error);
@@ -136,6 +172,29 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
 
     if (!startDate || !endDate || !leaveTypeId || !description) {
       setError('Please fill in all required fields');
+      return;
+    }
+
+    // Validate dates are real dates
+    const start = new Date(startDate + 'T00:00:00Z');
+    const end = new Date(endDate + 'T00:00:00Z');
+    
+    // Check if dates are valid (not NaN)
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      setError('Please select valid dates');
+      return;
+    }
+
+    // Validate the day of month by checking if the day was adjusted
+    // This catches invalid dates like April 31st
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+    
+    const startParsedDay = start.getUTCDate();
+    const endParsedDay = end.getUTCDate();
+    
+    if (startDay !== startParsedDay || endDay !== endParsedDay) {
+      setError('Please select valid dates (e.g., April only has 30 days)');
       return;
     }
 
@@ -154,14 +213,21 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
 
     try {
       let attachmentUrl = null;
+      let attachmentType = null;
 
       // Upload file to Cloudinary if selected
       if (selectedFile) {
         setUploadingFile(true);
         try {
+          console.log(`Starting attachment upload for: ${selectedFile.name}`);
           attachmentUrl = await uploadToCloudinary(selectedFile);
-        } catch (uploadError) {
-          setError('Failed to upload attachment. Please try again.');
+          // All attachments are images (only images are accepted)
+          attachmentType = 'image';
+          console.log(`Attachment uploaded successfully: ${attachmentUrl}`);
+        } catch (uploadError: any) {
+          const errorMsg = uploadError?.message || 'Failed to upload attachment';
+          console.error(`Upload error: ${errorMsg}`);
+          setError(`Upload error: ${errorMsg}`);
           setLoading(false);
           setUploadingFile(false);
           return;
@@ -169,25 +235,45 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
         setUploadingFile(false);
       }
 
-      const { data, error: insertError } = await supabase
-        .from('leave_requests')
-        .insert({
-          employee_id: user.id,
-          leave_type_id: leaveTypeId,
-          start_date: startDate,
-          end_date: endDate,
+      // Call backend API for leave application with full validation
+      const response = await fetch('/api/leave/apply', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+        },
+        body: JSON.stringify({
+          leaveTypeId,
+          startDate,
+          endDate,
           reason: description,
-          status: 'pending',
-          attachment_url: attachmentUrl,
-        })
-        .select()
-        .single();
+        }),
+      });
 
-      if (insertError) {
-        console.error('Insert error:', insertError);
-        setError('Failed to submit leave request. Please try again.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        const errorMsg = errorData.error || 'Failed to submit leave request';
+        console.error('API error:', errorMsg);
+        setError(errorMsg);
         setLoading(false);
         return;
+      }
+
+      const data = await response.json();
+      
+      // Now update attachment if provided
+      if (attachmentUrl && data?.id) {
+        const { error: updateError } = await supabase
+          .from('leave_requests')
+          .update({
+            attachment_url: attachmentUrl,
+            attachment_type: attachmentType,
+          })
+          .eq('id', data.id);
+
+        if (updateError) {
+          console.error('Update attachment error:', updateError);
+        }
       }
 
       console.log('Leave request submitted:', data);
@@ -245,7 +331,7 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
                 <SelectValue placeholder="Select leave type" />
               </SelectTrigger>
               <SelectContent>
-                {LEAVE_TYPES.map((type) => (
+                {getAvailableLeaveTypes(profile?.gender).map((type) => (
                   <SelectItem key={type.id} value={type.id}>
                     <span className="flex items-center gap-2">
                       <span>{type.icon}</span>
@@ -302,32 +388,50 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
           )}
 
           {/* Date Selection */}
-          <div className="grid grid-cols-2 gap-2.5">
+          {isMyLeave ? (
             <div>
               <label className="text-xs font-semibold text-foreground uppercase tracking-wide block mb-1.5">
-                Start Date *
+                Leave Date *
               </label>
               <Input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setEndDate(e.target.value); // For My Leave, start and end are same
+                }}
                 min={today}
                 className="h-9 text-xs"
               />
             </div>
-            <div>
-              <label className="text-xs font-semibold text-foreground uppercase tracking-wide block mb-1.5">
-                End Date *
-              </label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                min={startDate || today}
-                className="h-9 text-xs"
-              />
+          ) : (
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-xs font-semibold text-foreground uppercase tracking-wide block mb-1.5">
+                  Start Date *
+                </label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  min={today}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-foreground uppercase tracking-wide block mb-1.5">
+                  End Date *
+                </label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate || today}
+                  className="h-9 text-xs"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Days Summary */}
           {requestedDays > 0 && (
@@ -362,69 +466,71 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
           </div>
 
           {/* File Upload (Optional) */}
-          <div>
-            <label className="text-xs font-semibold text-foreground uppercase tracking-wide block mb-1.5">
-              Attachment (Optional)
-            </label>
-            
-            {!selectedFile ? (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary/50 transition-colors">
-                <input
-                  type="file"
-                  id="file-upload"
-                  accept="image/*,.pdf"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-                <label
-                  htmlFor="file-upload"
-                  className="flex flex-col items-center justify-center cursor-pointer"
-                >
-                  <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                  <p className="text-xs text-gray-600 font-medium mb-1">
-                    Click to upload supporting document
-                  </p>
-                  <p className="text-[10px] text-gray-500">
-                    Images or PDF (Max 5MB)
-                  </p>
-                </label>
-              </div>
-            ) : (
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="flex items-start gap-3">
-                  {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="w-16 h-16 object-cover rounded border border-gray-200"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 bg-gray-200 rounded border border-gray-300 flex items-center justify-center">
-                      <ImageIcon className="w-6 h-6 text-gray-400" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-900 truncate">
-                      {selectedFile.name}
+          {!isMyLeave && (
+            <div>
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wide block mb-1.5">
+                Attachment (Optional)
+              </label>
+              
+              {!selectedFile ? (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary/50 transition-colors">
+                  <input
+                    type="file"
+                    id="file-upload"
+                    accept="image/jpeg,image/jpg,image/png,image/gif"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="flex flex-col items-center justify-center cursor-pointer"
+                  >
+                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                    <p className="text-xs text-gray-600 font-medium mb-1">
+                      Click to upload supporting image
                     </p>
                     <p className="text-[10px] text-gray-500">
-                      {(selectedFile.size / 1024).toFixed(1)} KB
+                      JPG, PNG, JPEG, GIF only (Max 5MB)
                     </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleRemoveFile}
-                    className="p-1 hover:bg-gray-200 rounded transition-colors"
-                  >
-                    <X className="w-4 h-4 text-gray-600" />
-                  </button>
+                  </label>
                 </div>
-              </div>
-            )}
-            <p className="text-[9px] text-muted-foreground mt-1">
-              Upload medical certificate or supporting document (optional)
-            </p>
-          </div>
+              ) : (
+                <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                  <div className="flex items-start gap-3">
+                    {previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt="Preview"
+                        className="w-16 h-16 object-cover rounded border border-gray-200"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-gray-200 rounded border border-gray-300 flex items-center justify-center">
+                        <ImageIcon className="w-6 h-6 text-gray-400" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-900 truncate">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-[10px] text-gray-500">
+                        {(selectedFile.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveFile}
+                      className="p-1 hover:bg-gray-200 rounded transition-colors"
+                    >
+                      <X className="w-4 h-4 text-gray-600" />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <p className="text-[9px] text-muted-foreground mt-1">
+                Upload image (JPG, PNG, JPEG, GIF) as supporting document (optional)
+              </p>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (

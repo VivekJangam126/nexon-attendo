@@ -16,8 +16,14 @@ export interface UserProfile {
   status: UserStatus;
   office_location: string | null;
   office_name?: string | null;
+  gender?: string | null; // "male" | "female" | null
   created_at: string;
   updated_at: string;
+  // Shift-related fields
+  shift_type?: string;
+  shift_mode?: string;
+  shift_config?: Record<string, any>;
+  office_id?: string;
 }
 
 export interface AuthResponse {

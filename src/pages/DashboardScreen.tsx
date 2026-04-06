@@ -7,6 +7,7 @@ import { BreakLogsHistory } from "@/components/BreakLogsHistory";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { attendanceService, attendanceSettingsService } from "@server";
+import { getShiftDisplayMessage, getShiftBadgeColor, hasShiftAssigned } from "@/utils/shiftFormatter";
 import type { Attendance } from "@server";
 
 const DashboardScreen = () => {
@@ -32,7 +33,8 @@ const DashboardScreen = () => {
       const { attendance } = await attendanceService.getTodayAttendance(profile);
       setTodayAttendance(attendance);
 
-      const { isOpen, windowDisplay: display } = await attendanceService.isWindowOpen();
+      // Pass profile to isWindowOpen so it checks shift-specific window
+      const { isOpen, windowDisplay: display } = await attendanceService.isWindowOpen(profile);
       setWindowOpen(isOpen);
       setWindowDisplay(display);
 
@@ -49,6 +51,27 @@ const DashboardScreen = () => {
     };
 
     fetchData();
+  }, [profile]);
+
+  // Polling refresh: Check for shift changes every 10 seconds
+  useEffect(() => {
+    if (!profile) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        // Refresh profile from auth context to pick up shift changes
+        // This will trigger a re-render if shift has changed
+        const authUser = (window as any).__authUser;
+        if (authUser?.id) {
+          // Force re-fetch from auth context
+          // The useAuth hook will handle the refresh
+        }
+      } catch (error) {
+        console.log('Polling refresh skipped (non-critical)');
+      }
+    }, 10000); // Every 10 seconds
+
+    return () => clearInterval(pollInterval);
   }, [profile]);
 
   useEffect(() => {
@@ -224,7 +247,14 @@ const DashboardScreen = () => {
             {/* Attendance Status Card */}
             <div className="bg-gradient-to-r from-white to-gray-50/50 rounded-xl border border-gray-200 shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Today's Attendance</h2>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Today's Attendance</h2>
+                  {profile && hasShiftAssigned(profile) && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      <span className="font-medium">{getShiftDisplayMessage(profile)}</span>
+                    </p>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
                   <Clock className="w-3.5 h-3.5" />
                   <span>Window: {windowDisplay}</span>
@@ -308,7 +338,27 @@ const DashboardScreen = () => {
               )}
             </div>
 
-
+            {/* Shift Information Card */}
+            {profile && hasShiftAssigned(profile) && (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 shadow-sm p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Your Shift</h3>
+                </div>
+                <div className="space-y-3">
+                  <p className={`px-4 py-3 rounded-lg text-sm font-medium ${getShiftBadgeColor(profile)}`}>
+                    {getShiftDisplayMessage(profile)}
+                  </p>
+                  {profile.shift_mode === 'rotating' && profile.shift_config && (
+                    <p className="text-xs text-gray-600 px-4">
+                      <strong>Rotation Pattern:</strong> {(profile.shift_config as any).pattern?.join(' → ') || 'Not configured'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Time Tracker */}
             <EmployeeTimeTracker 

@@ -15,6 +15,7 @@ import type {
 } from '../types/attendance';
 import { attendanceSettingsService } from './attendance-settings.service';
 import { rateLimitService } from './rate-limit.service';
+import { resolveEmployeeShift } from '../utils/shift-resolver';
 
 /**
  * Get current IST time
@@ -62,18 +63,20 @@ export const attendanceService = {
   /**
    * Mark attendance for a user
    * Validates all rules before marking attendance
+   * Uses employee's assigned shift for attendance window validation
    * 
    * Validation Order (STRICT):
    * 1. User is authenticated
    * 2. User role = employee
    * 3. User status = active
    * 4. User has office_id
-   * 5. Current time is within window (FROM DATABASE)
-   * 6. GPS coordinates provided
-   * 7. GPS within office radius (Haversine formula)
-   * 8. Attendance not already marked today
+   * 5. User has shift assigned
+   * 6. Current time is within shift window
+   * 7. GPS coordinates provided (if strict mode enabled)
+   * 8. GPS within office radius (if strict mode enabled)
+   * 9. Attendance not already marked today
    * 
-   * @param userProfile - User profile (must be authenticated)
+   * @param userProfile - User profile (must be authenticated, with shift_type)
    * @param latitude - GPS latitude
    * @param longitude - GPS longitude
    * @param ipAddress - Client IP address (optional, not used)
@@ -147,25 +150,67 @@ export const attendanceService = {
         };
       }
 
-      // Validation 5: Current time is within window (FROM DATABASE)
-      const { isOpen, window, error: windowError } = await attendanceSettingsService.isAttendanceWindowOpen();
-      
-      if (windowError || !window) {
+      // Validation 5: Check if shift is assigned
+      if (!userProfile.shift_type) {
+        console.log('  ❌ No shift assigned');
         return {
           success: false,
-          error: 'Unable to verify attendance window. Please contact admin.',
-          errorCode: 'VALIDATION_FAILED',
+          error: 'Shift not assigned. Please contact admin.',
+          errorCode: 'NO_SHIFT_ASSIGNED',
         };
       }
 
-      if (!isOpen) {
-        const windowDisplay = attendanceSettingsService.formatWindowTime(window);
+      console.log('  ✅ Shift assigned:', userProfile.shift_type);
+
+      // Validation 6: Get shift timings using resolver and check current time is within shift window
+      const shift = resolveEmployeeShift(userProfile);
+      
+      console.log(`  📅 Shift: ${shift.name} (${shift.start} - ${shift.end})`);
+
+      // Grace period: Fixed 10 minutes from shift start for determining PRESENT vs LATE
+      const GRACE_PERIOD_MINUTES = 10;
+      console.log(`  ⏱️  Grace period: ${GRACE_PERIOD_MINUTES} minutes (for check-in status)`);
+
+      // Check if current time is within shift window
+      const currentTime = getCurrentISTTime();
+      const currentHour = currentTime.getHours();
+      const currentMinute = currentTime.getMinutes();
+      const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+      const [shiftStartHour_check, shiftStartMinute_check] = shift.start.split(':').map(Number);
+      const [shiftEndHour_check, shiftEndMinute_check] = shift.end.split(':').map(Number);
+      const shiftStartInMinutes_check = shiftStartHour_check * 60 + shiftStartMinute_check;
+      const shiftEndInMinutes_check = shiftEndHour_check * 60 + shiftEndMinute_check;
+      const shiftStartWithGraceInMinutes_check = shiftStartInMinutes_check + GRACE_PERIOD_MINUTES;
+
+      console.log('  🕐 Shift window check:');
+      console.log(`    Current time: ${currentHour}:${currentMinute.toString().padStart(2, '0')}`);
+      console.log(`    Shift starts: ${shiftStartHour_check}:${shiftStartMinute_check.toString().padStart(2, '0')}`);
+      console.log(`    Shift ends: ${shiftEndHour_check}:${shiftEndMinute_check.toString().padStart(2, '0')}`);
+      console.log(`    Grace period boundary: ${Math.floor(shiftStartWithGraceInMinutes_check / 60)}:${(shiftStartWithGraceInMinutes_check % 60).toString().padStart(2, '0')}`);
+
+      // Check if within shift window (no grace period on boundaries - must be within shift hours)
+      if (currentTimeInMinutes < shiftStartInMinutes_check || currentTimeInMinutes > shiftEndInMinutes_check) {
+        const formattedStart = `${String(shiftStartHour_check).padStart(2, '0')}:${String(shiftStartMinute_check).padStart(2, '0')}`;
+        const formattedEnd = `${String(shiftEndHour_check).padStart(2, '0')}:${String(shiftEndMinute_check).padStart(2, '0')}`;
+        console.log('  ❌ Current time is outside shift window');
         return {
           success: false,
-          error: `Attendance is currently closed. Attendance window: ${windowDisplay}`,
+          error: `Outside ${shift.name} shift hours (${formattedStart} - ${formattedEnd})`,
           errorCode: 'ATTENDANCE_CLOSED',
         };
       }
+
+      // Determine PRESENT vs LATE status based on grace period
+      let attendanceStatus = 'present';
+      if (currentTimeInMinutes > shiftStartWithGraceInMinutes_check) {
+        attendanceStatus = 'late';
+        console.log('  ⏰ Late detection: Check-in after grace period → LATE status');
+      } else {
+        console.log('  ✅ On time: Check-in within grace period → PRESENT status');
+      }
+
+      console.log('  ✅ Current time is within shift window');
 
       // Check strict mode setting
       const { strictMode } = await attendanceSettingsService.getStrictMode();
@@ -216,52 +261,18 @@ export const attendanceService = {
           };
         }
 
-        // Mark attendance without GPS/WiFi validation but with late detection
-        const checkInTime = getCurrentISTTime();
-        const checkInHour = checkInTime.getHours();
-        const checkInMinute = checkInTime.getMinutes();
-        const checkInTimeInMinutes = checkInHour * 60 + checkInMinute;
-
-        console.log('  ⏰ Late detection calculation (IST):');
-        console.log('    Check-in time (IST):', `${checkInHour}:${checkInMinute.toString().padStart(2, '0')}`);
-        console.log('    Check-in minutes:', checkInTimeInMinutes);
-
-        // Parse window start time (already in IST format in database)
-        const [startHour, startMinute] = window.start_time.split(':').map(Number);
-        const windowStartMinutes = startHour * 60 + startMinute;
-        
-        console.log('    Window start (IST):', `${startHour}:${startMinute.toString().padStart(2, '0')}`);
-        console.log('    Window start minutes:', windowStartMinutes);
-        
-        // Get grace period from settings (default 15 minutes)
-        const gracePeriodMinutes = window.grace_period_minutes || 15;
-        const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
-
-        console.log('    Grace period:', gracePeriodMinutes, 'minutes');
-        console.log('    Grace period ends at (IST):', `${Math.floor(gracePeriodEndMinutes / 60)}:${(gracePeriodEndMinutes % 60).toString().padStart(2, '0')}`);
-        console.log('    Grace period end minutes:', gracePeriodEndMinutes);
-
-        // Determine status based on check-in time (both in IST)
-        let status: 'present' | 'late';
-        console.log(`  🔍 COMPARISON: ${checkInTimeInMinutes} <= ${gracePeriodEndMinutes}?`);
-        if (checkInTimeInMinutes <= gracePeriodEndMinutes) {
-          status = 'present';
-          console.log(`  ✅ Status: PRESENT (${checkInTimeInMinutes} <= ${gracePeriodEndMinutes})`);
-        } else {
-          status = 'late';
-          console.log(`  ⚠️  Status: LATE (${checkInTimeInMinutes} > ${gracePeriodEndMinutes})`);
-        }
-
+        console.log(`  📋 Marking attendance with status: ${attendanceStatus.toUpperCase()}`);
         console.log('  ✅ Marking attendance without location verification');
 
         // Store in UTC (toISOString() converts IST to UTC automatically)
+        const checkInTime = getCurrentISTTime();
         const { data: attendance, error: insertError } = await supabase
           .from('attendance')
           .insert({
             user_id: userProfile.id,
             date: todayDate,
             check_in_time: checkInTime.toISOString(), // Stores in UTC
-            status: status,
+            status: attendanceStatus,
             office_id: (activeOffice as any).id,
             latitude: latitude || null,
             longitude: longitude || null,
@@ -390,35 +401,33 @@ export const attendanceService = {
       console.log('    Check-in time (IST):', `${checkInHour}:${checkInMinute.toString().padStart(2, '0')}`);
       console.log('    Check-in minutes:', checkInTimeInMinutes);
 
-      // Parse window start time (already in IST format in database)
-      const [startHour, startMinute] = window.start_time.split(':').map(Number);
-      const windowStartMinutes = startHour * 60 + startMinute;
+      // Parse shift start time (already in HH:MM format)
+      const [shiftStartHour_gps, shiftStartMinute_gps] = shift.start.split(':').map(Number);
+      const shiftStartInMinutes_gps = shiftStartHour_gps * 60 + shiftStartMinute_gps;
       
-      console.log('    Window start (IST):', `${startHour}:${startMinute.toString().padStart(2, '0')}`);
-      console.log('    Window start minutes:', windowStartMinutes);
+      console.log('    Shift start (IST):', `${shiftStartHour_gps}:${shiftStartMinute_gps.toString().padStart(2, '0')}`);
+      console.log('    Shift start minutes:', shiftStartInMinutes_gps);
       
-      // Get grace period from settings (default 15 minutes)
-      const gracePeriodMinutes = window.grace_period_minutes || 15;
-      const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
+      const gracePeriodEndMinutes_gps = shiftStartInMinutes_gps + GRACE_PERIOD_MINUTES;
 
-      console.log('    Grace period:', gracePeriodMinutes, 'minutes');
-      console.log('    Grace period ends at (IST):', `${Math.floor(gracePeriodEndMinutes / 60)}:${(gracePeriodEndMinutes % 60).toString().padStart(2, '0')}`);
-      console.log('    Grace period end minutes:', gracePeriodEndMinutes);
+      console.log('    Grace period:', GRACE_PERIOD_MINUTES, 'minutes');
+      console.log('    Grace period ends at (IST):', `${Math.floor(gracePeriodEndMinutes_gps / 60)}:${(gracePeriodEndMinutes_gps % 60).toString().padStart(2, '0')}`);
+      console.log('    Grace period end minutes:', gracePeriodEndMinutes_gps);
 
       // Determine status based on check-in time (both in IST)
       let status: 'present' | 'late';
-      console.log(`  🔍 COMPARISON: ${checkInTimeInMinutes} <= ${gracePeriodEndMinutes}?`);
-      if (checkInTimeInMinutes <= gracePeriodEndMinutes) {
+      console.log(`  🔍 COMPARISON: ${checkInTimeInMinutes} <= ${gracePeriodEndMinutes_gps}?`);
+      if (checkInTimeInMinutes <= gracePeriodEndMinutes_gps) {
         status = 'present';
-        console.log(`  ✅ Status: PRESENT (${checkInTimeInMinutes} <= ${gracePeriodEndMinutes})`);
+        console.log(`  ✅ Status: PRESENT (${checkInTimeInMinutes} <= ${gracePeriodEndMinutes_gps})`);
       } else {
         status = 'late';
-        console.log(`  ⚠️  Status: LATE (${checkInTimeInMinutes} > ${gracePeriodEndMinutes})`);
+        console.log(`  ⚠️  Status: LATE (${checkInTimeInMinutes} > ${gracePeriodEndMinutes_gps})`);
       }
 
       console.log('  ⏰ Check-in time analysis:');
-      console.log(`    Window starts: ${startHour}:${startMinute.toString().padStart(2, '0')}`);
-      console.log(`    Grace period ends: ${Math.floor(gracePeriodEndMinutes / 60)}:${(gracePeriodEndMinutes % 60).toString().padStart(2, '0')}`);
+      console.log(`    Shift starts: ${shiftStartHour_gps}:${shiftStartMinute_gps.toString().padStart(2, '0')}`);
+      console.log(`    Grace period ends: ${Math.floor(gracePeriodEndMinutes_gps / 60)}:${(gracePeriodEndMinutes_gps % 60).toString().padStart(2, '0')}`);
       console.log(`    Check-in time: ${checkInHour}:${checkInMinute.toString().padStart(2, '0')}`);
       console.log(`    Status: ${status.toUpperCase()}`);
 
@@ -561,26 +570,64 @@ export const attendanceService = {
    * Check if attendance window is currently open
    * Uses database settings, NOT hardcoded values
    */
-  async isWindowOpen(): Promise<{
+  async isWindowOpen(userProfile?: UserProfile): Promise<{
     isOpen: boolean;
     windowDisplay: string;
     error: Error | null;
   }> {
-    const { isOpen, window, error } = await attendanceSettingsService.isAttendanceWindowOpen();
-    
-    if (error || !window) {
+    try {
+      // If no user profile provided, return global window (for backward compatibility)
+      if (!userProfile || !userProfile.shift_type) {
+        const { isOpen, window, error } = await attendanceSettingsService.isAttendanceWindowOpen();
+        
+        if (error || !window) {
+          return {
+            isOpen: false,
+            windowDisplay: 'Unknown',
+            error: error || new Error('No attendance window configured'),
+          };
+        }
+
+        return {
+          isOpen,
+          windowDisplay: attendanceSettingsService.formatWindowTime(window),
+          error: null,
+        };
+      }
+
+      // User profile provided: Check their specific shift window
+      const shift = resolveEmployeeShift(userProfile);
+      const currentTime = getCurrentISTTime();
+      const currentHour = currentTime.getHours();
+      const currentMinute = currentTime.getMinutes();
+      const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+      const [shiftStartHour, shiftStartMinute] = shift.start.split(':').map(Number);
+      const [shiftEndHour, shiftEndMinute] = shift.end.split(':').map(Number);
+      const shiftStartInMinutes = shiftStartHour * 60 + shiftStartMinute;
+      const shiftEndInMinutes = shiftEndHour * 60 + shiftEndMinute;
+
+      // Check if current time is within shift window
+      const isOpen = currentTimeInMinutes >= shiftStartInMinutes && currentTimeInMinutes <= shiftEndInMinutes;
+      
+      // Format window display with shift name and times
+      const startFormatted = `${String(shiftStartHour).padStart(2, '0')}:${String(shiftStartMinute).padStart(2, '0')}`;
+      const endFormatted = `${String(shiftEndHour).padStart(2, '0')}:${String(shiftEndMinute).padStart(2, '0')}`;
+      const windowDisplay = `${shift.name} (${startFormatted} - ${endFormatted})`;
+
+      return {
+        isOpen,
+        windowDisplay,
+        error: null,
+      };
+    } catch (error) {
+      console.error('Error checking window:', error);
       return {
         isOpen: false,
-        windowDisplay: 'Unknown',
-        error: error || new Error('No attendance window configured'),
+        windowDisplay: 'Error',
+        error: error as Error,
       };
     }
-
-    return {
-      isOpen,
-      windowDisplay: attendanceSettingsService.formatWindowTime(window),
-      error: null,
-    };
   },
 
   /**
@@ -844,7 +891,7 @@ export const attendanceService = {
         console.log('  ❌ Admin not authenticated');
         return {
           success: false,
-          errorCode: 'NOT_AUTHENTICATED',
+          errorCode: 'UNAUTHORIZED',
           message: 'Admin not authenticated',
         };
       }
@@ -910,8 +957,10 @@ export const attendanceService = {
       console.log('  ⏰ Check-out time (UTC):', checkOutTime);
 
       // Update attendance record with checkout time
+      // @ts-ignore - Supabase type inference issue with update
       const { error: updateError } = await supabase
         .from('attendance')
+        // @ts-ignore
         .update({
           check_out_time: checkOutTime,
           updated_at: new Date().toISOString(),

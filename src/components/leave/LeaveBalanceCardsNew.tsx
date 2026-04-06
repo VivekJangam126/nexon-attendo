@@ -17,25 +17,25 @@ interface LeaveBalanceCardsProps {
 }
 
 const LEAVE_TYPES = [
-  { id: 'sick', name: 'Sick Leave', color: 'from-red-500 to-red-600', bgColor: 'bg-red-50', textColor: 'text-gray-900', max: 5 },
-  { id: 'paid', name: 'Paid Leave', color: 'from-green-500 to-green-600', bgColor: 'bg-green-50', textColor: 'text-gray-900', max: 10 },
-  { id: 'unpaid', name: 'Unpaid Leave', color: 'from-gray-500 to-gray-600', bgColor: 'bg-gray-50', textColor: 'text-gray-900', max: 10 },
+  { id: 'sick', name: 'Sick Leave', color: 'from-red-500 to-red-600', bgColor: 'bg-red-50', textColor: 'text-gray-900', max: 6 },
+  { id: 'casual', name: 'Casual Leave', color: 'from-blue-500 to-blue-600', bgColor: 'bg-blue-50', textColor: 'text-gray-900', max: 19 },
+  { id: 'my', name: 'My Leave', color: 'from-pink-500 to-pink-600', bgColor: 'bg-pink-50', textColor: 'text-gray-900', max: 12, genderRestricted: 'female' },
 ];
 
 export function LeaveBalanceCards({ balances, isLoading }: LeaveBalanceCardsProps) {
-  const { user } = useAuth();
+  const { profile } = useAuth();
   const [leaveTypeMap, setLeaveTypeMap] = useState<Record<string, string>>({});
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     const fetchLeaveTypes = async () => {
-      // Check cache first
-      const cached = sessionStorage.getItem('leaveTypeMap');
-      if (cached) {
-        setLeaveTypeMap(JSON.parse(cached));
-        setIsInitialLoad(false);
-        return;
-      }
+      // Disabled sessionStorage cache to ensure fresh data
+      // const cached = sessionStorage.getItem('leaveTypeMap');
+      // if (cached) {
+      //   setLeaveTypeMap(JSON.parse(cached));
+      //   setIsInitialLoad(false);
+      //   return;
+      // }
 
       const { data: leaveTypes } = await supabase
         .from('leave_types')
@@ -71,6 +71,11 @@ export function LeaveBalanceCards({ balances, isLoading }: LeaveBalanceCardsProp
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {LEAVE_TYPES.map((type, index) => {
+        // Skip if gender-restricted and user doesn't have the required gender
+        if (type.genderRestricted && profile?.gender !== type.genderRestricted) {
+          return null;
+        }
+
         const typeId = leaveTypeMap[type.id];
         const balance = balances.find(b => b.leave_type_id === typeId);
         const total = balance?.total_leaves || type.max;

@@ -36,6 +36,9 @@ export const getErrorMessage = (errorCode?: AttendanceErrorCode, customMessage?:
     case 'NO_OFFICE_ASSIGNED':
       return 'No office location assigned. Please contact admin.';
     
+    case 'NO_SHIFT_ASSIGNED':
+      return 'Shift not assigned. Please contact HR to assign your shift.';
+    
     case 'VALIDATION_FAILED':
     default:
       return 'Failed to mark attendance. Please try again.';
@@ -70,6 +73,9 @@ export const getErrorTitle = (errorCode?: AttendanceErrorCode): string => {
     
     case 'NO_OFFICE_ASSIGNED':
       return 'No Office';
+    
+    case 'NO_SHIFT_ASSIGNED':
+      return 'No Shift';
     
     case 'VALIDATION_FAILED':
     default:

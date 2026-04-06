@@ -69,7 +69,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, ro
       const [attendance, window, windowStatus] = await Promise.all([
         getTodayAttendance(currentProfile.id),
         getActiveWindow(),
-        isWindowOpen(),
+        isWindowOpen(currentProfile),
       ]);
       
       console.log('✅ Dashboard data loaded:', {

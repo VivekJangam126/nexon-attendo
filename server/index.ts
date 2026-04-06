@@ -28,6 +28,7 @@ export { payrollCalculationService } from './services/payroll-calculation.servic
 export { holidayService } from './services/holiday.service';
 export { breakLogsService } from './services/break-logs.service';
 export { performanceAnalyticsService } from './services/performance-analytics.service';
+export { shiftManagementService, SHIFT_OPTIONS } from './services/shift-management.service';
 // Note: Google Calendar services are only used in API endpoints to avoid browser issues
 // They are used only in API endpoints (server/api/send-report-email.ts)
 // export { emailReportService } from './services/email-report.service';
@@ -69,6 +70,12 @@ export type {
   EmployeeWithAttendance,
   EmployeeDetailResponse,
 } from './services/employee.service';
+
+export type {
+  EmployeeShift,
+  ShiftType,
+  ShiftOption,
+} from './services/shift-management.service';
 
 export type {
   DashboardStats,

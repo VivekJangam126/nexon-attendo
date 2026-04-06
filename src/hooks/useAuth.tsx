@@ -60,19 +60,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const { user: authUser, error } = await authService.login(email, password);
+      console.log('🔐 [useAuth.login] Starting login for:', email);
+      
+      // Create a timeout promise that rejects after 15 seconds
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Login request timed out after 15 seconds')), 15000)
+      );
+
+      // Race between login and timeout
+      const loginPromise = authService.login(email, password);
+      const { user: authUser, error } = await Promise.race([
+        loginPromise,
+        timeoutPromise
+      ]) as any;
+      
+      console.log('🔐 [useAuth.login] authService.login response - user:', !!authUser, 'error:', error?.message);
       
       if (error) {
+        console.log('🔐 [useAuth.login] Login error - returning error');
         return { error: new Error(error.message) };
       }
 
       if (authUser) {
+        console.log('🔐 [useAuth.login] Login successful, fetching profile');
         // Fetch profile after successful login
         await fetchProfile(authUser.id);
+        console.log('🔐 [useAuth.login] Profile fetched successfully');
       }
 
       return { error: null };
     } catch (err) {
+      console.error('🔐 [useAuth.login] Catch error:', err);
       return {
         error: err instanceof Error ? err : new Error('Login failed'),
       };

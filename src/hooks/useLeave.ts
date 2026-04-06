@@ -60,10 +60,6 @@ export const useLeaveBalance = (year?: number) => {
 
   return useQuery({
     queryKey: ['leaveBalance', year],
-    staleTime: 0, // Always fetch fresh data
-    cacheTime: 0, // Don't cache
-    refetchInterval: 5000, // Refetch every 5 seconds
-    refetchOnWindowFocus: true, // Refetch when window gains focus
     queryFn: async () => {
       const params = year ? `?year=${year}` : '';
       const response = await fetch(`${API_BASE}/leave/balance${params}`, {
@@ -76,8 +72,11 @@ export const useLeaveBalance = (year?: number) => {
       return Array.isArray(data) ? data : [];
     },
     enabled: !!user,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 0, // Always consider stale, so ANY invalidation triggers refetch
+    gcTime: 1000 * 60 * 5, // Despite being stale, keep in cache for 5 mins
+    refetchInterval: 3000, // Refetch every 3 seconds for real-time updates
     refetchOnWindowFocus: true,
+    refetchIntervalInBackground: true, // Keep refetching even when tab not focused
     refetchOnMount: true,
   });
 };
@@ -265,10 +264,15 @@ export const useApproveLeave = () => {
       return response.json();
     },
     onSuccess: () => {
+      // Invalidate all balance-related queries
+      queryClient.invalidateQueries({ queryKey: ['leaveBalance'], exact: false });
+      // Force immediate refetch by resetting the stale time
+      queryClient.refetchQueries({ queryKey: ['leaveBalance'], type: 'active' });
+      
+      // Also invalidate other related queries
       queryClient.invalidateQueries({ queryKey: ['allLeaveRequests'] });
       queryClient.invalidateQueries({ queryKey: ['leaveAnalytics'] });
       queryClient.invalidateQueries({ queryKey: ['employeesOnLeaveToday'] });
-      queryClient.invalidateQueries({ queryKey: ['leaveBalance'] });
       queryClient.invalidateQueries({ queryKey: ['employeeLeaveRequests'] });
     },
   });
