@@ -12,6 +12,22 @@
       "destination": "/api/admin"
     },
     {
+      "source": "/api/holidays/:path*",
+      "destination": "/api/holidays"
+    },
+    {
+      "source": "/api/employees/:path*",
+      "destination": "/api/employees"
+    },
+    {
+      "source": "/api/payroll/:path*",
+      "destination": "/api/payroll"
+    },
+    {
+      "source": "/api/send-report-email",
+      "destination": "/api/send-report-email"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
@@ -43,6 +59,22 @@
     "api/admin.ts": {
       "memory": 1024,
       "maxDuration": 10
+    },
+    "api/holidays.ts": {
+      "memory": 1024,
+      "maxDuration": 10
+    },
+    "api/employees.ts": {
+      "memory": 1024,
+      "maxDuration": 10
+    },
+    "api/payroll.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    },
+    "api/send-report-email.ts": {
+      "memory": 1024,
+      "maxDuration": 30
     }
   }
 }
