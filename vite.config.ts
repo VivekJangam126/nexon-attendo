@@ -12,15 +12,17 @@ export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
   const env = loadEnv(mode, process.cwd(), '');
   
-  // Set environment variables globally
-  process.env.VITE_SUPABASE_URL = env.VITE_SUPABASE_URL || 'https://falbkccaqjqdbvrmdlll.supabase.co';
-  process.env.VITE_SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTE4NTQsImV4cCI6MjA4NjI2Nzg1NH0.FkwmwhprYiu7vtXhfGLE_zPmB6-9cbF7uNFqFu7qwVw';
-  process.env.SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDY5MTg1NCwiZXhwIjoyMDg2MjY3ODU0fQ.846KQ7v9nbH5-4COTqEgBGrboFFKrTG7w3AGPP4uIqk';
-  process.env.RESEND_API_KEY = env.RESEND_API_KEY || 're_8Mrzs5LU_2KqbP99nDzBevCMUstapBqCE';
-  process.env.TWILIO_ACCOUNT_SID = env.TWILIO_ACCOUNT_SID || 'AC83466c365ec477f3e45b636ae2f27b2c';
-  process.env.TWILIO_AUTH_TOKEN = env.TWILIO_AUTH_TOKEN || '0003ee92846543982cde08a030533ef4';
-  process.env.TWILIO_PHONE_NUMBER = env.TWILIO_PHONE_NUMBER || '+16509551246';
-  process.env.GOOGLE_CALENDAR_API_KEY = env.GOOGLE_CALENDAR_API_KEY || 'AIzaSyB0QifN28KLoh5Ige4X60Q0hY3F1iA__h0';
+  // Set environment variables from .env file
+  // WARNING: Do NOT add hardcoded fallback values for API keys/secrets here
+  // All sensitive credentials must be provided via environment variables only
+  process.env.VITE_SUPABASE_URL = env.VITE_SUPABASE_URL;
+  process.env.VITE_SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.RESEND_API_KEY = env.RESEND_API_KEY;
+  process.env.TWILIO_ACCOUNT_SID = env.TWILIO_ACCOUNT_SID;
+  process.env.TWILIO_AUTH_TOKEN = env.TWILIO_AUTH_TOKEN;
+  process.env.TWILIO_PHONE_NUMBER = env.TWILIO_PHONE_NUMBER;
+  process.env.GOOGLE_CALENDAR_API_KEY = env.GOOGLE_CALENDAR_API_KEY;
   
   return {
     server: {

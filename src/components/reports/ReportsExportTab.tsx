@@ -15,6 +15,143 @@ type ExportFormat = "pdf" | "excel";
 type TimeRange = "today" | "week" | "month" | "custom";
 type ReportTemplate = "daily" | "weekly" | "monthly" | "employee-specific" | null;
 
+// Helper function to calculate duration from formatted time strings
+const calculateDuration = (checkInTime: string | null, checkOutTime: string | null): string => {
+  if (!checkInTime || !checkOutTime || checkOutTime === '-') {
+    return '-';
+  }
+
+  try {
+    // Parse time strings like "2:30 PM" or "02:30 PM"
+    const parseTime = (timeStr: string): Date => {
+      const [time, period] = timeStr.split(' ');
+      const [hours, minutes] = time.split(':').map(Number);
+      
+      let hour24 = hours;
+      if (period === 'PM' && hours !== 12) {
+        hour24 = hours + 12;
+      } else if (period === 'AM' && hours === 12) {
+        hour24 = 0;
+      }
+      
+      const now = new Date();
+      const dateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour24, minutes, 0);
+      return dateObj;
+    };
+
+    const checkInDate = parseTime(checkInTime);
+    const checkOutDate = parseTime(checkOutTime);
+    
+    // If checkout is before checkin, it means checkout happened next day
+    if (checkOutDate < checkInDate) {
+      checkOutDate.setDate(checkOutDate.getDate() + 1);
+    }
+
+    // Calculate difference in milliseconds
+    const diffMs = checkOutDate.getTime() - checkInDate.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+    
+    if (hours === 0) {
+      return `${minutes}m`;
+    }
+    
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  } catch (error) {
+    console.error('Error calculating duration:', error);
+    return '-';
+  }
+};
+
+// Helper function to parse duration string to total minutes
+const parseDurationToMinutes = (durationStr: string): number => {
+  if (!durationStr || durationStr === '-') {
+    return 0;
+  }
+
+  try {
+    let totalMinutes = 0;
+    const parts = durationStr.split(' ');
+    
+    for (const part of parts) {
+      if (part.endsWith('h')) {
+        totalMinutes += parseInt(part) * 60;
+      } else if (part.endsWith('m')) {
+        totalMinutes += parseInt(part);
+      }
+    }
+    
+    return totalMinutes;
+  } catch (error) {
+    console.error('Error parsing duration:', error);
+    return 0;
+  }
+};
+
+// Helper function to format minutes back to duration string
+const formatMinutesToDuration = (totalMinutes: number): string => {
+  if (totalMinutes === 0) {
+    return '-';
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  
+  if (hours === 0) {
+    return `${minutes}m`;
+  }
+  
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+};
+
+// Helper function to resolve shift display text for a record
+const resolveShiftDisplay = (record: any): string => {
+  const shiftMode = record.shift_mode || 'fixed';
+  
+  if (shiftMode === 'fixed') {
+    // For fixed shifts, show Morning or Evening from shift_type
+    const shiftType = record.shift_type || 'evening';
+    return shiftType.charAt(0).toUpperCase() + shiftType.slice(1);
+  } else if (shiftMode === 'custom') {
+    // For custom shifts, show startTime - endTime from shift_config
+    if (record.shift_config && record.shift_config.startTime && record.shift_config.endTime) {
+      return `${record.shift_config.startTime} - ${record.shift_config.endTime}`;
+    }
+    return 'Custom';
+  } else if (shiftMode === 'rotating') {
+    // For rotating shifts, resolve current shift (would use resolveShift if available)
+    // Format: "Morning (This Week)" or "Evening (This Week)"
+    const currentShift = record.shift_type || 'morning';
+    return `${currentShift.charAt(0).toUpperCase() + currentShift.slice(1)} (Rotating)`;
+  }
+  
+  return 'Fixed';
+};
+
+// Helper function to group records by shift type
+const groupRecordsByShiftType = (records: any[]): { fixed: any[]; custom: any[]; rotating: any[] } => {
+  const grouped = {
+    fixed: [] as any[],
+    custom: [] as any[],
+    rotating: [] as any[]
+  };
+
+  records.forEach((record: any) => {
+    const shiftMode = record.shift_mode || 'fixed';
+    if (shiftMode === 'custom') {
+      grouped.custom.push(record);
+    } else if (shiftMode === 'rotating') {
+      grouped.rotating.push(record);
+    } else {
+      grouped.fixed.push(record);
+    }
+  });
+
+  return grouped;
+};
+
 export const ReportsExportTab = () => {
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>("excel");
   const [selectedRange, setSelectedRange] = useState<TimeRange>("week");
@@ -631,25 +768,54 @@ export const ReportsExportTab = () => {
     
     yPos = (doc as any).lastAutoTable.finalY + 14;
     
-    // Detailed Records (grouped by date)
+    // Detailed Records (grouped by shift type, then by date)
     doc.setFontSize(16);
     doc.setFont('times', 'bold');
     doc.text('Detailed Employee Records', 14, yPos);
     yPos += 8;
     
-    // Group records by date
-    const recordsByDate = new Map<string, any[]>();
-    records.forEach((record: any) => {
-      if (!recordsByDate.has(record.date)) {
-        recordsByDate.set(record.date, []);
+    // Group records by shift type
+    const groupedByShift = groupRecordsByShiftType(records);
+    const shiftGroups = [
+      { key: 'fixed', label: 'FIXED SHIFT', records: groupedByShift.fixed },
+      { key: 'custom', label: 'CUSTOM SHIFT', records: groupedByShift.custom },
+      { key: 'rotating', label: 'ROTATING SHIFT', records: groupedByShift.rotating }
+    ];
+    
+    // Render each shift group that has records
+    shiftGroups.forEach((shiftGroup) => {
+      if (shiftGroup.records.length === 0) return; // Skip empty sections
+      
+      // Shift section header
+      if (yPos > pageHeight - bottomMargin - 80) {
+        currentPage++;
+        doc.addPage();
+        addHeaderFooter();
+        yPos = headerHeight + 10;
       }
-      recordsByDate.get(record.date)!.push(record);
-    });
-    
-    // Sort dates in descending order - show all dates
-    const sortedDates = Array.from(recordsByDate.keys()).sort((a, b) => b.localeCompare(a));
-    
-    sortedDates.forEach((date) => {
+      
+      doc.setFillColor(41, 128, 185); // Blue header for shift sections
+      doc.rect(14, yPos - 4, pageWidth - 28, 10, 'F');
+      doc.setFontSize(13);
+      doc.setFont('times', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text(`${shiftGroup.label}`, 18, yPos + 2);
+      doc.setTextColor(0, 0, 0);
+      yPos += 10;
+      
+      // Group records by date within shift
+      const recordsByDate = new Map<string, any[]>();
+      shiftGroup.records.forEach((record: any) => {
+        if (!recordsByDate.has(record.date)) {
+          recordsByDate.set(record.date, []);
+        }
+        recordsByDate.get(record.date)!.push(record);
+      });
+      
+      // Sort dates in descending order
+      const sortedDates = Array.from(recordsByDate.keys()).sort((a, b) => b.localeCompare(a));
+      
+      sortedDates.forEach((date) => {
       // Check if we need a new page (with more space for footer)
       if (yPos > pageHeight - bottomMargin - 50) {
         currentPage++;
@@ -693,18 +859,22 @@ export const ReportsExportTab = () => {
       
       const tableData = sortedRecords.map(record => {
         const statusDisplay = record.status.toUpperCase();
+        const duration = calculateDuration(record.checkInTime, record.checkOutTime);
+        const shiftDetail = resolveShiftDisplay(record);
         return [
           record.employeeName,
           record.email,
           record.checkInTime,
           record.checkOutTime || '-',
+          duration,
+          shiftDetail,
           statusDisplay
         ];
       });
       
       autoTable(doc, {
         startY: yPos,
-        head: [['Employee Name', 'Email', 'Check-In', 'Check-Out', 'Status']],
+        head: [['Employee Name', 'Email', 'Check-In', 'Check-Out', 'Duration', 'Shift', 'Status']],
         body: tableData,
         theme: 'grid',
         headStyles: { 
@@ -724,15 +894,17 @@ export const ReportsExportTab = () => {
           fillColor: [248, 249, 250]
         },
         columnStyles: {
-          0: { cellWidth: 45, halign: 'left' },
-          1: { cellWidth: 50, halign: 'left' },
-          2: { cellWidth: 22, halign: 'center' },
-          3: { cellWidth: 22, halign: 'center' },
-          4: { cellWidth: 21, halign: 'center', fontStyle: 'bold' },
+          0: { cellWidth: 40, halign: 'left' },
+          1: { cellWidth: 45, halign: 'left' },
+          2: { cellWidth: 18, halign: 'center' },
+          3: { cellWidth: 18, halign: 'center' },
+          4: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },
+          5: { cellWidth: 22, halign: 'center' },
+          6: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },
         },
         didParseCell: function(data) {
           // Color code status column with badge-like styling
-          if (data.column.index === 4 && data.section === 'body') {
+          if (data.column.index === 6 && data.section === 'body') {
             const status = data.cell.raw as string;
             if (status === 'PRESENT') {
               data.cell.styles.textColor = [22, 163, 74];
@@ -760,7 +932,93 @@ export const ReportsExportTab = () => {
       });
       
       yPos = (doc as any).lastAutoTable.finalY + 12;
-    });
+    }); // End of shift group forEach
+    
+    }); // End shift groups
+    
+    // Weekly/Monthly Summary Section - Total Duration by Employee (Skip for daily reports)
+    if (selectedRange !== 'today') {
+      if (yPos > pageHeight - bottomMargin - 50) {
+        currentPage++;
+        doc.addPage();
+        addHeaderFooter();
+        yPos = headerHeight + 10;
+      }
+      
+      // Calculate date range from records for summary
+      const summaryRecordDates = records.map((r: any) => new Date(r.date + 'T00:00:00')).sort((a, b) => a.getTime() - b.getTime());
+      const summaryDateRangeText = summaryRecordDates.length > 0
+        ? `(${summaryRecordDates[0].toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} - ${summaryRecordDates[summaryRecordDates.length - 1].toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })})`
+        : '';
+      
+      const summaryTitle = selectedRange === 'month' ? 'Monthly Summary' : 'Weekly Summary';
+      
+      doc.setFontSize(16);
+      doc.setFont('times', 'bold');
+      doc.text(`${summaryTitle} - Total Hours Worked ${summaryDateRangeText}`, 14, yPos);
+      yPos += 8;
+      
+      // Group records by employee and calculate total duration
+      const employeeSummaryDuration = new Map<string, { email: string; totalMinutes: number }>();
+      records.forEach((record: any) => {
+        const duration = calculateDuration(record.checkInTime, record.checkOutTime);
+        const durationMinutes = parseDurationToMinutes(duration);
+        
+        if (!employeeSummaryDuration.has(record.employeeName)) {
+          employeeSummaryDuration.set(record.employeeName, { email: record.email, totalMinutes: 0 });
+        }
+        
+        const existing = employeeSummaryDuration.get(record.employeeName)!;
+        existing.totalMinutes += durationMinutes;
+      });
+      
+      // Sort employees by total duration (descending)
+      const summaryData = Array.from(employeeSummaryDuration.entries())
+        .sort((a, b) => b[1].totalMinutes - a[1].totalMinutes)
+        .map(([name, data]) => [
+          name,
+          data.email,
+          formatMinutesToDuration(data.totalMinutes)
+        ]);
+      
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Employee Name', 'Email', 'Total Hours Worked']],
+        body: summaryData,
+        theme: 'grid',
+        headStyles: { 
+          fillColor: [46, 125, 50],
+          textColor: [255, 255, 255],
+          fontSize: 10,
+          fontStyle: 'bold',
+          font: 'times',
+          cellPadding: 3,
+          halign: 'center'
+        },
+        bodyStyles: { 
+          fontSize: 9,
+          font: 'times',
+          cellPadding: 3
+        },
+        alternateRowStyles: {
+          fillColor: [245, 248, 245]
+        },
+        columnStyles: {
+          0: { cellWidth: 70, halign: 'left' },
+          1: { cellWidth: 80, halign: 'left' },
+          2: { cellWidth: 40, halign: 'center', fontStyle: 'bold' },
+        },
+        didDrawPage: function(data) {
+          if (data.pageNumber > currentPage) {
+            currentPage = data.pageNumber;
+            addHeaderFooter();
+          }
+        },
+        margin: { top: headerHeight + 5, bottom: bottomMargin }
+      });
+      
+      yPos = (doc as any).lastAutoTable.finalY + 14;
+    }
     
     // Footer section with signature block
     if (yPos > pageHeight - bottomMargin - 30) {
@@ -863,64 +1121,135 @@ export const ReportsExportTab = () => {
       []
     ];
 
-    // Group records by date
-    const recordsByDate = new Map<string, any[]>();
-    records.forEach((record: any) => {
-      if (!recordsByDate.has(record.date)) {
-        recordsByDate.set(record.date, []);
-      }
-      recordsByDate.get(record.date)!.push(record);
-    });
-    
-    // Sort dates in descending order
-    const sortedDates = Array.from(recordsByDate.keys()).sort((a, b) => b.localeCompare(a));
-    
-    // Add each date section to summary sheet
-    sortedDates.forEach((date) => {
-      const dateRecords = recordsByDate.get(date)!;
-      const dateObj = new Date(date + 'T00:00:00');
-      const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-      const formattedDate = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      
-      const dayPresent = dateRecords.filter(r => r.status === 'present').length;
-      const dayLate = dateRecords.filter(r => r.status === 'late').length;
-      const dayAbsent = dateRecords.filter(r => r.status === 'absent').length;
-      const dayRate = stats.totalEmployees > 0 
-        ? Math.round(((dayPresent + dayLate) / stats.totalEmployees) * 100) 
-        : 0;
-      
-      summaryData.push([`DATE: ${dayName} ${formattedDate}`]);
-      summaryData.push(['--------------------------------------------------------------------------------']);
-      summaryData.push([`Summary: ${dayPresent} Present | ${dayLate} Late | ${dayAbsent} Absent | ${dayRate}% Attendance`]);
+    // Group records by shift type (matching PDF structure)
+    const groupedByShift = groupRecordsByShiftType(records);
+    const shiftGroups = [
+      { key: 'fixed', label: 'FIXED SHIFT', records: groupedByShift.fixed },
+      { key: 'custom', label: 'CUSTOM SHIFT', records: groupedByShift.custom },
+      { key: 'rotating', label: 'ROTATING SHIFT', records: groupedByShift.rotating }
+    ];
+
+    // Process each shift group
+    shiftGroups.forEach((shiftGroup) => {
+      if (shiftGroup.records.length === 0) return; // Skip empty shift groups
+
+      // Add shift section header
+      summaryData.push([`${shiftGroup.label}`]);
+      summaryData.push(['================================================================================']);
       summaryData.push([]);
-      summaryData.push(['Employee Name', 'Email', 'Date', 'Check-In Time', 'Check-Out Time', 'Status']);
-      
-      // Sort records by status then name
-      const sortedRecords = dateRecords.sort((a, b) => {
-        const statusOrder = { present: 1, late: 2, absent: 3 };
-        const statusCompare = statusOrder[a.status as keyof typeof statusOrder] - statusOrder[b.status as keyof typeof statusOrder];
-        if (statusCompare !== 0) return statusCompare;
-        return a.employeeName.localeCompare(b.employeeName);
+
+      // Group records by date within shift
+      const recordsByDate = new Map<string, any[]>();
+      shiftGroup.records.forEach((record: any) => {
+        if (!recordsByDate.has(record.date)) {
+          recordsByDate.set(record.date, []);
+        }
+        recordsByDate.get(record.date)!.push(record);
       });
-      
-      sortedRecords.forEach(record => {
-        const recordDateObj = new Date(record.date + 'T00:00:00');
-        const recordFormattedDate = recordDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        summaryData.push([
-          record.employeeName,
-          record.email,
-          recordFormattedDate,
-          record.checkInTime,
-          record.checkOutTime || '-',
-          record.status.toUpperCase()
-        ]);
+
+      // Sort dates in descending order
+      const sortedDates = Array.from(recordsByDate.keys()).sort((a, b) => b.localeCompare(a));
+
+      // Add each date section within shift
+      sortedDates.forEach((date) => {
+        const dateRecords = recordsByDate.get(date)!;
+        const dateObj = new Date(date + 'T00:00:00');
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+        const formattedDate = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        
+        const dayPresent = dateRecords.filter(r => r.status === 'present').length;
+        const dayLate = dateRecords.filter(r => r.status === 'late').length;
+        const dayAbsent = dateRecords.filter(r => r.status === 'absent').length;
+        const dayRate = stats.totalEmployees > 0 
+          ? Math.round(((dayPresent + dayLate) / stats.totalEmployees) * 100) 
+          : 0;
+        
+        summaryData.push([`DATE: ${dayName} ${formattedDate}`]);
+        summaryData.push(['--------------------------------------------------------------------------------']);
+        summaryData.push([`Summary: ${dayPresent} Present | ${dayLate} Late | ${dayAbsent} Absent | ${dayRate}% Attendance`]);
+        summaryData.push([]);
+        summaryData.push(['Employee Name', 'Email', 'Date', 'Check-In Time', 'Check-Out Time', 'Duration', 'Shift', 'Status']);
+        
+        // Sort records by status then name
+        const sortedRecords = dateRecords.sort((a, b) => {
+          const statusOrder = { present: 1, late: 2, absent: 3 };
+          const statusCompare = statusOrder[a.status as keyof typeof statusOrder] - statusOrder[b.status as keyof typeof statusOrder];
+          if (statusCompare !== 0) return statusCompare;
+          return a.employeeName.localeCompare(b.employeeName);
+        });
+        
+        sortedRecords.forEach(record => {
+          const recordDateObj = new Date(record.date + 'T00:00:00');
+          const recordFormattedDate = recordDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+          const duration = calculateDuration(record.checkInTime, record.checkOutTime);
+          const shiftDetail = resolveShiftDisplay(record);
+          summaryData.push([
+            record.employeeName,
+            record.email,
+            recordFormattedDate,
+            record.checkInTime,
+            record.checkOutTime || '-',
+            duration,
+            shiftDetail,
+            record.status.toUpperCase()
+          ]);
+        });
+        
+        summaryData.push([]);
+        summaryData.push([]);
       });
-      
+
+      // Add separator between shift groups
       summaryData.push([]);
+      summaryData.push(['================================================================================']);
       summaryData.push([]);
     });
 
-    summaryData.push(['================================================================================']);
+    // Weekly/Monthly Summary Section (Skip for daily reports)
+    if (selectedRange !== 'today') {
+      summaryData.push([]);
+      summaryData.push(['================================================================================']);
+    const excelRecordDates = records.map((r: any) => new Date(r.date + 'T00:00:00')).sort((a, b) => a.getTime() - b.getTime());
+    const excelDateRangeText = excelRecordDates.length > 0
+      ? ` (${excelRecordDates[0].toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} - ${excelRecordDates[excelRecordDates.length - 1].toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })})`
+      : '';
+    
+    const excelSummaryTitle = selectedRange === 'month' ? 'MONTHLY SUMMARY' : 'WEEKLY SUMMARY';
+    
+    summaryData.push([`${excelSummaryTitle} - TOTAL HOURS WORKED${excelDateRangeText}`]);
+    summaryData.push(['--------------------------------------------------------------------------------']);
+    summaryData.push([]);
+    summaryData.push(['Employee Name', 'Email', 'Total Hours Worked']);
+    
+    // Calculate total duration for each employee
+    const employeeSummaryDurationExcel = new Map<string, { email: string; totalMinutes: number }>();
+    records.forEach((record: any) => {
+      const duration = calculateDuration(record.checkInTime, record.checkOutTime);
+      const durationMinutes = parseDurationToMinutes(duration);
+      
+      if (!employeeSummaryDurationExcel.has(record.employeeName)) {
+        employeeSummaryDurationExcel.set(record.employeeName, { email: record.email, totalMinutes: 0 });
+      }
+      
+      const existing = employeeSummaryDurationExcel.get(record.employeeName)!;
+      existing.totalMinutes += durationMinutes;
+    });
+    
+    // Sort employees by total duration (descending) and add to summary
+    Array.from(employeeSummaryDurationExcel.entries())
+      .sort((a, b) => b[1].totalMinutes - a[1].totalMinutes)
+      .forEach(([name, data]) => {
+        summaryData.push([
+          name,
+          data.email,
+          formatMinutesToDuration(data.totalMinutes)
+        ]);
+      });
+    
+      summaryData.push([]);
+      summaryData.push(['================================================================================']);
+    }
+    
     summaryData.push(['END OF REPORT']);
     summaryData.push([`Generated by Nexus Attendo | ${reportDate} ${reportTime}`]);
 
@@ -933,6 +1262,8 @@ export const ReportsExportTab = () => {
       { wch: 15 }, // Date
       { wch: 15 }, // Check-In Time
       { wch: 15 }, // Check-Out Time
+      { wch: 15 }, // Duration
+      { wch: 18 }, // Shift
       { wch: 10 }  // Status
     ];
     

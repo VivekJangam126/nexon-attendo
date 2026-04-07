@@ -29,6 +29,9 @@ export interface EmployeeAttendanceRecord {
   checkInTime: string;
   checkOutTime: string | null;
   status: 'present' | 'late' | 'absent';
+  shift_type?: string;
+  shift_mode?: string;
+  shift_config?: any;
 }
 
 export interface AttendanceHistoryRecord {
@@ -815,7 +818,7 @@ export const reportsService = {
         // Query 1: Get ALL active employees
         supabase
           .from('profiles')
-          .select('id, full_name, email')
+          .select('id, full_name, email, shift_type, shift_mode, shift_config')
           .eq('status', 'active')
           .eq('role', 'employee')
           .order('full_name', { ascending: true }),
@@ -971,6 +974,9 @@ export const reportsService = {
               checkInTime: checkInFormatted,
               checkOutTime: checkOutFormatted,
               status: attendance.status,
+              shift_type: employee.shift_type,
+              shift_mode: employee.shift_mode,
+              shift_config: employee.shift_config,
             });
           } else if (holidayReason) {
             // Employee has holiday or approved leave - don't mark as absent
@@ -982,6 +988,9 @@ export const reportsService = {
               checkInTime: holidayReason,
               checkOutTime: null,
               status: isLeave ? 'on_leave' as any : 'holiday' as any,
+              shift_type: employee.shift_type,
+              shift_mode: employee.shift_mode,
+              shift_config: employee.shift_config,
             });
           } else {
             // Employee has no attendance record - mark as absent
@@ -1024,7 +1033,7 @@ export const reportsService = {
       // Get ALL active employees
       const { data: employees, error: employeesError } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
+        .select('id, full_name, email, shift_type, shift_mode, shift_config')
         .eq('status', 'active')
         .eq('role', 'employee')
         .order('full_name', { ascending: true });
@@ -1121,6 +1130,9 @@ export const reportsService = {
               checkInTime: checkInFormatted,
               checkOutTime: checkOutFormatted,
               status: attendance.status,
+              shift_type: employee.shift_type,
+              shift_mode: employee.shift_mode,
+              shift_config: employee.shift_config,
             });
           } else {
             // Employee has no attendance record - mark as absent
@@ -1131,6 +1143,9 @@ export const reportsService = {
               checkInTime: '-',
               checkOutTime: null,
               status: 'absent',
+              shift_type: employee.shift_type,
+              shift_mode: employee.shift_mode,
+              shift_config: employee.shift_config,
             });
           }
         });
