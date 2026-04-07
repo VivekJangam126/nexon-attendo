@@ -64,10 +64,11 @@ export const attendanceSettingsService = {
         };
       }
 
+      const window = data as AttendanceWindow;
       console.log('  ✅ Window fetched successfully:', {
-        start: (data as any).start_time,
-        end: (data as any).end_time,
-        active: (data as any).is_active
+        start: window.start_time,
+        end: window.end_time,
+        active: window.is_active
       });
 
       return {

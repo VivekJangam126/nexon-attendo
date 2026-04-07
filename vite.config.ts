@@ -193,6 +193,22 @@ export default defineConfig(({ mode }) => {
         },
       },
     ].filter(Boolean),
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Extract html2canvas into its own chunk to reduce main bundle
+            'html2canvas': ['html2canvas'],
+            // Extract large UI libraries into separate chunks
+            'radix-ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+            // Extract date/time libraries
+            'date-fns': ['date-fns'],
+          },
+        },
+      },
+      // Increase chunk size warning limit slightly since we're optimizing
+      chunkSizeWarningLimit: 600,
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

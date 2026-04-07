@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { attendanceService } from "@server";
 import type { Attendance } from "@server";
+import { supabase } from "@/lib/supabase";
 import {
   Select,
   SelectContent,
@@ -149,9 +150,6 @@ const HistoryScreen = () => {
 
     if (profile?.id) {
       try {
-        // Import supabase client
-        const { supabase } = await import('@/lib/supabase');
-
         // Fetch recurring holidays
         const { data: recurringHolidays } = await supabase
           .from('employee_recurring_holidays')
