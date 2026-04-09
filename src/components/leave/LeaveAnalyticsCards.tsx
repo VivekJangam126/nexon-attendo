@@ -1,4 +1,4 @@
-import { LeaveAnalytics } from '@/server/types/leave';
+import { LeaveAnalytics } from '@server/types/leave';
 import { Users, Clock, AlertCircle, TrendingUp } from 'lucide-react';
 
 interface LeaveAnalyticsCardsProps {

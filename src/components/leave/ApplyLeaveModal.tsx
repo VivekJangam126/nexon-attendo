@@ -198,6 +198,12 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
       return;
     }
 
+    // Validate backdated leave limit (30 days maximum in the past)
+    if (isBackdatedLeave && !isValidBackdatedLeave) {
+      setError('You can only apply for leave from the last 30 days');
+      return;
+    }
+
     if (!user) {
       setError('You must be logged in');
       return;
@@ -300,6 +306,11 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
   };
 
   const today = new Date().toISOString().split('T')[0];
+  
+  // Calculate date 30 days ago for backdated limit
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const minBackdatedDate = thirtyDaysAgo.toISOString().split('T')[0];
 
   const calculateDays = () => {
     if (!startDate || !endDate) return 0;
@@ -309,6 +320,12 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
   };
 
   const requestedDays = calculateDays();
+  
+  // Check if start date is in the past
+  const isBackdatedLeave = startDate && new Date(startDate) < new Date(today);
+  
+  // Check if backdated leave is within allowed range (30 days)
+  const isValidBackdatedLeave = isBackdatedLeave && new Date(startDate) >= new Date(minBackdatedDate);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -400,7 +417,8 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
                   setStartDate(e.target.value);
                   setEndDate(e.target.value); // For My Leave, start and end are same
                 }}
-                min={today}
+                min={minBackdatedDate}
+                max={today}
                 className="h-9 text-xs"
               />
             </div>
@@ -414,7 +432,7 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  min={today}
+                  min={minBackdatedDate}
                   className="h-9 text-xs"
                 />
               </div>
@@ -426,9 +444,26 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate || today}
+                  min={startDate || minBackdatedDate}
                   className="h-9 text-xs"
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Backdated Leave Warning */}
+          {isBackdatedLeave && (
+            <div className={`p-2.5 rounded-lg flex items-start gap-2.5 ${isValidBackdatedLeave ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-200'}`}>
+              <AlertCircle className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${isValidBackdatedLeave ? 'text-amber-600' : 'text-red-600'}`} />
+              <div className="text-[10px]">
+                <p className={`font-semibold mb-0.5 ${isValidBackdatedLeave ? 'text-amber-700' : 'text-red-700'}`}>
+                  {isValidBackdatedLeave ? '⚠️ Backdated Leave' : '❌ Past Leave Date'}
+                </p>
+                <p className={isValidBackdatedLeave ? 'text-amber-700' : 'text-red-700'}>
+                  {isValidBackdatedLeave 
+                    ? 'You are applying for a past date. This request will require admin approval.' 
+                    : 'You can only apply for leave from the last 30 days.'}
+                </p>
               </div>
             </div>
           )}

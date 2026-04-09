@@ -3,6 +3,7 @@
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "ignoreDeprecations": "6.0",
     "isolatedModules": true,
     "jsx": "react-native",
     "lib": [

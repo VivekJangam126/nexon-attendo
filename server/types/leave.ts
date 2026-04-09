@@ -26,6 +26,7 @@ export interface LeaveRequest {
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
   admin_comment?: string;
+  is_backdated?: boolean;
   created_at: string;
   updated_at: string;
 }

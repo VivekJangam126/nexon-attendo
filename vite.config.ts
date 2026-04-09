@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
   // All sensitive credentials must be provided via environment variables only
   process.env.VITE_SUPABASE_URL = env.VITE_SUPABASE_URL;
   process.env.VITE_SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY;
-  process.env.SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.VITE_SUPABASE_SERVICE_KEY = env.VITE_SUPABASE_SERVICE_KEY;
   process.env.RESEND_API_KEY = env.RESEND_API_KEY;
   process.env.TWILIO_ACCOUNT_SID = env.TWILIO_ACCOUNT_SID;
   process.env.TWILIO_AUTH_TOKEN = env.TWILIO_AUTH_TOKEN;

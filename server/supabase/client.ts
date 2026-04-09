@@ -4,17 +4,51 @@ import type { Database } from '../types/database';
 /**
  * Supabase Client Configuration
  * Reads credentials from environment variables
+ * 
+ * For Frontend (browser):
+ *   - Uses import.meta.env.VITE_* (injected by Vite from .env files)
+ * 
+ * For Backend (Node.js via Vite middleware):
+ *   - Uses process.env.VITE_* (set by vite.config.ts from .env files)
+ * 
+ * Environment Variables Required:
+ * - VITE_SUPABASE_URL: Your Supabase project URL
+ * - VITE_SUPABASE_ANON_KEY: Supabase anonymous key (public, respects RLS)
+ * - VITE_SUPABASE_SERVICE_KEY: Supabase service role key (private, bypasses RLS - backend only)
  */
 
-// Hardcoded values for reliability (environment variables can be unreliable in serverless)
-const supabaseUrl = 'https://falbkccaqjqdbvrmdlll.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTE4NTQsImV4cCI6MjA4NjI2Nzg1NH0.FkwmwhprYiu7vtXhfGLE_zPmB6-9cbF7uNFqFu7qwVw';
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDY5MTg1NCwiZXhwIjoyMDg2MjY3ODU0fQ.846KQ7v9nbH5-4COTqEgBGrboFFKrTG7w3AGPP4uIqk';
+// Helper to get environment variables from both contexts
+const getEnv = (key: string): string => {
+  // Try import.meta.env first (frontend - Vite exposes VITE_* vars here)
+  try {
+    const val = (import.meta.env as Record<string, any>)[key];
+    if (val) return val;
+  } catch (e) {
+    // import.meta not available in backend context
+  }
+  
+  // Fall back to process.env (backend/Node.js)
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[key] || '';
+  }
+  
+  return '';
+};
 
-if (!supabaseUrl || !supabaseAnonKey) {
+const supabaseUrl = getEnv('VITE_SUPABASE_URL');
+const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
+const supabaseServiceKey = getEnv('VITE_SUPABASE_SERVICE_KEY');
+
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+  const missing = [];
+  if (!supabaseUrl) missing.push('VITE_SUPABASE_URL');
+  if (!supabaseAnonKey) missing.push('VITE_SUPABASE_ANON_KEY');
+  if (!supabaseServiceKey) missing.push('VITE_SUPABASE_SERVICE_KEY');
+  
   throw new Error(
-    'Missing Supabase environment variables. Please check your .env file.\n' +
-    'Required: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY'
+    `Missing required Supabase environment variables:\n${missing.join(', ')}\n\n` +
+    'For Vercel deployment, add these to your environment variables in the Vercel dashboard.\n' +
+    'For local development, create a .env.local file in the root directory.'
   );
 }
 
@@ -26,12 +60,15 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
 /**
  * Service role Supabase client (bypasses RLS)
- * Used by backend API routes
+ * Used by backend API routes only
+ * Only created if service key is available (backend context)
  */
-export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+export const supabaseAdmin = supabaseServiceKey 
+  ? createClient<Database>(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+  : (supabase as any);
 

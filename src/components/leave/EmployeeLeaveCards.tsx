@@ -1,6 +1,6 @@
 import { useEmployeeLeaveBalance } from '@/hooks/useLeave';
 import { FileText, Clock, CheckCircle2, XCircle } from 'lucide-react';
-import type { LeaveRequest } from '@/server/types/leave';
+import type { LeaveRequest } from '@server/types/leave';
 
 interface EmployeeLeaveCardsProps {
   employeeId: string;

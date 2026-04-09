@@ -188,10 +188,17 @@ export function AdminLeaveRequestsTable({
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Badge className={`text-xs font-semibold gap-1.5 border ${getStatusColor(request.status)}`}>
-                      {getStatusIcon(request.status)}
-                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                    </Badge>
+                    <div className="flex flex-col gap-2">
+                      <Badge className={`text-xs font-semibold gap-1.5 border ${getStatusColor(request.status)}`}>
+                        {getStatusIcon(request.status)}
+                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                      </Badge>
+                      {request.is_backdated && (
+                        <Badge className="text-xs font-semibold gap-1.5 border bg-amber-50 text-amber-700 border-amber-200 w-fit">
+                          ⏳ Backdated
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     {request.status === 'pending' && (
@@ -242,6 +249,16 @@ export function AdminLeaveRequestsTable({
           </DialogHeader>
 
           <div className="space-y-5">
+            {/* Backdated Warning */}
+            {selectedRequest?.is_backdated && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2.5">
+                <div className="text-amber-600 text-lg">⏳</div>
+                <div className="text-xs text-amber-700">
+                  <p className="font-semibold">Backdated Leave Request</p>
+                  <p className="text-amber-600 text-[11px] mt-0.5">This leave was applied for a past date and requires verification.</p>
+                </div>
+              </div>
+            )}
             <div className="bg-gradient-to-br from-primary/5 to-primary/2 p-4 rounded-lg border border-primary/10 space-y-3">
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Reason</p>

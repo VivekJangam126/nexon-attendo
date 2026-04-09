@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LeavePolicy } from '@/server/types/leave';
+import { LeavePolicy } from '@server/types/leave';
 import { AlertCircle } from 'lucide-react';
 
 interface PolicyGuideCardProps {

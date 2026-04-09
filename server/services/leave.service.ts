@@ -5,7 +5,7 @@ import { LeaveAnniversaryService } from './leave-anniversary.service';
 export class LeaveService {
   // Get leave types
   static async getLeaveTypes(): Promise<LeaveType[]> {
-    const { data, error } = await supabaseAdminAdmin
+    const { data, error } = await (supabaseAdmin as any)
       .from('leave_types')
       .select('*')
       .order('name');
@@ -47,7 +47,7 @@ export class LeaveService {
       const yearEndStr = LeaveAnniversaryService.formatDateForDB(employmentYear.end);
 
       // Get all leave types
-      const { data: leaveTypes, error: typesError } = await supabaseAdmin
+      const { data: leaveTypes, error: typesError } = await (supabaseAdmin as any)
         .from('leave_types')
         .select('*');
 
@@ -61,7 +61,7 @@ export class LeaveService {
       // Create balance for each leave type
       for (const type of leaveTypes) {
         try {
-          const { data: balance, error: insertError } = await supabaseAdmin
+          const { data: balance, error: insertError } = await (supabaseAdmin as any)
             .from('employee_leave_balance')
             .insert({
               employee_id: employeeId,
@@ -79,7 +79,7 @@ export class LeaveService {
           if (insertError) {
             // If duplicate, try to fetch existing
             if (insertError.code === 'PGRST116' || insertError.code === '23505') {
-              const { data: existing } = await supabaseAdmin
+              const { data: existing } = await (supabaseAdmin as any)
                 .from('employee_leave_balance')
                 .select('*')
                 .eq('employee_id', employeeId)
@@ -106,7 +106,7 @@ export class LeaveService {
 
   // Get leave policies
   static async getLeavePolicies(): Promise<LeavePolicy[]> {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await (supabaseAdmin as any)
       .from('leave_policies')
       .select('*')
       .order('created_at');
@@ -129,8 +129,17 @@ export class LeaveService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    if (start < today) {
-      throw new Error('Start date must be in the future');
+    // Check if leave is backdated (start date is in the past)
+    const isBackdated = start < today;
+
+    // If backdated, enforce 30-day limit
+    if (isBackdated) {
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      if (start < thirtyDaysAgo) {
+        throw new Error('You can only apply for leave from the last 30 days');
+      }
     }
 
     if (end < start) {
@@ -142,14 +151,14 @@ export class LeaveService {
     if (leaveTypeId === MY_LEAVE_ID) {
       // If gender not provided, fetch from profiles table
       if (!employeeGender) {
-        const { data: profile, error: profileError } = await supabaseAdmin
+        const { data: profile, error: profileError } = await (supabaseAdmin as any)
           .from('profiles')
           .select('gender')
           .eq('id', employeeId)
           .single();
 
-        if (profileError) throw new Error('Unable to verify employee details');
-        employeeGender = profile?.gender;
+        if (profileError || !profile) throw new Error('Unable to verify employee details');
+        employeeGender = (profile as any).gender;
       }
 
       // Only female employees can use "My Leave"
@@ -167,7 +176,7 @@ export class LeaveService {
       const lastDayOfMonth = new Date(currentYear, currentMonthNum, 0).getDate();
       const monthEnd = `${currentMonth}-${String(lastDayOfMonth).padStart(2, '0')}`;
       
-      const { data: monthlyLeaves, error: monthlyError } = await supabaseAdmin
+      const { data: monthlyLeaves, error: monthlyError } = await (supabaseAdmin as any)
         .from('leave_requests')
         .select('*')
         .eq('employee_id', employeeId)
@@ -182,7 +191,7 @@ export class LeaveService {
       }
     }
 
-    const { data: overlapping, error: overlapError } = await supabaseAdmin
+    const { data: overlapping, error: overlapError } = await (supabaseAdmin as any)
       .from('leave_requests')
       .select('*')
       .eq('employee_id', employeeId)
@@ -218,7 +227,7 @@ export class LeaveService {
       throw new Error(`Insufficient leave balance. Available: ${(balance as any).remaining_leaves} days`);
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await (supabaseAdmin as any)
       .from('leave_requests')
       .insert({
         employee_id: employeeId,
@@ -227,6 +236,7 @@ export class LeaveService {
         end_date: endDate,
         reason,
         status: 'pending',
+        is_backdated: isBackdated,
       } as any)
       .select()
       .single();
@@ -239,7 +249,7 @@ export class LeaveService {
   static async getEmployeeLeaveRequests(employeeId: string): Promise<LeaveRequest[]> {
     console.log('[LeaveService] getEmployeeLeaveRequests called with employeeId:', employeeId);
     
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await (supabaseAdmin as any)
       .from('leave_requests')
       .select(`*`)
       .eq('employee_id', employeeId)
@@ -259,7 +269,7 @@ export class LeaveService {
   static async getEmployeesOnLeaveToday(): Promise<any[]> {
     const today = new Date().toISOString().split('T')[0];
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await (supabaseAdmin as any)
       .from('leave_requests')
       .select('*')
       .eq('status', 'approved')
@@ -270,15 +280,15 @@ export class LeaveService {
     if (error) throw error;
 
     if (data && data.length > 0) {
-      const employeeIds = [...new Set(data.map((r: any) => r.employee_id))];
-      const { data: employees } = await supabaseAdmin
+      const employeeIds = [...new Set(((data as any) || []).map((r: any) => r.employee_id))];
+      const { data: employees } = await (supabaseAdmin as any)
         .from('profiles')
         .select('id, full_name, email')
         .in('id', employeeIds);
 
       if (employees) {
-        const employeeMap = new Map(employees.map((e: any) => [e.id, e]));
-        return data.map((request: any) => ({
+        const employeeMap = new Map((employees as any).map((e: any) => [e.id, e]));
+        return (data as any).map((request: any) => ({
           ...request,
           employee: employeeMap.get(request.employee_id),
         }));
@@ -293,7 +303,7 @@ export class LeaveService {
     status?: string;
     employeeId?: string;
   }): Promise<any[]> {
-    let query = supabaseAdmin
+    let query = (supabaseAdmin as any)
       .from('leave_requests')
       .select('*');
 
@@ -312,20 +322,20 @@ export class LeaveService {
     if (error) throw error;
 
     if (data && data.length > 0) {
-      const employeeIds = [...new Set(data.map((r: any) => r.employee_id))];
-      const { data: employees } = await supabaseAdmin
+      const employeeIds = [...new Set(((data as any) || []).map((r: any) => r.employee_id))];
+      const { data: employees } = await (supabaseAdmin as any)
         .from('profiles')
         .select('id, full_name, email')
         .in('id', employeeIds);
 
-      const leaveTypeIds = [...new Set(data.map((r: any) => r.leave_type_id).filter(Boolean))];
-      const { data: leaveTypes } = await supabaseAdmin
+      const leaveTypeIds = [...new Set(((data as any) || []).map((r: any) => r.leave_type_id).filter(Boolean))];
+      const { data: leaveTypes } = await (supabaseAdmin as any)
         .from('leave_types')
         .select('id, name')
         .in('id', leaveTypeIds);
 
       if (employees) {
-        const employeeMap = new Map(employees.map((e: any) => [e.id, e]));
+        const employeeMap = new Map((employees as any).map((e: any) => [e.id, e]));
         const leaveTypeMap = new Map((leaveTypes || []).map((lt: any) => [lt.id, lt]));
         
         return data.map((request: any) => ({
@@ -353,13 +363,13 @@ export class LeaveService {
     // Validate "My Leave" approval - only for female employees
     const MY_LEAVE_ID = '55555555-5555-5555-5555-555555555555';
     if ((leaveRequest as any).leave_type_id === MY_LEAVE_ID) {
-      const { data: profile, error: profileError } = await supabaseAdmin
+      const { data: profile, error: profileError } = await (supabaseAdmin as any)
         .from('profiles')
         .select('gender')
         .eq('id', (leaveRequest as any).employee_id)
         .single();
 
-      if (profileError || profile?.gender !== 'female') {
+      if (profileError || !profile || (profile as any).gender !== 'female') {
         throw new Error('My Leave can only be approved for female employees');
       }
     }
@@ -374,13 +384,13 @@ export class LeaveService {
     console.log('[approveLeaveRequest] Leave Type ID:', (leaveRequest as any).leave_type_id);
 
     // Update request status
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await (supabaseAdmin as any)
       .from('leave_requests')
       .update({
         status: 'approved',
         admin_comment: adminComment || null,
         updated_at: new Date().toISOString(),
-      } as any)
+      })
       .eq('id', leaveRequestId);
 
     if (updateError) {
@@ -391,7 +401,7 @@ export class LeaveService {
     // Update leave balance
     if ((leaveRequest as any).leave_type_id) {
       // Get the balance record
-      const { data: balances, error: balanceError } = await supabaseAdmin
+      const { data: balances, error: balanceError } = await (supabaseAdmin as any)
         .from('employee_leave_balance')
         .select('*')
         .eq('employee_id', (leaveRequest as any).employee_id)
@@ -419,13 +429,13 @@ export class LeaveService {
           total: balance.total_leaves,
         });
 
-        const { error: updateBalanceError } = await supabaseAdmin
+        const { error: updateBalanceError } = await (supabaseAdmin as any)
           .from('employee_leave_balance')
           .update({
             used_leaves: newUsedLeaves,
             remaining_leaves: newRemainingLeaves,
             updated_at: new Date().toISOString(),
-          } as any)
+          })
           .eq('id', balance.id);
 
         if (updateBalanceError) {
@@ -445,15 +455,15 @@ export class LeaveService {
           .eq('id', (leaveRequest as any).leave_type_id)
           .single();
 
-        if (ltError) {
+        if (ltError || !leaveType) {
           console.error('[approveLeaveRequest] Leave type fetch error:', ltError);
-          throw ltError;
+          throw ltError || new Error('Leave type not found');
         }
 
-        const totalLeaves = leaveType?.max_per_year || 12;
+        const totalLeaves = (leaveType as any).max_per_year || 12;
         const newRemainingLeaves = Math.max(0, totalLeaves - leaveDays);
 
-        const { data: newBalance, error: insertError } = await supabaseAdmin
+        const { data: newBalance, error: insertError } = await (supabaseAdmin as any)
           .from('employee_leave_balance')
           .insert({
             employee_id: (leaveRequest as any).employee_id,
@@ -464,7 +474,7 @@ export class LeaveService {
             year: new Date().getFullYear(),
             employment_year_start: `${new Date().getFullYear()}-01-01`,
             employment_year_end: `${new Date().getFullYear()}-12-31`,
-          } as any)
+          })
           .select()
           .single();
 
@@ -473,20 +483,20 @@ export class LeaveService {
           throw insertError;
         }
 
-        console.log('[approveLeaveRequest] New balance record created:', newBalance?.id);
+        console.log('[approveLeaveRequest] New balance record created:', (newBalance as any)?.id);
       }
     }
   }
 
   // Admin: Reject leave request
   static async rejectLeaveRequest(leaveRequestId: string, adminComment: string): Promise<void> {
-    const { error } = await supabaseAdmin
+    const { error } = await (supabaseAdmin as any)
       .from('leave_requests')
       .update({
         status: 'rejected',
         admin_comment: adminComment,
         updated_at: new Date().toISOString(),
-      } as any)
+      })
       .eq('id', leaveRequestId);
 
     if (error) throw error;
@@ -597,7 +607,7 @@ export class LeaveService {
         
         // Get all approved leave requests for this employee and leave type in current employment year
         // Use the employment year date range instead of calendar year
-        const { data: approvedRequests, error: requestError } = await supabaseAdmin
+        const { data: approvedRequests, error: requestError } = await (supabaseAdmin as any)
           .from('leave_requests')
           .select('leave_days')
           .eq('employee_id', employeeId)
@@ -612,7 +622,7 @@ export class LeaveService {
         }
 
         // Calculate total used leaves from approved requests
-        const totalUsedLeaves = (approvedRequests || []).reduce((sum, req) => sum + (req.leave_days || 0), 0);
+        const totalUsedLeaves = ((approvedRequests as any) || []).reduce((sum: number, req: any) => sum + ((req as any)?.leave_days || 0), 0);
         const newRemainingLeaves = Math.max(0, (balanceRecord.total_leaves || 0) - totalUsedLeaves);
 
         console.log('[LeaveService] Recalculating balance for leave type:', balanceRecord.leave_type_id, {
@@ -631,7 +641,7 @@ export class LeaveService {
           console.log('[LeaveService] Balance needs update, updating...');
           
           // Update the balance record
-          const { data: updatedBalance, error: updateError } = await supabaseAdmin
+          const { data: updatedBalance, error: updateError } = await (supabaseAdmin as any)
             .from('employee_leave_balance')
             .update({
               used_leaves: totalUsedLeaves,
@@ -700,17 +710,17 @@ export class LeaveService {
         return { success: true, message: 'No active employees found' };
       }
 
-      const results = [];
+      const results: any[] = [];
       let successCount = 0;
       let failureCount = 0;
 
       // Recalculate balance for each employee
       for (const employee of employees) {
         try {
-          const result = await this.recalculateLeaveBalance(employee.id);
+          const result = await this.recalculateLeaveBalance((employee as any).id);
           results.push({
-            employeeId: employee.id,
-            employeeName: employee.full_name,
+            employeeId: (employee as any).id,
+            employeeName: (employee as any).full_name,
             success: result.success,
             message: result.message
           });
@@ -721,10 +731,10 @@ export class LeaveService {
             failureCount++;
           }
         } catch (error) {
-          console.error('[LeaveService] Error recalculating for employee:', employee.id, error);
+          console.error('[LeaveService] Error recalculating for employee:', (employee as any).id, error);
           results.push({
-            employeeId: employee.id,
-            employeeName: employee.full_name,
+            employeeId: (employee as any).id,
+            employeeName: (employee as any).full_name,
             success: false,
             message: 'Unexpected error occurred'
           });

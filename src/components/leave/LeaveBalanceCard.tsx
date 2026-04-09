@@ -1,4 +1,4 @@
-import { EmployeeLeaveBalance } from '@/server/types/leave';
+import { EmployeeLeaveBalance } from '@server/types/leave';
 import { TrendingDown, TrendingUp } from 'lucide-react';
 
 interface LeaveBalanceCardProps {
