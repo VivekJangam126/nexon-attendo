@@ -184,7 +184,7 @@ export function AdminLeaveRequestsTable({
                   </TableCell>
                   <TableCell className="text-center">
                     <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-sm font-bold text-primary">
-                      {calculateDays(request.start_date, request.end_date)}
+                      {request.days || calculateDays(request.start_date, request.end_date)}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -274,7 +274,7 @@ export function AdminLeaveRequestsTable({
               <div className="border-t border-primary/10 pt-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Total Days</p>
                 <p className="text-sm font-bold text-primary">
-                  {calculateDays(selectedRequest?.start_date, selectedRequest?.end_date)} days
+                  {selectedRequest?.days || calculateDays(selectedRequest?.start_date, selectedRequest?.end_date)} days
                 </p>
               </div>
               

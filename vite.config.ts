@@ -24,6 +24,11 @@ export default defineConfig(({ mode }) => {
   process.env.TWILIO_PHONE_NUMBER = env.TWILIO_PHONE_NUMBER;
   process.env.GOOGLE_CALENDAR_API_KEY = env.GOOGLE_CALENDAR_API_KEY;
   
+  // Set non-VITE prefixed variables for API routes (Vercel functions)
+  process.env.SUPABASE_URL = env.SUPABASE_URL;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_ANON_KEY = env.SUPABASE_ANON_KEY;
+  
   return {
     server: {
       host: "::",
@@ -72,18 +77,19 @@ export default defineConfig(({ mode }) => {
                 console.log('[API Middleware] Incoming request:', req.method, req.url);
                 console.log('[API Middleware] Pathname:', pathname);
                 
-                // Determine which handler to use
+                // Determine which handler to use - Use Vercel API structure
                 let handler;
                 
                 try {
-                  if (pathname.startsWith('admin/leave/')) {
-                    const action = parts[2]; // e.g., 'requests', 'approve', 'reject'
-                    console.log('[API Middleware] Loading admin/leave handler:', action);
-                    handler = await import(`./server/api/admin/leave/${action}.ts`);
+                  if (pathname.startsWith('admin/')) {
+                    console.log('[API Middleware] Loading admin handler');
+                    handler = await import('./api/admin.ts');
                   } else if (pathname.startsWith('leave/')) {
-                    const action = parts[1]; // e.g., 'apply', 'balance', 'my-requests'
-                    console.log('[API Middleware] Loading leave handler:', action);
-                    handler = await import(`./server/api/leave/${action}.ts`);
+                    console.log('[API Middleware] Loading leave handler');
+                    handler = await import('./api/leave.ts');
+                  } else if (pathname.startsWith('holidays')) {
+                    console.log('[API Middleware] Loading holidays handler');
+                    handler = await import('./api/holidays.ts');
                   } else if (pathname.startsWith('payroll')) {
                     console.log('[API Middleware] Loading payroll handler');
                     handler = await import('./server/api/payroll.ts');
@@ -99,9 +105,6 @@ export default defineConfig(({ mode }) => {
                   } else if (pathname.startsWith('upload-photo')) {
                     console.log('[API Middleware] Loading upload-photo handler');
                     handler = await import('./server/api/upload-photo.ts');
-                  } else if (pathname.startsWith('holidays')) {
-                    console.log('[API Middleware] Loading holidays handler');
-                    handler = await import('./server/api/holidays.ts');
                   } else {
                     console.log('[API Middleware] No handler found for path:', pathname);
                     res.statusCode = 404;

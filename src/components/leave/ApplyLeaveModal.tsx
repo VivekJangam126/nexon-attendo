@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -58,9 +58,40 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [holidays, setHolidays] = useState<{recurring: number[], specific: string[]}>({recurring: [], specific: []});
   const { user, profile } = useAuth();
   const { data: balances = [] } = useLeaveBalance() as { data: any[] };
   const queryClient = useQueryClient();
+
+  // Fetch employee's holidays
+  useEffect(() => {
+    const fetchHolidays = async () => {
+      if (!user?.id) return;
+
+      try {
+        // Fetch recurring holidays (e.g., Saturday=6, Sunday=0)
+        const { data: recurringData } = await supabase
+          .from('employee_recurring_holidays')
+          .select('day_of_week')
+          .eq('employee_id', user.id);
+
+        // Fetch specific holidays
+        const { data: specificData } = await supabase
+          .from('employee_specific_holidays')
+          .select('holiday_date')
+          .eq('employee_id', user.id);
+
+        setHolidays({
+          recurring: recurringData?.map(h => h.day_of_week) || [],
+          specific: specificData?.map(h => h.holiday_date) || []
+        });
+      } catch (error) {
+        console.error('Error fetching holidays:', error);
+      }
+    };
+
+    fetchHolidays();
+  }, [user?.id]);
 
   const selectedLeaveType = getAvailableLeaveTypes(profile?.gender).find(t => t.id === leaveTypeId);
   const leaveBalance = (balances as any[]).find(b => b.leave_type_id === leaveTypeId);
@@ -312,11 +343,42 @@ export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveMod
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const minBackdatedDate = thirtyDaysAgo.toISOString().split('T')[0];
 
+  // Function to check if a date is a holiday
+  const isHoliday = (date: Date): boolean => {
+    const dayOfWeek = date.getDay();
+    const dateStr = date.toISOString().split('T')[0];
+    
+    // Check if it's a recurring holiday (e.g., Saturday or Sunday)
+    if (holidays.recurring.includes(dayOfWeek)) {
+      return true;
+    }
+    
+    // Check if it's a specific holiday
+    if (holidays.specific.includes(dateStr)) {
+      return true;
+    }
+    
+    return false;
+  };
+
   const calculateDays = () => {
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
     const end = new Date(endDate);
-    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    let workingDays = 0;
+    const currentDate = new Date(start);
+    
+    // Iterate through each day in the range
+    while (currentDate <= end) {
+      // Only count if it's not a holiday
+      if (!isHoliday(currentDate)) {
+        workingDays++;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return workingDays;
   };
 
   const requestedDays = calculateDays();

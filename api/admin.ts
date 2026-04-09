@@ -1,22 +1,33 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-// Load from environment variables
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
-}
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Load from environment variables inside handler
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  console.log('[Admin API] Environment check:', {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseServiceKey,
+    urlValue: supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'undefined',
+    keyLength: supabaseServiceKey?.length || 0
+  });
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('[Admin API] Missing environment variables!');
+    return res.status(500).json({ 
+      error: 'Invalid API key',
+      details: 'Server configuration error - missing Supabase credentials'
+    });
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+
   const path = req.url?.replace('/api/admin', '') || '/';
   
   console.log('[Admin API] Request:', req.method, path);
@@ -102,10 +113,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(404).json({ error: 'Leave request not found' });
           }
 
-          // Calculate days
+          // Calculate days excluding holidays
           const startDate = new Date(leaveRequest.start_date);
           const endDate = new Date(leaveRequest.end_date);
-          const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          
+          // Fetch employee's holidays
+          const { data: recurringHolidays } = await supabaseAdmin
+            .from('employee_recurring_holidays')
+            .select('day_of_week')
+            .eq('employee_id', leaveRequest.employee_id);
+
+          const { data: specificHolidays } = await supabaseAdmin
+            .from('employee_specific_holidays')
+            .select('holiday_date')
+            .eq('employee_id', leaveRequest.employee_id);
+
+          const recurringDays = recurringHolidays?.map(h => h.day_of_week) || [];
+          const specificDates = specificHolidays?.map(h => h.holiday_date) || [];
+          
+          let workingDays = 0;
+          const currentDate = new Date(startDate);
+          
+          // Iterate through each day and count only working days
+          while (currentDate <= endDate) {
+            const dayOfWeek = currentDate.getDay();
+            const dateStr = currentDate.toISOString().split('T')[0];
+            
+            // Skip if it's a recurring holiday or specific holiday
+            const isRecurringHoliday = recurringDays.includes(dayOfWeek);
+            const isSpecificHoliday = specificDates.includes(dateStr);
+            
+            if (!isRecurringHoliday && !isSpecificHoliday) {
+              workingDays++;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+          
+          const days = workingDays;
 
           // Update leave request status
           const { error: updateError } = await supabaseAdmin

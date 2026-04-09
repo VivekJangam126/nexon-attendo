@@ -171,7 +171,7 @@ export function LeaveHistoryTable({ requests, isLoading }: LeaveHistoryTableProp
             {requests.map((request, index) => {
               const config = getStatusConfig(request.status);
               const StatusIcon = config.icon;
-              const days = calculateDays(request.start_date, request.end_date);
+              const days = request.days || calculateDays(request.start_date, request.end_date);
               const leaveTypeName = getLeaveTypeName(request.leave_type_id);
 
               return [
@@ -219,7 +219,7 @@ export function LeaveHistoryTable({ requests, isLoading }: LeaveHistoryTableProp
         {requests.map((request, index) => {
           const config = getStatusConfig(request.status);
           const StatusIcon = config.icon;
-          const days = calculateDays(request.start_date, request.end_date);
+          const days = request.days || calculateDays(request.start_date, request.end_date);
           const leaveTypeName = getLeaveTypeName(request.leave_type_id);
 
           return (
