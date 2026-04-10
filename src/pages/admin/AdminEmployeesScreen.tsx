@@ -134,15 +134,17 @@ const AdminEmployeesScreen = () => {
         case 'role':
           compareValue = a.role.localeCompare(b.role);
           break;
-        case 'check_in':
+        case 'check_in': {
           const timeA = a.check_in_time ? new Date(a.check_in_time).getTime() : 0;
           const timeB = b.check_in_time ? new Date(b.check_in_time).getTime() : 0;
           compareValue = timeA - timeB;
           break;
-        case 'status':
+        }
+        case 'status': {
           const statusOrder = { present: 1, late: 2, not_marked: 3, absent: 4 };
           compareValue = statusOrder[a.today_status] - statusOrder[b.today_status];
           break;
+        }
       }
 
       return sortDirection === 'asc' ? compareValue : -compareValue;
