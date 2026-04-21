@@ -270,29 +270,103 @@ npm run test:coverage
 
 ## 🚀 Deployment
 
-### Web Application
-Deployed on Vercel with automatic deployments from main branch.
+### Pre-Deployment Checklist
 
+Before deploying to production, ensure:
+
+1. **Environment Variables**: All required environment variables are configured
+   - `VITE_SUPABASE_URL` - Your Supabase project URL
+   - `VITE_SUPABASE_ANON_KEY` - Public anon key for client
+   - `SUPABASE_SERVICE_ROLE_KEY` - Service role key for server-side operations
+   - See `.env.example` for complete list and setup instructions
+
+2. **Run Pre-Deploy Validation**:
+   ```bash
+   node scripts/pre-deploy.js
+   ```
+   This checks for:
+   - Missing environment variables
+   - Hardcoded credentials in source code
+   - Required configuration files
+   - Build scripts availability
+
+3. **Build Production Bundle**:
+   ```bash
+   npm run build
+   ```
+   Output location: `dist/` directory
+   
+4. **Test Production Build Locally**:
+   ```bash
+   npm run preview
+   ```
+
+### Web Application (Vercel)
+
+#### Option 1: Automatic Deployment (Recommended)
+1. Connect your GitHub repository to Vercel
+2. Set environment variables in Vercel Project Settings → Environment Variables
+3. Push to main branch - automatic deployment triggered
+
+#### Option 2: Manual Deployment
 ```bash
-# Manual deployment
+npm run deploy:prod
+```
+Or manually:
+```bash
 vercel --prod
 ```
 
-### Mobile Application
+#### Vercel Environment Setup
+In Vercel Dashboard:
+1. Go to Project Settings → Environment Variables
+2. Add each variable from `.env.example`
+3. Ensure variables are available for **Production** environment
+4. Redeploy after adding variables
+
+### Mobile Application (Expo)
+
 Built and distributed via Expo Application Services (EAS).
 
 ```bash
-# Submit to stores
-eas submit --platform android
-eas submit --platform ios
+# Build for production
+eas build --platform android --profile production
+eas build --platform ios --profile production
+
+# Submit to app stores
+eas submit --platform android --latest
+eas submit --platform ios --latest
 ```
 
-### Supabase Functions
+See `mobile/DEPLOYMENT_GUIDE_COMPLETE.md` for detailed mobile deployment instructions.
+
+### Supabase Functions & Cron Jobs
+
 ```bash
 # Deploy edge functions
 supabase functions deploy auto-checkout-cron
 supabase functions deploy notification-cron
+
+# View function logs
+supabase functions logs auto-checkout-cron
 ```
+
+### Post-Deployment
+
+1. **Verify Connectivity**
+   - Check application loads in browser
+   - Test login with test account
+   - Verify API endpoints are responding
+
+2. **Monitor Errors**
+   - Monitor Vercel deployments dashboard
+   - Check Supabase function logs
+   - Review error tracking service (if configured)
+
+3. **Database Verification**
+   - Ensure all migrations have run
+   - Verify row-level security policies are active
+   - Check cron jobs are scheduled
 
 ## 🔄 Cron Jobs
 

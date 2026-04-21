@@ -8,6 +8,7 @@ import {
 import AdminLayout from "@/components/AdminLayout";
 import { EmployeeLeaveBalanceCards } from "@/components/leave/EmployeeLeaveBalanceCards";
 import { EmployeeTimeTracker } from "@/components/EmployeeTimeTracker";
+import { EmployeeWeeklyHoursCard } from "@/components/EmployeeWeeklyHoursCard";
 import { BreakLogsHistory } from "@/components/BreakLogsHistory";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -482,6 +483,11 @@ const AdminEmployeeDetailScreen = () => {
                   ))}
                 </div>
               </div>
+
+              {/* Weekly Working Hours */}
+              <div className="animate-fade-in-up" style={{ animationDelay: "0.15s" }}>
+                <EmployeeWeeklyHoursCard attendanceHistory={attendanceHistory} />
+              </div>
             </div>
 
             {/* Right column */}
@@ -570,23 +576,6 @@ const AdminEmployeeDetailScreen = () => {
                     employeeName={employee.full_name}
                     refreshTrigger={breakRefreshTrigger}
                   />
-                </div>
-              </div>
-
-              {/* Attendance History */}
-              <div className="animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-                <h2 className="text-overline mb-2">Recent Attendance</h2>
-                <div className="card-elevated divide-y divide-border">
-                  {attendanceHistory.slice(0, 5).map((record, index) => (
-                    <div key={index} className="flex items-center gap-3 p-3">
-                      <div className="w-9 h-9 bg-muted rounded-lg flex items-center justify-center"><Calendar className="w-4.5 h-4.5 text-muted-foreground" /></div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{new Date(record.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</p>
-                        <p className="text-xs text-muted-foreground">{formatCheckInTime(record.check_in_time) || "No check-in"}</p>
-                      </div>
-                      <StatusBadge status={record.status} />
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>

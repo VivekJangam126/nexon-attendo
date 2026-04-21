@@ -25,9 +25,10 @@ export default defineConfig(({ mode }) => {
   process.env.GOOGLE_CALENDAR_API_KEY = env.GOOGLE_CALENDAR_API_KEY;
   
   // Set non-VITE prefixed variables for API routes (Vercel functions)
-  process.env.SUPABASE_URL = env.SUPABASE_URL;
-  process.env.SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
-  process.env.SUPABASE_ANON_KEY = env.SUPABASE_ANON_KEY;
+  // Use VITE prefixed values if non-VITE aren't in .env
+  process.env.SUPABASE_URL = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY || env.VITE_SUPABASE_SERVICE_KEY;
+  process.env.SUPABASE_ANON_KEY = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY;
   
   return {
     server: {

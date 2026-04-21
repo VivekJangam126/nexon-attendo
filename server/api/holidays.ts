@@ -100,6 +100,10 @@ export default async function handler(req: Request, res: Response) {
  * GET /api/holidays
  * Get all holidays (admin) or employee's holidays (employee)
  */
+/**
+ * GET /api/holidays
+ * Get all holidays (admin) or employee's holidays (employee)
+ */
 export async function getHolidays(req: Request, res: Response) {
   try {
     console.log('[Holiday API] getHolidays called');
@@ -113,37 +117,25 @@ export async function getHolidays(req: Request, res: Response) {
 
     const token = authHeader.replace('Bearer ', '');
     
-    // Create authenticated Supabase client with user's token
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = 'https://falbkccaqjqdbvrmdlll.supabase.co';
-    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTE4NTQsImV4cCI6MjA4NjI2Nzg1NH0.FkwmwhprYiu7vtXhfGLE_zPmB6-9cbF7uNFqFu7qwVw';
-    
-    const authenticatedSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    });
-    
-    const { data: { user }, error: authError } = await authenticatedSupabase.auth.getUser(token);
+    // Verify user first
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-      console.log('[Holiday API] Invalid token');
+      console.log('[Holiday API] Invalid token:', authError?.message);
       return res.status(401).json({ error: 'Invalid token' });
     }
 
     console.log('[Holiday API] User authenticated:', user.id);
 
     // Get user profile
-    const { data: profile, error: profileError } = await authenticatedSupabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
-      console.log('[Holiday API] Profile not found');
+      console.log('[Holiday API] Profile not found:', profileError?.message);
       return res.status(404).json({ error: 'Profile not found' });
     }
 
@@ -161,7 +153,7 @@ export async function getHolidays(req: Request, res: Response) {
       const employees: Array<{ id: string; name: string; reason: string }> = [];
 
       // Get employees with recurring holiday on this day
-      const { data: recurringData } = await authenticatedSupabase
+      const { data: recurringData, error: recurringError } = await supabase
         .from('employee_recurring_holidays')
         .select('employee_id, profiles!inner(id, full_name)')
         .eq('day_of_week', dayOfWeek);
@@ -178,7 +170,7 @@ export async function getHolidays(req: Request, res: Response) {
       }
 
       // Get employees with specific holiday on this date
-      const { data: specificData } = await authenticatedSupabase
+      const { data: specificData, error: specificError } = await supabase
         .from('employee_specific_holidays')
         .select('employee_id, reason, profiles!inner(id, full_name)')
         .eq('holiday_date', date);
@@ -202,12 +194,12 @@ export async function getHolidays(req: Request, res: Response) {
     if (profile.role === 'admin') {
       console.log('[Holiday API] Fetching all holidays for admin');
 
-      const { data: recurringHolidays, error: recurringError } = await authenticatedSupabase
+      const { data: recurringHolidays, error: recurringError } = await supabase
         .from('employee_recurring_holidays')
         .select('*')
         .order('day_of_week', { ascending: true });
 
-      let specificQuery = authenticatedSupabase
+      let specificQuery = supabase
         .from('employee_specific_holidays')
         .select('*')
         .order('holiday_date', { ascending: true });
@@ -222,11 +214,11 @@ export async function getHolidays(req: Request, res: Response) {
 
       const { data: specificHolidays, error: specificError } = await specificQuery;
 
-      if (recurringError || specificError) {
-        console.error('[Holiday API] Error fetching holidays:', recurringError || specificError);
-        return res.status(500).json({
-          error: recurringError?.message || specificError?.message,
-        });
+      if (recurringError) {
+        console.error('[Holiday API] Recurring error:', recurringError);
+      }
+      if (specificError) {
+        console.error('[Holiday API] Specific error:', specificError);
       }
 
       console.log('[Holiday API] Found recurring:', recurringHolidays?.length, 'specific:', specificHolidays?.length);
@@ -240,13 +232,13 @@ export async function getHolidays(req: Request, res: Response) {
     // Employee: Get own holidays
     console.log('[Holiday API] Fetching holidays for employee:', user.id);
 
-    const { data: recurringHolidays, error: recurringError } = await authenticatedSupabase
+    const { data: recurringHolidays, error: recurringError } = await supabase
       .from('employee_recurring_holidays')
       .select('*')
       .eq('employee_id', user.id)
       .order('day_of_week', { ascending: true });
 
-    let specificQuery = authenticatedSupabase
+    let specificQuery = supabase
       .from('employee_specific_holidays')
       .select('*')
       .eq('employee_id', user.id)
@@ -264,9 +256,6 @@ export async function getHolidays(req: Request, res: Response) {
 
     if (recurringError || specificError) {
       console.error('[Holiday API] Error fetching holidays:', recurringError || specificError);
-      return res.status(500).json({
-        error: recurringError?.message || specificError?.message,
-      });
     }
 
     console.log('[Holiday API] Found recurring:', recurringHolidays?.length, 'specific:', specificHolidays?.length);
@@ -277,6 +266,9 @@ export async function getHolidays(req: Request, res: Response) {
     });
   } catch (err) {
     console.error('Error in getHolidays:', err);
+    if (err instanceof Error) {
+      console.error('Error details:', err.message, err.stack);
+    }
     return res.status(500).json({
       error: err instanceof Error ? err.message : 'Failed to fetch holidays',
     });
@@ -306,20 +298,8 @@ export async function createRecurringHolidays(req: Request, res: Response) {
     const token = authHeader.replace('Bearer ', '');
     console.log('[Holiday API] Token length:', token.length);
     
-    // Create authenticated Supabase client with user's token
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = 'https://falbkccaqjqdbvrmdlll.supabase.co';
-    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTE4NTQsImV4cCI6MjA4NjI2Nzg1NH0.FkwmwhprYiu7vtXhfGLE_zPmB6-9cbF7uNFqFu7qwVw';
-    
-    const authenticatedSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    });
-    
-    const { data: { user }, error: authError } = await authenticatedSupabase.auth.getUser(token);
+    // Verify user with centralized Supabase client
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
       console.log('[Holiday API] Invalid token:', authError?.message);
@@ -329,7 +309,7 @@ export async function createRecurringHolidays(req: Request, res: Response) {
     console.log('[Holiday API] User authenticated:', user.id);
 
     // Verify admin role
-    const { data: profile, error: profileError } = await authenticatedSupabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
@@ -385,7 +365,7 @@ export async function createRecurringHolidays(req: Request, res: Response) {
       day_of_week,
     }));
 
-    const { data, error } = await authenticatedSupabase
+    const { data, error } = await supabase
       .from('employee_recurring_holidays')
       .upsert(records, { onConflict: 'employee_id,day_of_week' })
       .select();
@@ -422,27 +402,15 @@ export async function createSpecificHolidays(req: Request, res: Response) {
 
     const token = authHeader.replace('Bearer ', '');
     
-    // Create authenticated Supabase client with user's token
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = 'https://falbkccaqjqdbvrmdlll.supabase.co';
-    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTE4NTQsImV4cCI6MjA4NjI2Nzg1NH0.FkwmwhprYiu7vtXhfGLE_zPmB6-9cbF7uNFqFu7qwVw';
-    
-    const authenticatedSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    });
-    
-    const { data: { user }, error: authError } = await authenticatedSupabase.auth.getUser(token);
+    // Verify user with centralized Supabase client
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
     // Verify admin role
-    const { data: profile, error: profileError } = await authenticatedSupabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
@@ -462,7 +430,7 @@ export async function createSpecificHolidays(req: Request, res: Response) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Create holiday records directly using authenticated client
+    // Create holiday records directly using centralized client
     const records = employee_ids.map(employee_id => ({
       employee_id,
       holiday_date,
@@ -470,7 +438,7 @@ export async function createSpecificHolidays(req: Request, res: Response) {
       reason,
     }));
 
-    const { data, error } = await authenticatedSupabase
+    const { data, error } = await supabase
       .from('employee_specific_holidays')
       .upsert(records, { onConflict: 'employee_id,holiday_date' })
       .select();
@@ -503,27 +471,15 @@ export async function deleteHoliday(req: Request, res: Response) {
 
     const token = authHeader.replace('Bearer ', '');
     
-    // Create authenticated Supabase client
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = 'https://falbkccaqjqdbvrmdlll.supabase.co';
-    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhbGJrY2NhcWpxZGJ2cm1kbGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2OTE4NTQsImV4cCI6MjA4NjI2Nzg1NH0.FkwmwhprYiu7vtXhfGLE_zPmB6-9cbF7uNFqFu7qwVw';
-    
-    const authenticatedSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    });
-    
-    const { data: { user }, error: authError } = await authenticatedSupabase.auth.getUser(token);
+    // Verify user with centralized Supabase client
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
     // Verify admin role
-    const { data: profile, error: profileError } = await authenticatedSupabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
@@ -538,7 +494,7 @@ export async function deleteHoliday(req: Request, res: Response) {
     const { category } = req.query; // 'recurring' or 'specific'
 
     if (category === 'recurring') {
-      const { error } = await authenticatedSupabase
+      const { error } = await supabase
         .from('employee_recurring_holidays')
         .delete()
         .eq('id', id);
@@ -547,7 +503,7 @@ export async function deleteHoliday(req: Request, res: Response) {
         return res.status(400).json({ error: error.message });
       }
     } else if (category === 'specific') {
-      const { error } = await authenticatedSupabase
+      const { error } = await supabase
         .from('employee_specific_holidays')
         .delete()
         .eq('id', id);

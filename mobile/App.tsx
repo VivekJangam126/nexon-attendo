@@ -16,7 +16,7 @@ export default function App() {
     const initializeApp = async () => {
       try {
         // Small delay to ensure all modules are loaded
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(() => resolve(undefined), 100));
         
         // Import and log device info (non-blocking)
         try {

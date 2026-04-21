@@ -47,3 +47,4 @@ ORDER BY lt.name;
 SELECT COUNT(*) as remaining_leave_requests
 FROM leave_requests
 WHERE employee_id = (SELECT id FROM profiles WHERE full_name ILIKE '%nainesh%');
+  

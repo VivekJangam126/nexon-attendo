@@ -297,9 +297,9 @@ export const reportsService = {
           const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
           const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
           
-          const [startHour, startMinute] = windowData.start_time.split(':').map(Number);
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
           const windowStartMinutes = startHour * 60 + startMinute;
-          const gracePeriodMinutes = windowData.grace_period_minutes || 15;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
           const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
           
           if (checkInMinutes <= gracePeriodEndMinutes) {
@@ -323,9 +323,9 @@ export const reportsService = {
           const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
           const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
           
-          const [startHour, startMinute] = windowData.start_time.split(':').map(Number);
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
           const windowStartMinutes = startHour * 60 + startMinute;
-          const gracePeriodMinutes = windowData.grace_period_minutes || 15;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
           const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
           
           if (checkInMinutes <= gracePeriodEndMinutes) {
@@ -561,9 +561,9 @@ export const reportsService = {
           const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
           const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
           
-          const [startHour, startMinute] = windowData.start_time.split(':').map(Number);
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
           const windowStartMinutes = startHour * 60 + startMinute;
-          const gracePeriodMinutes = windowData.grace_period_minutes || 15;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
           const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
           
           // Recalculate correct status
@@ -894,9 +894,9 @@ export const reportsService = {
           const istTime = new Date(checkInDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
           const checkInMinutes = istTime.getHours() * 60 + istTime.getMinutes();
           
-          const [startHour, startMinute] = windowData.start_time.split(':').map(Number);
+          const [startHour, startMinute] = (windowData as any).start_time.split(':').map(Number);
           const windowStartMinutes = startHour * 60 + startMinute;
-          const gracePeriodMinutes = windowData.grace_period_minutes || 15;
+          const gracePeriodMinutes = (windowData as any).grace_period_minutes || 15;
           const gracePeriodEndMinutes = windowStartMinutes + gracePeriodMinutes;
           
           correctedStatus = checkInMinutes <= gracePeriodEndMinutes ? 'present' : 'late';
@@ -1001,6 +1001,9 @@ export const reportsService = {
               checkInTime: '-',
               checkOutTime: null,
               status: 'absent',
+              shift_type: employee.shift_type,
+              shift_mode: employee.shift_mode,
+              shift_config: employee.shift_config,
             });
           }
         });
