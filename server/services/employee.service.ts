@@ -371,6 +371,42 @@ export const employeeService = {
         });
       }
 
+      // Build complete attendance history including missing dates marked as holidays
+      const completeHistory = allDates.map(dateStr => {
+        const existingRecord = recalculatedHistory.find((r: any) => r.date === dateStr);
+        
+        if (existingRecord) {
+          return existingRecord;
+        }
+
+        // No attendance record for this date - check if it's a holiday or leave
+        if (holidayDates.has(dateStr)) {
+          return {
+            date: dateStr,
+            check_in_time: null,
+            check_out_time: null,
+            status: 'holiday',
+          };
+        }
+
+        if (leaveDates.has(dateStr)) {
+          return {
+            date: dateStr,
+            check_in_time: null,
+            check_out_time: null,
+            status: 'absent', // Could also be 'on_leave' if needed
+          };
+        }
+
+        // No attendance, not a holiday or leave - mark as absent
+        return {
+          date: dateStr,
+          check_in_time: null,
+          check_out_time: null,
+          status: 'absent',
+        };
+      }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
       // Calculate stats (excluding holidays and leaves)
       const presentCount = recalculatedHistory?.filter(h => h.status === 'present').length || 0;
       const lateCount = recalculatedHistory?.filter(h => h.status === 'late').length || 0;
@@ -406,7 +442,7 @@ export const employeeService = {
 
       return {
         employee,
-        attendanceHistory: recalculatedHistory || [],
+        attendanceHistory: completeHistory || [],
         stats: {
           presentCount,
           lateCount,
