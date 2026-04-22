@@ -59,10 +59,18 @@ export const EmployeeWeeklyHoursCard = ({ attendanceHistory }: EmployeeWeeklyHou
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     let totalMinutes = 0;
 
-    // Last 7 days
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
+    // Get Monday of current week
+    const monday = new Date(today);
+    const day = monday.getDay();
+    const daysBack = day === 0 ? 1 : day - 1; // If Sunday, go back 1; else go back to Monday
+    monday.setDate(monday.getDate() - daysBack);
+
+    // Show Monday to today (only days that have passed, up to Saturday)
+    const daysToShow = Math.min(today.getDay() === 0 ? 0 : today.getDay() - 1, 5); // Max 5 (Sat is index 5)
+    
+    for (let i = 0; i <= daysToShow; i++) {
+      const date = new Date(monday);
+      date.setDate(date.getDate() + i);
       const dateStr = date.toISOString().split("T")[0];
       const dayNum = date.getDate();
       const monthStr = date.toLocaleString("en-US", { month: "short" });
@@ -134,7 +142,7 @@ export const EmployeeWeeklyHoursCard = ({ attendanceHistory }: EmployeeWeeklyHou
         </div>
         <div className="min-w-0">
           <h3 className="font-semibold text-sm sm:text-base text-gray-900">Weekly Working Hours</h3>
-          <p className="text-xs sm:text-sm text-gray-500">Last 7 days breakdown</p>
+          <p className="text-xs sm:text-sm text-gray-500">Monday to Saturday</p>
         </div>
       </div>
 

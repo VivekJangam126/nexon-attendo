@@ -106,6 +106,12 @@ export default defineConfig(({ mode }) => {
                   } else if (pathname.startsWith('upload-photo')) {
                     console.log('[API Middleware] Loading upload-photo handler');
                     handler = await import('./server/api/upload-photo.ts');
+                  } else if (pathname.startsWith('performance-metrics-calc')) {
+                    console.log('[API Middleware] Loading performance-metrics-calc handler');
+                    handler = await import('./api/performance-metrics-calc.ts');
+                  } else if (pathname.startsWith('performance')) {
+                    console.log('[API Middleware] Loading performance handler');
+                    handler = await import('./api/performance.ts');
                   } else {
                     console.log('[API Middleware] No handler found for path:', pathname);
                     res.statusCode = 404;

@@ -4,6 +4,7 @@ import AdminLayout from "@/components/AdminLayout";
 import { performanceAnalyticsService } from "@server";
 import type { EmployeePerformanceCard, PerformanceAlert } from "@server";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { exportPerformanceToPDF } from "@/utils/pdfExport";
 
 // Skeleton component for loading state
@@ -37,6 +38,7 @@ const EmployeeCardSkeleton = () => (
 );
 
 const AdminPerformanceDashboard = () => {
+  const { session } = useAuth();
   const [employees, setEmployees] = useState<EmployeePerformanceCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
@@ -46,30 +48,62 @@ const AdminPerformanceDashboard = () => {
   const [displayCount, setDisplayCount] = useState(20); // Show 20 initially
 
   useEffect(() => {
-    fetchPerformanceData();
-  }, []);
+    if (session) {
+      fetchPerformanceData();
+    }
+  }, [session]);
 
   const fetchPerformanceData = async () => {
+    if (!session?.access_token) {
+      toast({
+        title: "Error",
+        description: "Not authenticated",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const { employees: empData, error } = await performanceAnalyticsService.getAllEmployeesPerformance();
-      
-      if (error) {
+      const response = await fetch('/api/performance', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('API Error:', error);
+        
         toast({
           title: "Error",
-          description: "Failed to fetch performance data",
+          description: error.details || "Failed to fetch performance data",
           variant: "destructive",
         });
         setEmployees([]);
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.employees) {
+        setEmployees(data.employees);
       } else {
-        setEmployees(empData || []);
+        toast({
+          title: "Error",
+          description: data.error || "Failed to fetch performance data",
+          variant: "destructive",
+        });
+        setEmployees([]);
       }
     } catch (error) {
       console.error('Error fetching performance data:', error);
       setEmployees([]);
       toast({
         title: "Error",
-        description: "Failed to load performance data",
+        description: error instanceof Error ? error.message : "Failed to load performance data",
         variant: "destructive",
       });
     } finally {
@@ -104,6 +138,15 @@ const AdminPerformanceDashboard = () => {
   };
 
   const calculateCurrentMonthMetrics = async () => {
+    if (!session?.access_token) {
+      toast({
+        title: "Error",
+        description: "Not authenticated",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setCalculating(true);
     
     toast({
@@ -112,7 +155,27 @@ const AdminPerformanceDashboard = () => {
     });
 
     try {
-      const result = await performanceAnalyticsService.calculateAllEmployeesMetrics();
+      const response = await fetch('/api/performance-metrics-calc', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Calculation API Error:', error);
+        
+        toast({
+          title: "Calculation Failed",
+          description: error.details || error.error || "Failed to calculate metrics",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const result = await response.json();
       
       if (result.success) {
         toast({
@@ -132,7 +195,7 @@ const AdminPerformanceDashboard = () => {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to calculate metrics",
+        description: error instanceof Error ? error.message : "Failed to calculate metrics",
         variant: "destructive",
       });
     } finally {

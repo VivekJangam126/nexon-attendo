@@ -13,7 +13,7 @@ const AdminBottomNavigation = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
-    { icon: Users, label: "Employees", path: "/admin/employees" },
+    { icon: Users, label: "User Management", path: "/admin/user-management" },
     { icon: FileBarChart, label: "Reports", path: "/admin/history" },
     { icon: Settings, label: "Settings", path: "/admin/settings" },
   ];

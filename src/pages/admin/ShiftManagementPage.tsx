@@ -21,7 +21,11 @@ interface Employee {
   shift_config?: Record<string, any>;
 }
 
-const ShiftManagementPage = () => {
+interface ShiftManagementPageProps {
+  isEmbedded?: boolean;
+}
+
+const ShiftManagementPage = ({ isEmbedded = false }: ShiftManagementPageProps) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -183,19 +187,25 @@ const ShiftManagementPage = () => {
   );
 
   if (loading) {
+    const loadingContent = (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-6 h-6 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin" />
+      </div>
+    );
+
+    if (isEmbedded) return loadingContent;
+
     return (
       <AdminLayout title="Shift Management">
-        <div className="flex items-center justify-center py-12">
-          <div className="w-6 h-6 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin" />
-        </div>
+        {loadingContent}
       </AdminLayout>
     );
   }
 
   const editingEmployee = employees.find(emp => emp.id === editingId);
 
-  return (
-    <AdminLayout title="Shift Management">
+  const mainContent = (
+    <>
       <div className="space-y-4">
         {/* Header */}
         <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-4 border-b border-gray-200">
@@ -490,6 +500,16 @@ const ShiftManagementPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  if (isEmbedded) {
+    return mainContent;
+  }
+
+  return (
+    <AdminLayout title="Shift Management">
+      {mainContent}
     </AdminLayout>
   );
 };

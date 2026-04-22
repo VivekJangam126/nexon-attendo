@@ -11,6 +11,7 @@ import RegistrationPendingScreen from "./pages/RegistrationPendingScreen";
 import AccountBlockedScreen from "./pages/AccountBlockedScreen";
 import ForgotPasswordScreen from "./pages/ForgotPasswordScreen";
 import PasswordResetSentScreen from "./pages/PasswordResetSentScreen";
+import ResetPasswordScreen from "./pages/ResetPasswordScreen";
 import HelpSupportScreen from "./pages/HelpSupportScreen";
 import AttendanceRulesScreen from "./pages/AttendanceRulesScreen";
 import DashboardScreen from "./pages/DashboardScreen";
@@ -21,7 +22,7 @@ import HistoryScreen from "./pages/HistoryScreen";
 import ProfileScreen from "./pages/ProfileScreen";
 import AdminLoginScreen from "./pages/admin/AdminLoginScreen";
 import AdminDashboardScreen from "./pages/admin/AdminDashboardScreen";
-import AdminEmployeesScreen from "./pages/admin/AdminEmployeesScreen";
+import UserManagementPage from "./pages/admin/UserManagementPage";
 import AdminEmployeeDetailScreen from "./pages/admin/AdminEmployeeDetailScreen";
 import AdminPendingApprovalsScreen from "./pages/admin/AdminPendingApprovalsScreen";
 import AdminReportsNewScreen from "./pages/admin/AdminReportsNewScreen";
@@ -37,8 +38,6 @@ import TermsPoliciesScreen from "./pages/admin/settings/TermsPoliciesScreen";
 import NotificationSettingsScreen from "./pages/admin/settings/NotificationSettingsScreen";
 import EmployeeManagementScreen from "./pages/admin/settings/EmployeeManagementScreen";
 import LeaveManagementPage from "./pages/LeaveManagement";
-import AdminLeaveManagementPage from "./pages/admin/LeaveManagement";
-import ShiftManagementPage from "./pages/admin/ShiftManagementPage";
 import AdminAnalyticsScreen from "./pages/admin/AdminAnalyticsScreen";
 import AdminPerformanceDashboard from "./pages/admin/AdminPerformanceDashboard";
 import AdminHolidayCalendarScreen from "./pages/admin/AdminHolidayCalendarScreen";
@@ -63,11 +62,12 @@ const App = () => (
           <Route path="/account-blocked" element={<AccountBlockedScreen />} />
           <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
           <Route path="/password-reset-sent" element={<PasswordResetSentScreen />} />
+          <Route path="/reset-password" element={<ResetPasswordScreen />} />
           <Route path="/help-support" element={<HelpSupportScreen />} />
           <Route path="/attendance-rules" element={<AttendanceRulesScreen />} />
           <Route path="/dashboard" element={<DashboardScreen />} />
           <Route path="/attendance-processing" element={<AttendanceProcessingScreen />} />
-          <Route path="/attendance-success" element={<AttendanceSuccessScreen />} />
+          <Route path="/attendance-s uccess" element={<AttendanceSuccessScreen />} />
           <Route path="/attendance-error" element={<AttendanceErrorScreen />} />
           <Route path="/history" element={<HistoryScreen />} />
           <Route path="/profile" element={<ProfileScreen />} />
@@ -77,9 +77,11 @@ const App = () => (
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLoginScreen />} />
           <Route path="/admin/dashboard" element={<AdminDashboardScreen />} />
-          <Route path="/admin/employees" element={<AdminEmployeesScreen />} />
+          <Route path="/admin/user-management" element={<UserManagementPage />} />
+          <Route path="/admin/employees" element={<UserManagementPage />} />
+          <Route path="/admin/shifts" element={<UserManagementPage />} />
+          <Route path="/admin/leave" element={<UserManagementPage />} />
           <Route path="/admin/employee/:id" element={<AdminEmployeeDetailScreen />} />
-          <Route path="/admin/shifts" element={<ShiftManagementPage />} />
           <Route path="/admin/pending-approvals" element={<AdminPendingApprovalsScreen />} />
           <Route path="/admin/reports" element={<AdminReportsNewScreen />} />
           <Route path="/admin/history" element={<AdminHistoryReportsScreen />} />
@@ -95,7 +97,6 @@ const App = () => (
           <Route path="/admin/settings/terms" element={<TermsPoliciesScreen />} />
           <Route path="/admin/settings/notifications" element={<NotificationSettingsScreen />} />
           <Route path="/admin/settings/employee-management" element={<EmployeeManagementScreen />} />
-          <Route path="/admin/leave" element={<AdminLeaveManagementPage />} />
           <Route path="/admin/analytics" element={<AdminAnalyticsScreen />} />
           <Route path="/admin/performance" element={<AdminPerformanceDashboard />} />
           <Route path="/admin/calendar" element={<AdminHolidayCalendarScreen />} />

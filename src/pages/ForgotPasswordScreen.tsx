@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Mail, AlertCircle } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
+import { supabase } from "@/lib/supabase";
 
 const ForgotPasswordScreen = () => {
   const navigate = useNavigate();
@@ -19,9 +20,27 @@ const ForgotPasswordScreen = () => {
     }
 
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    navigate("/password-reset-sent", { state: { email } });
+    
+    try {
+      // Send password reset email using Supabase
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (resetError) {
+        console.error("Reset password error:", resetError);
+        setError(resetError.message || "Failed to send reset email. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Success - navigate to confirmation page
+      navigate("/password-reset-sent", { state: { email } });
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setError("An unexpected error occurred. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (

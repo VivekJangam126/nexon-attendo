@@ -13,8 +13,6 @@ import {
   Building2,
   TrendingUp,
   PieChart,
-  Layers,
-  PenTool,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -28,10 +26,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isAdmin = false }) => {
 
   const adminMenuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
-    { icon: Users, label: 'Employees', path: '/admin/employees' },
-    { icon: Layers, label: 'Shift Management', path: '/admin/shifts' },
+    { icon: Users, label: 'User Management', path: '/admin/user-management' },
     { icon: Clock, label: 'Attendance Report', path: '/admin/history' },
-    { icon: PenTool, label: 'Leave Management', path: '/admin/leave' },
     { icon: Calendar, label: 'Holiday Calendar', path: '/admin/calendar' },
     { icon: TrendingUp, label: 'Performance', path: '/admin/performance' },
     { icon: PieChart, label: 'Analytics', path: '/admin/analytics' },

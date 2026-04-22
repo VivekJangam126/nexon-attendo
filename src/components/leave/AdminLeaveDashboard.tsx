@@ -18,7 +18,7 @@ import { AdminLeaveRequestsTable } from './AdminLeaveRequestsTable';
 import { WhosOutToday } from './WhosOutToday';
 import { Calendar, Users } from 'lucide-react';
 
-export function AdminLeaveDashboard() {
+export function AdminLeaveDashboard({ isEmbedded = false }: { isEmbedded?: boolean } = {}) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const { data: analytics = {} as any } = useLeaveAnalytics();
   const { data: requests = [], isLoading: requestsLoading } = useAllLeaveRequests({
@@ -28,8 +28,7 @@ export function AdminLeaveDashboard() {
 
   const pendingRequests = requests.filter(r => r.status === 'pending');
 
-  return (
-    <AdminLayout>
+  const mainContent = (
       <div className="flex flex-col min-h-full pb-20 md:pb-0">
         {/* Header */}
         <div className="px-4 sm:px-6 md:px-8 pt-4 md:pt-6 pb-4 border-b border-border bg-gradient-to-r from-background to-primary/5">
@@ -150,6 +149,15 @@ export function AdminLeaveDashboard() {
           </Tabs>
         </div>
       </div>
+  );
+
+  if (isEmbedded) {
+    return mainContent;
+  }
+
+  return (
+    <AdminLayout>
+      {mainContent}
     </AdminLayout>
   );
 }

@@ -38,7 +38,11 @@ const StatusBadge = ({ status }: { status: EmployeeStatus }) => {
   );
 };
 
-const AdminEmployeesScreen = () => {
+interface AdminEmployeesScreenProps {
+  isEmbedded?: boolean;
+}
+
+const AdminEmployeesScreen = ({ isEmbedded = false }: AdminEmployeesScreenProps) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
@@ -263,17 +267,23 @@ const AdminEmployeesScreen = () => {
   };
 
   if (loading) {
+    const loadingContent = (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-6 h-6 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin" />
+      </div>
+    );
+    
+    if (isEmbedded) return loadingContent;
+    
     return (
       <AdminLayout title="Employees">
-        <div className="flex items-center justify-center py-12">
-          <div className="w-6 h-6 border-2 border-amber-200 border-t-amber-600 rounded-full animate-spin" />
-        </div>
+        {loadingContent}
       </AdminLayout>
     );
   }
 
-  return (
-    <AdminLayout title="Employees">
+  const mainContent = (
+    <>
       <div className="space-y-3">
         {/* Header with Actions */}
         <div className="flex flex-col gap-3">
@@ -555,6 +565,16 @@ const AdminEmployeesScreen = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  if (isEmbedded) {
+    return mainContent;
+  }
+
+  return (
+    <AdminLayout title="Employees">
+      {mainContent}
     </AdminLayout>
   );
 };

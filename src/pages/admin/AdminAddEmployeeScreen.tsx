@@ -99,7 +99,7 @@ const AdminAddEmployeeScreen = () => {
         });
       }
 
-      navigate("/admin/employees");
+      navigate("/admin/user-management");
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
@@ -110,7 +110,7 @@ const AdminAddEmployeeScreen = () => {
     <AdminLayout>
       <div className="flex flex-col min-h-full pb-20 md:pb-0">
         <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-3 border-b border-border flex items-center gap-3">
-          <button onClick={() => navigate("/admin/employees")} className="p-1.5 -ml-1.5 hover:bg-muted rounded-lg transition-colors">
+          <button onClick={() => navigate("/admin/user-management")} className="p-1.5 -ml-1.5 hover:bg-muted rounded-lg transition-colors">
             <ArrowLeft className="w-4 h-4 text-foreground" />
           </button>
           <div>
@@ -307,7 +307,7 @@ const AdminAddEmployeeScreen = () => {
               <div className="flex gap-2 justify-end pt-1">
                 <button 
                   type="button"
-                  onClick={() => navigate("/admin/employees")}
+                  onClick={() => navigate("/admin/user-management")}
                   className="h-9 px-4 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   disabled={isLoading}
                 >

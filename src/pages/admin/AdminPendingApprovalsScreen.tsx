@@ -111,7 +111,7 @@ const AdminPendingApprovalsScreen = () => {
       <div className="flex flex-col min-h-full pb-20 md:pb-0">
         {/* Header */}
         <div className="px-4 sm:px-6 lg:px-8 pt-6 lg:pt-8 pb-4 border-b border-border flex items-center gap-3">
-          <button onClick={() => navigate("/admin/employees")} className="p-2 -ml-2 hover:bg-muted rounded-lg transition-colors lg:hidden">
+          <button onClick={() => navigate("/admin/user-management")} className="p-2 -ml-2 hover:bg-muted rounded-lg transition-colors lg:hidden">
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <div>

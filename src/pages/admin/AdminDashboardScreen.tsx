@@ -211,7 +211,7 @@ const AdminDashboardScreen = () => {
           <div className="flex items-center justify-between mb-3 gap-2">
             <h2 className="text-sm font-semibold text-gray-900">Recent Check-ins</h2>
             <button 
-              onClick={() => navigate("/admin/employees")}
+              onClick={() => navigate("/admin/user-management")}
               className="text-xs text-amber-600 hover:text-amber-700 font-medium whitespace-nowrap"
             >
               View All →
