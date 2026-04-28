@@ -22,9 +22,15 @@ const ForgotPasswordScreen = () => {
     setIsLoading(true);
     
     try {
+      // Get the correct redirect URL
+      const resetUrl = `${window.location.origin}/reset-password`;
+      
+      console.log("Sending password reset email to:", email);
+      console.log("Redirect URL:", resetUrl);
+
       // Send password reset email using Supabase
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: resetUrl,
       });
 
       if (resetError) {

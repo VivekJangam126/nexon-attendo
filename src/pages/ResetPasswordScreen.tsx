@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Lock, AlertCircle, CheckCircle } from "lucide-react";
 import MobileContainer from "@/components/MobileContainer";
 import { supabase } from "@/lib/supabase";
 
 const ResetPasswordScreen = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -14,20 +15,51 @@ const ResetPasswordScreen = () => {
   const [sessionValid, setSessionValid] = useState(false);
 
   useEffect(() => {
-    // Check if user has a valid reset session from the email link
+    // Check if we have a recovery token in URL params
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        setSessionValid(true);
-      } else {
-        setError("This link has expired or is invalid. Please request a new password reset.");
+      try {
+        // Get token from URL query params
+        const token = searchParams.get('token');
+        const type = searchParams.get('type');
+
+        if (token && type === 'recovery') {
+          // Use the token to create a session
+          const { data: { session }, error: sessionError } = await supabase.auth.verifyOtp({
+            token_hash: token,
+            type: 'recovery',
+          });
+
+          if (sessionError) {
+            console.error("Token verification error:", sessionError);
+            setError("This link has expired or is invalid. Please request a new password reset.");
+            setSessionValid(false);
+            return;
+          }
+
+          if (session?.user) {
+            setSessionValid(true);
+            return;
+          }
+        }
+
+        // Fallback: Check for regular session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          setSessionValid(true);
+        } else {
+          setError("This link has expired or is invalid. Please request a new password reset.");
+          setSessionValid(false);
+        }
+      } catch (err) {
+        console.error("Error checking session:", err);
+        setError("An error occurred. Please try again.");
         setSessionValid(false);
       }
     };
 
     checkSession();
-  }, []);
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

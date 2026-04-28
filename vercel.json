@@ -28,6 +28,14 @@
       "destination": "/api/send-report-email"
     },
     {
+      "source": "/api/performance-metrics-calc",
+      "destination": "/api/performance-metrics-calc"
+    },
+    {
+      "source": "/api/performance",
+      "destination": "/api/performance"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
@@ -59,6 +67,14 @@
     "api/admin.ts": {
       "memory": 1024,
       "maxDuration": 10
+    },
+    "api/performance.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    },
+    "api/performance-metrics-calc.ts": {
+      "memory": 1024,
+      "maxDuration": 60
     }
   }
 }

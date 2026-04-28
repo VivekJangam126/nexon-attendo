@@ -2,26 +2,15 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Load from environment variables - try both process.env and import.meta.env
-  const supabaseUrl = process.env.SUPABASE_URL?.trim() || (import.meta as any).env?.SUPABASE_URL?.trim();
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || (import.meta as any).env?.SUPABASE_SERVICE_ROLE_KEY?.trim();
-
-  console.log('[Leave API] Environment check:', {
-    hasUrl: !!supabaseUrl,
-    hasKey: !!supabaseServiceKey,
-    urlValue: supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'undefined',
-    keyLength: supabaseServiceKey?.length || 0,
-    keyStart: supabaseServiceKey?.substring(0, 20) || 'undefined',
-    keyEnd: supabaseServiceKey?.substring(supabaseServiceKey.length - 20) || 'undefined',
-    processEnvWorks: !!process.env.SUPABASE_URL,
-    importMetaEnvWorks: !!(import.meta as any).env?.SUPABASE_URL
-  });
+  // Load from environment variables (process.env only — import.meta.env is not available in Node.js)
+  const supabaseUrl = process.env.SUPABASE_URL?.trim() || process.env.VITE_SUPABASE_URL?.trim();
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.VITE_SUPABASE_SERVICE_KEY?.trim();
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.error('[Leave API] Missing environment variables!');
+    console.error('[Leave API] Missing Supabase credentials');
     return res.status(500).json({ 
-      error: 'Invalid API key',
-      details: 'Server configuration error - missing Supabase credentials'
+      error: 'Server configuration error',
+      details: 'Missing Supabase credentials'
     });
   }
 

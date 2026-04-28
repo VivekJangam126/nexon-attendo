@@ -26,11 +26,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isAdmin = false }) => {
 
   const adminMenuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
-    { icon: Users, label: 'User Management', path: '/admin/user-management' },
-    { icon: Clock, label: 'Attendance Report', path: '/admin/history' },
-    { icon: Calendar, label: 'Holiday Calendar', path: '/admin/calendar' },
     { icon: TrendingUp, label: 'Performance', path: '/admin/performance' },
     { icon: PieChart, label: 'Analytics', path: '/admin/analytics' },
+    { icon: Clock, label: 'Report', path: '/admin/history' },
+    { icon: Users, label: 'User Management', path: '/admin/user-management' },
+    { icon: Calendar, label: 'Holiday Calendar', path: '/admin/calendar' },
   ];
 
   const employeeMenuItems = [

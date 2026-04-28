@@ -22,6 +22,7 @@ verify-*.ps1
 .env.test.local
 .env.production.local
 .env.production
+.env.cloudinary.example
 
 # Logs
 npm-debug.log*
@@ -88,4 +89,25 @@ UPDATE_*.sql
 CHECK_*.sql
 FIX_*.sql
 TESTING_*.sql
-.vercel
+CLEAR_*.sql
+DEBUG_*.sql
+DIAGNOSE_*.sql
+DISABLE_*.sql
+DIRECT_*.sql
+DELETE_*.sql
+ENABLE_*.sql
+SAFE_*.sql
+*.sql
+
+# One-off debug scripts in root
+debug-*.js
+debug-*.cjs
+check-*.js
+check-*.cjs
+check-*.bat
+validate-*.js
+diagnose-*.js
+insert-*.js
+test-*.js
+test-*.ts
+test-*.ps1

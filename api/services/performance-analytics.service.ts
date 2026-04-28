@@ -1,10 +1,28 @@
 /**
- * Performance Analytics Service
- * Phase 1: Analytics Foundation
+ * Performance Analytics Service (API Version)
+ * Self-contained service for Vercel serverless environment
  * Handles performance metrics calculation, alerts, and analytics
  */
 
-import { supabaseAdmin } from '../supabase/client';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../../server/types/database';
+
+// Create Supabase admin client - self-contained for Vercel
+const getSupabaseAdmin = () => {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseServiceKey = process.env.VITE_SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase credentials in environment');
+  }
+
+  return createClient<Database>(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+};
 
 // Types
 export interface PerformanceMetrics {
@@ -54,6 +72,7 @@ export interface PerformanceAlert {
   created_at: string;
   updated_at: string;
 }
+
 export interface EmployeePerformanceCard {
   employee_id: string;
   employee_name: string;
@@ -81,6 +100,8 @@ class PerformanceAnalyticsService {
    */
   async calculateMonthlyMetrics(employeeId: string, month: number, year: number) {
     try {
+      const supabaseAdmin = getSupabaseAdmin();
+
       // Input validation
       if (!employeeId || typeof employeeId !== 'string') {
         throw new Error('Invalid employeeId');
@@ -186,6 +207,7 @@ class PerformanceAnalyticsService {
    * STEP 1: Fetch all holiday config for an employee in a given month
    */
   private async getEmployeeHolidayConfig(employeeId: string, month: number, year: number) {
+    const supabaseAdmin = getSupabaseAdmin();
     const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
     const endDate = new Date(year, month, 0).toISOString().split('T')[0];
 
@@ -268,6 +290,7 @@ class PerformanceAnalyticsService {
     year: number,
     upToDate: Date
   ) {
+    const supabaseAdmin = getSupabaseAdmin();
     const startStr = new Date(year, month - 1, 1).toISOString().split('T')[0];
     const endStr = upToDate.toISOString().split('T')[0];
 
@@ -294,6 +317,7 @@ class PerformanceAnalyticsService {
    */
   private async getBreakDataForMonth(employeeId: string, month: number, year: number) {
     try {
+      const supabaseAdmin = getSupabaseAdmin();
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0);
 
@@ -456,6 +480,7 @@ class PerformanceAnalyticsService {
    *  - "lower is worse" (attendance_rate): alert when value < threshold (inverted)
    */
   private async checkAndCreateAlerts(employeeId: string, metrics: any, month: number, year: number) {
+    const supabaseAdmin = getSupabaseAdmin();
     const { data: thresholds } = await supabaseAdmin
       .from('alert_thresholds')
       .select('*')
@@ -577,6 +602,7 @@ class PerformanceAnalyticsService {
    */
   async forceRecalculateCurrentMonth(adminUserId?: string) {
     try {
+      const supabaseAdmin = getSupabaseAdmin();
       // Security: Verify admin authorization (implement in controller)
       if (!adminUserId) {
         console.warn('[RecalculateMetrics] Recalculation triggered without admin context');
@@ -634,6 +660,8 @@ class PerformanceAnalyticsService {
    */
   async calculateAllEmployeesMetrics() {
     try {
+      const supabaseAdmin = getSupabaseAdmin();
+
       // Find the most recent month with actual attendance data
       const { data: recentAttendance } = await supabaseAdmin
         .from('attendance')
@@ -680,7 +708,7 @@ class PerformanceAnalyticsService {
             await this.calculateMonthlyMetrics(employee.id, currentMonth, currentYear);
             return { success: true, employee: employee.full_name };
           } catch (error) {
-            return { success: false, employee: employee.full_name, error: error.message };
+            return { success: false, employee: employee.full_name, error: error instanceof Error ? error.message : String(error) };
           }
         });
 
@@ -712,6 +740,7 @@ class PerformanceAnalyticsService {
    */
   async getAllEmployeesPerformance() {
     try {
+      const supabaseAdmin = getSupabaseAdmin();
       const currentDate = new Date();
       const currentMonth = currentDate.getMonth() + 1;
       const currentYear = currentDate.getFullYear();
@@ -790,6 +819,7 @@ class PerformanceAnalyticsService {
    */
   async getEmployeeAlerts(employeeId: string) {
     try {
+      const supabaseAdmin = getSupabaseAdmin();
       const { data: alerts, error } = await supabaseAdmin
         .from('performance_alerts')
         .select('*')
@@ -801,7 +831,7 @@ class PerformanceAnalyticsService {
       return { success: true, alerts: alerts || [] };
     } catch (error) {
       console.error('Error fetching employee alerts:', error);
-      return { success: false, error: error.message, alerts: [] };
+      return { success: false, error: error instanceof Error ? error.message : String(error), alerts: [] };
     }
   }
   /**
@@ -809,6 +839,7 @@ class PerformanceAnalyticsService {
    */
   async acknowledgeAlert(alertId: string, acknowledgedBy: string) {
     try {
+      const supabaseAdmin = getSupabaseAdmin();
       const { data, error } = await supabaseAdmin
         .from('performance_alerts')
         .update({
@@ -826,7 +857,7 @@ class PerformanceAnalyticsService {
       return { success: true, alert: data };
     } catch (error) {
       console.error('Error acknowledging alert:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 
@@ -835,6 +866,7 @@ class PerformanceAnalyticsService {
    */
   async resolveAlert(alertId: string, resolutionNotes?: string) {
     try {
+      const supabaseAdmin = getSupabaseAdmin();
       const { data, error } = await supabaseAdmin
         .from('performance_alerts')
         .update({
@@ -852,7 +884,7 @@ class PerformanceAnalyticsService {
       return { success: true, alert: data };
     } catch (error) {
       console.error('Error resolving alert:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 
@@ -861,6 +893,7 @@ class PerformanceAnalyticsService {
    */
   async getAlertThresholds() {
     try {
+      const supabaseAdmin = getSupabaseAdmin();
       const { data: thresholds, error } = await supabaseAdmin
         .from('alert_thresholds')
         .select('*')
@@ -871,7 +904,7 @@ class PerformanceAnalyticsService {
       return { success: true, thresholds: thresholds || [] };
     } catch (error) {
       console.error('Error fetching alert thresholds:', error);
-      return { success: false, error: error.message, thresholds: [] };
+      return { success: false, error: error instanceof Error ? error.message : String(error), thresholds: [] };
     }
   }
 
@@ -880,6 +913,7 @@ class PerformanceAnalyticsService {
    */
   async updateAlertThreshold(thresholdId: string, updates: Partial<AlertThreshold>) {
     try {
+      const supabaseAdmin = getSupabaseAdmin();
       const { data, error } = await supabaseAdmin
         .from('alert_thresholds')
         .update({
@@ -895,7 +929,7 @@ class PerformanceAnalyticsService {
       return { success: true, threshold: data };
     } catch (error) {
       console.error('Error updating alert threshold:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 }

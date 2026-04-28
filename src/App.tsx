@@ -67,7 +67,7 @@ const App = () => (
           <Route path="/attendance-rules" element={<AttendanceRulesScreen />} />
           <Route path="/dashboard" element={<DashboardScreen />} />
           <Route path="/attendance-processing" element={<AttendanceProcessingScreen />} />
-          <Route path="/attendance-s uccess" element={<AttendanceSuccessScreen />} />
+          <Route path="/attendance-success" element={<AttendanceSuccessScreen />} />
           <Route path="/attendance-error" element={<AttendanceErrorScreen />} />
           <Route path="/history" element={<HistoryScreen />} />
           <Route path="/profile" element={<ProfileScreen />} />

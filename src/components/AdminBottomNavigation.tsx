@@ -1,9 +1,11 @@
 import { 
   LayoutDashboard, 
+  TrendingUp,
+  PieChart,
+  Clock,
   Users, 
-  FileBarChart, 
+  Calendar,
   Settings,
-  LogOut
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -12,10 +14,13 @@ const AdminBottomNavigation = () => {
   const navigate = useNavigate();
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
-    { icon: Users, label: "User Management", path: "/admin/user-management" },
-    { icon: FileBarChart, label: "Reports", path: "/admin/history" },
-    { icon: Settings, label: "Settings", path: "/admin/settings" },
+    { icon: LayoutDashboard, label: "Dashboard",   path: "/admin/dashboard" },
+    { icon: TrendingUp,      label: "Performance", path: "/admin/performance" },
+    { icon: PieChart,        label: "Analytics",   path: "/admin/analytics" },
+    { icon: Clock,           label: "Report",      path: "/admin/history" },
+    { icon: Users,           label: "Users",       path: "/admin/user-management" },
+    { icon: Calendar,        label: "Holidays",    path: "/admin/calendar" },
+    { icon: Settings,        label: "Settings",    path: "/admin/settings" },
   ];
 
   const isActive = (path: string) => location.pathname === path;

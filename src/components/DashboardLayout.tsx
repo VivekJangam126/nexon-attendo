@@ -9,12 +9,12 @@ const MobileMenuItems: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) =
   const navigate = useNavigate();
 
   const adminMenuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
-    { icon: Users, label: 'User Management', path: '/admin/user-management' },
-    { icon: Clock, label: 'Attendance Report', path: '/admin/history' },
-    { icon: CalendarDays, label: 'Holiday Calendar', path: '/admin/calendar' },
-    { icon: TrendingUp, label: 'Performance', path: '/admin/performance' },
-    { icon: PieChart, label: 'Analytics', path: '/admin/analytics' },
+    { icon: LayoutDashboard, label: 'Dashboard',      path: '/admin/dashboard' },
+    { icon: TrendingUp,      label: 'Performance',    path: '/admin/performance' },
+    { icon: PieChart,        label: 'Analytics',      path: '/admin/analytics' },
+    { icon: Clock,           label: 'Report',         path: '/admin/history' },
+    { icon: Users,           label: 'User Management',path: '/admin/user-management' },
+    { icon: CalendarDays,    label: 'Holiday Calendar',path: '/admin/calendar' },
   ];
 
   const employeeMenuItems = [

@@ -19,11 +19,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.VITE_SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    console.log('[Performance API] Environment check:', {
-      hasUrl: !!supabaseUrl,
-      hasServiceKey: !!supabaseServiceKey
-    });
-
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('[Performance API] Missing Supabase credentials');
       return res.status(500).json({ 
@@ -32,14 +27,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Get authorization token from request header
+    // Verify auth token with Supabase
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return res.status(401).json({ error: 'Unauthorized - missing auth token' });
     }
-
-    // Token exists - we'll use service role to bypass RLS
-    console.log('[Performance API] Authorization header present, proceeding...');
 
     // Create service role client for admin queries
     const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {

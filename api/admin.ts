@@ -6,18 +6,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  console.log('[Admin API] Environment check:', {
-    hasUrl: !!supabaseUrl,
-    hasKey: !!supabaseServiceKey,
-    urlValue: supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'undefined',
-    keyLength: supabaseServiceKey?.length || 0
-  });
-
   if (!supabaseUrl || !supabaseServiceKey) {
-    console.error('[Admin API] Missing environment variables!');
+    console.error('[Admin API] Missing Supabase credentials');
     return res.status(500).json({ 
-      error: 'Invalid API key',
-      details: 'Server configuration error - missing Supabase credentials'
+      error: 'Server configuration error',
+      details: 'Missing Supabase credentials'
     });
   }
 
