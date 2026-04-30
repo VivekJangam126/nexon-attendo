@@ -93,7 +93,7 @@ export function AddEmployeeModal({ open, onOpenChange, onSuccess }: AddEmployeeM
     setIsLoading(true);
 
     try {
-      // Register the employee
+      // Register the employee with adminCreated flag — skips pending request, sets active directly
       const { success, userId, error: regError } = await registrationService.registerEmployee({
         email: form.email,
         password: form.password,
@@ -102,6 +102,7 @@ export function AddEmployeeModal({ open, onOpenChange, onSuccess }: AddEmployeeM
         designation: form.designation,
         role_type: form.roleType,
         gender: form.gender,
+        adminCreated: true,
       });
 
       if (regError || !success || !userId) {
@@ -110,13 +111,13 @@ export function AddEmployeeModal({ open, onOpenChange, onSuccess }: AddEmployeeM
         return;
       }
 
-      // Since admin is adding, automatically approve the employee
-      const { success: activateSuccess, error: activateError } = await employeeService.activateEmployee(userId);
+      // Initialize leave balances, holidays and recurring holidays
+      const { success: activateSuccess, error: activateError } = await employeeService.activateNewEmployee(userId);
 
       if (activateError || !activateSuccess) {
         toast({
           title: "Employee Created",
-          description: `${form.fullName} has been created but needs manual activation.`,
+          description: `${form.fullName} has been created but data initialization failed. Run the backfill SQL.`,
           variant: "default",
         });
       } else {

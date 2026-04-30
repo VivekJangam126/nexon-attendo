@@ -64,7 +64,7 @@ const AdminAddEmployeeScreen = () => {
     setIsLoading(true);
 
     try {
-      // Register the employee
+      // Register the employee with adminCreated flag — skips pending request, sets active directly
       const { success, userId, error: regError } = await registrationService.registerEmployee({
         email: form.email,
         password: form.password,
@@ -73,6 +73,7 @@ const AdminAddEmployeeScreen = () => {
         designation: form.designation,
         role_type: form.roleType,
         gender: form.gender,
+        adminCreated: true,
       });
 
       if (regError || !success || !userId) {
@@ -82,8 +83,8 @@ const AdminAddEmployeeScreen = () => {
       }
 
       // Since admin is adding, automatically approve the employee
-      // Update status from 'pending' to 'active'
-      const { success: activateSuccess, error: activateError } = await employeeService.activateEmployee(userId);
+      // This initializes leave balances, holidays, and removes from pending approvals
+      const { success: activateSuccess, error: activateError } = await employeeService.activateNewEmployee(userId);
 
       if (activateError || !activateSuccess) {
         // Employee created but not activated - admin can activate manually

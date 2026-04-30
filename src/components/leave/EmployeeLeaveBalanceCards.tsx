@@ -63,21 +63,21 @@ export function EmployeeLeaveBalanceCards({ employeeId }: EmployeeLeaveBalanceCa
   };
   
   const casualLeave = balances.find((b: any) => b.leave_type_id === LEAVE_TYPE_IDS.CASUAL) || {
-    total_leaves: 19,
-    used_leaves: 0,
-    remaining_leaves: 19,
-  };
-
-  const myLeave = gender === 'female' ? (balances.find((b: any) => b.leave_type_id === LEAVE_TYPE_IDS.MY_LEAVE) || {
     total_leaves: 12,
     used_leaves: 0,
     remaining_leaves: 12,
-  }) : null;
+  };
+
+  const myLeave = balances.find((b: any) => b.leave_type_id === LEAVE_TYPE_IDS.MY_LEAVE) || {
+    total_leaves: 12,
+    used_leaves: 0,
+    remaining_leaves: 12,
+  };
 
   const leaveCards = [
     { name: 'Sick Leave', ...sickLeave },
     { name: 'Casual Leave', ...casualLeave },
-    ...(myLeave ? [{ name: 'My Leave', ...myLeave }] : []),
+    { name: 'My Leave', ...myLeave },
   ];
 
   return (

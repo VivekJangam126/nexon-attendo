@@ -301,7 +301,7 @@ const HolidayCalendarScreen = () => {
                   {/* Holiday Cards Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                     {holidays.map((holiday) => {
-                      const holidayDate = new Date(holiday.holiday_date);
+                      const holidayDate = new Date(holiday.holiday_date + 'T00:00:00'); // local time, not UTC
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
                       holidayDate.setHours(0, 0, 0, 0);

@@ -19,8 +19,7 @@ RETURNING id, status, start_date, end_date;
 UPDATE employee_leave_balance
 SET 
   used_leaves = 0,
-  remaining_leaves = total_leaves,
-  updated_at = NOW()
+  remaining_leaves = total_leaves
 WHERE employee_id = (SELECT id FROM profiles WHERE full_name ILIKE '%nainesh%')
 RETURNING employee_id, leave_type_id, total_leaves, used_leaves, remaining_leaves;
 

@@ -18,8 +18,8 @@ interface LeaveBalanceCardsProps {
 
 const LEAVE_TYPES = [
   { id: 'sick', name: 'Sick Leave', color: 'from-red-500 to-red-600', bgColor: 'bg-red-50', textColor: 'text-gray-900', max: 6 },
-  { id: 'casual', name: 'Casual Leave', color: 'from-blue-500 to-blue-600', bgColor: 'bg-blue-50', textColor: 'text-gray-900', max: 19 },
-  { id: 'my', name: 'My Leave', color: 'from-pink-500 to-pink-600', bgColor: 'bg-pink-50', textColor: 'text-gray-900', max: 12, genderRestricted: 'female' },
+  { id: 'casual', name: 'Casual Leave', color: 'from-blue-500 to-blue-600', bgColor: 'bg-blue-50', textColor: 'text-gray-900', max: 12 },
+  { id: 'my', name: 'My Leave', color: 'from-pink-500 to-pink-600', bgColor: 'bg-pink-50', textColor: 'text-gray-900', max: 12 },
 ];
 
 export function LeaveBalanceCards({ balances, isLoading }: LeaveBalanceCardsProps) {

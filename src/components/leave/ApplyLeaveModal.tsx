@@ -31,21 +31,13 @@ interface ApplyLeaveModalProps {
 // Hardcoded leave type IDs matching the database
 const LEAVE_TYPES = [
   { id: '33333333-3333-3333-3333-333333333333', name: 'Sick Leave', icon: '🏥', color: 'text-red-600', max: 6 },
-  { id: '44444444-4444-4444-4444-444444444444', name: 'Casual Leave', icon: '📅', color: 'text-blue-600', max: 19 },
-  { id: '55555555-5555-5555-5555-555555555555', name: 'My Leave', icon: '👩', color: 'text-pink-600', max: 12 },
+  { id: '44444444-4444-4444-4444-444444444444', name: 'Casual Leave', icon: '📅', color: 'text-blue-600', max: 12 },
+  { id: '55555555-5555-5555-5555-555555555555', name: 'My Leave', icon: '🎁', color: 'text-pink-600', max: 12 },
 ];
 
-// Get available leave types based on gender
+// Get available leave types - all leave types available to all employees
 function getAvailableLeaveTypes(gender?: string | null) {
-  const baseTypes = LEAVE_TYPES.filter(t => t.name !== 'My Leave');
-  
-  // Only show "My Leave" for female employees
-  if (gender === 'female') {
-    const myLeave = LEAVE_TYPES.find(t => t.name === 'My Leave');
-    return myLeave ? [...baseTypes, myLeave] : baseTypes;
-  }
-  
-  return baseTypes;
+  return LEAVE_TYPES;
 }
 
 export function ApplyLeaveModal({ open, onOpenChange, onSuccess }: ApplyLeaveModalProps) {

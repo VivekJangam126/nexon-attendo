@@ -13,6 +13,7 @@ export interface RegistrationData {
   gender?: 'male' | 'female';
   profile_photo?: File; // For admin use (server-side)
   profile_photo_url?: string; // For client-side registration
+  adminCreated?: boolean; // When true: skip pending request, auto-approve
 }
 
 export interface RegistrationResponse {

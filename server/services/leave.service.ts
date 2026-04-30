@@ -149,23 +149,6 @@ export class LeaveService {
     // Validate "My Leave" eligibility
     const MY_LEAVE_ID = '55555555-5555-5555-5555-555555555555';
     if (leaveTypeId === MY_LEAVE_ID) {
-      // If gender not provided, fetch from profiles table
-      if (!employeeGender) {
-        const { data: profile, error: profileError } = await (supabaseAdmin as any)
-          .from('profiles')
-          .select('gender')
-          .eq('id', employeeId)
-          .single();
-
-        if (profileError || !profile) throw new Error('Unable to verify employee details');
-        employeeGender = (profile as any).gender;
-      }
-
-      // Only female employees can use "My Leave"
-      if (employeeGender !== 'female') {
-        throw new Error('My Leave is only available for female employees');
-      }
-
       // Check if employee already has a "My Leave" in the current month
       const now = new Date();
       const currentYear = now.getFullYear();
@@ -360,19 +343,8 @@ export class LeaveService {
     if (fetchError) throw fetchError;
     if (!leaveRequest) throw new Error('Leave request not found');
 
-    // Validate "My Leave" approval - only for female employees
-    const MY_LEAVE_ID = '55555555-5555-5555-5555-555555555555';
-    if ((leaveRequest as any).leave_type_id === MY_LEAVE_ID) {
-      const { data: profile, error: profileError } = await (supabaseAdmin as any)
-        .from('profiles')
-        .select('gender')
-        .eq('id', (leaveRequest as any).employee_id)
-        .single();
-
-      if (profileError || !profile || (profile as any).gender !== 'female') {
-        throw new Error('My Leave can only be approved for female employees');
-      }
-    }
+    // My Leave validation - all employees can use it
+    // Additional validation logic can be added here if needed
 
     const start = new Date((leaveRequest as any).start_date);
     const end = new Date((leaveRequest as any).end_date);

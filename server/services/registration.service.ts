@@ -145,7 +145,7 @@ export const registrationService = {
    */
   async registerEmployee(data: RegistrationData): Promise<RegistrationResponse> {
     try {
-      const { email, password, full_name, office_id, designation, role_type, gender, profile_photo, profile_photo_url } = data;
+      const { email, password, full_name, office_id, designation, role_type, gender, profile_photo, profile_photo_url, adminCreated } = data;
 
       console.log('🔍 [REGISTRATION] Starting employee registration...');
       console.log('  Email:', email);
@@ -174,16 +174,26 @@ export const registrationService = {
 
       console.log('  🏢 Assigning to office:', selectedOffice.name);
 
-      // Step 1: Create auth user using Supabase Auth
+      // Step 1: Save admin's current session before signUp overwrites it
+      const { data: { session: adminSession } } = await supabase.auth.getSession();
+
+      // Create auth user using Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            full_name,
-          },
+          data: { full_name },
         },
       });
+
+      // Step 1b: If admin was logged in, restore their session immediately
+      // signUp() auto-signs-in the new user, which would overwrite the admin session
+      if (adminSession) {
+        await supabase.auth.setSession({
+          access_token: adminSession.access_token,
+          refresh_token: adminSession.refresh_token,
+        });
+      }
 
       if (authError) {
         console.log('  ❌ Auth signup error:', authError);
@@ -298,7 +308,7 @@ export const registrationService = {
         }
       }
 
-      // Step 3: Create profile record with status = 'pending'
+      // Step 3: Create profile record
       const { error: profileError } = await supabase
         .from('profiles')
         .insert({
@@ -306,14 +316,14 @@ export const registrationService = {
           email,
           full_name,
           role: 'employee',
-          status: 'pending', // ⚠️ User is pending approval
-          office_location: office_id, // Use office_location column name
+          status: adminCreated ? 'active' : 'pending', // Admin-created = active immediately
+          office_location: office_id,
           designation: designation || 'Not Assigned',
           role_type: role_type || 'Employee',
           gender: gender || null,
           profile_photo_url: profilePhotoUrl,
-          shift_mode: 'fixed', // Default to fixed shift
-          shift_type: 'evening', // Default to evening shift (10 AM - 7 PM)
+          shift_mode: 'fixed',
+          shift_type: 'evening',
         });
 
       if (profileError) {
@@ -326,25 +336,26 @@ export const registrationService = {
         };
       }
 
-      // Step 4: Create employee_request record
-      const { error: requestError } = await supabase
-        .from('employee_requests')
-        .insert({
-          user_id: userId,
-          full_name,
-          email,
-          office_id,
-          status: 'pending',
-        });
+      // Step 4: Create employee_request record (only for self-registered employees)
+      if (!adminCreated) {
+        const { error: requestError } = await supabase
+          .from('employee_requests')
+          .insert({
+            user_id: userId,
+            full_name,
+            email,
+            office_id,
+            status: 'pending',
+          });
 
-      if (requestError) {
-        // Note: Profile already created, but request tracking failed
-        // Admin can still manually approve via profile
-        console.error('Employee request creation failed:', requestError);
+        if (requestError) {
+          console.error('Employee request creation failed:', requestError);
+        }
+
+        // Step 5: Sign out self-registered user (cannot login until approved)
+        await supabase.auth.signOut();
       }
-
-      // Step 5: Immediately sign out the user (they cannot login until approved)
-      await supabase.auth.signOut();
+      // Admin-created employees: no pending request, no sign-out needed
 
       console.log('  ✅ Registration successful, assigned to:', selectedOffice.name);
 

@@ -519,6 +519,103 @@ export const employeeService = {
   },
 
   /**
+   * Activate a new employee created by admin:
+   * - Sets profile status to active
+   * - Marks employee_request as approved (removes from pending approvals)
+   * - Initializes leave balances for all leave types
+   * - Copies master public holidays to employee
+   * - Assigns default recurring holiday (Sunday)
+   */
+  async activateNewEmployee(userId: string): Promise<{ success: boolean; error: Error | null }> {
+    try {
+      const supabaseAny = supabase as any;
+      const currentYear = new Date().getFullYear();
+
+      // 1. Set profile to active
+      const { error: profileError } = await supabaseAny
+        .from('profiles')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('id', userId);
+
+      if (profileError) throw new Error(profileError.message);
+
+      // 2. Mark employee_request as approved so it doesn't show in pending approvals
+      await supabaseAny
+        .from('employee_requests')
+        .update({
+          status: 'approved',
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+
+      // 3. Initialize leave balances
+      const { data: leaveTypes } = await supabaseAny
+        .from('leave_types')
+        .select('id, max_per_year');
+
+      if (leaveTypes && leaveTypes.length > 0) {
+        const balanceRecords = leaveTypes.map((lt: any) => ({
+          employee_id: userId,
+          leave_type_id: lt.id,
+          year: currentYear,
+          total_leaves: lt.max_per_year || 0,
+          used_leaves: 0,
+          remaining_leaves: lt.max_per_year || 0
+        }));
+        await supabaseAny
+          .from('employee_leave_balance')
+          .upsert(balanceRecords, { onConflict: 'employee_id,leave_type_id,year', ignoreDuplicates: true });
+      }
+
+      // 4. Copy master public holidays
+      const { data: publicHolidays } = await supabaseAny
+        .from('master_public_holidays')
+        .select('holiday_date, holiday_name')
+        .eq('is_active', true)
+        .gte('holiday_date', `${currentYear}-01-01`);
+
+      if (publicHolidays && publicHolidays.length > 0) {
+        for (const h of publicHolidays) {
+          await supabaseAny
+            .from('employee_specific_holidays')
+            .insert({
+              employee_id: userId,
+              holiday_date: h.holiday_date,
+              holiday_type: 'public_holiday',
+              reason: h.holiday_name,
+              work_applications_allowed: false
+            })
+            .then(({ error }: any) => {
+              if (error && error.code !== '23505') {
+                console.warn('[activateNewEmployee] Holiday insert warning:', error.message);
+              }
+            });
+        }
+      }
+
+      // 5. Assign default recurring holiday (Sunday only)
+      const { data: existingRecurring } = await supabaseAny
+        .from('employee_recurring_holidays')
+        .select('id')
+        .eq('employee_id', userId);
+
+      if (!existingRecurring || existingRecurring.length === 0) {
+        await supabaseAny
+          .from('employee_recurring_holidays')
+          .insert({ employee_id: userId, day_of_week: 0, work_applications_allowed: false });
+      }
+
+      return { success: true, error: null };
+    } catch (err) {
+      console.error('[activateNewEmployee] Error:', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err : new Error('Failed to activate employee'),
+      };
+    }
+  },
+
+  /**
    * Deactivate employee (set status to blocked)
    */
   async deactivateEmployee(userId: string): Promise<{ success: boolean; error: Error | null }> {
@@ -526,66 +623,74 @@ export const employeeService = {
   },
 
   /**
-   * Delete employee (hard delete - permanently removes from database)
-   * This will cascade delete related records (attendance, etc.)
+   * Delete employee — complete cleanup including Supabase Auth user
+   * Deletes all related records so the email can be reused for a new registration
    */
   async deleteEmployee(userId: string): Promise<{ success: boolean; error: Error | null }> {
     try {
-      console.log('🗑️  [DELETE EMPLOYEE] Starting deletion for user:', userId);
-      
-      // First, delete related records manually to avoid foreign key issues
-      // Delete attendance records
-      console.log('  📋 Deleting attendance records...');
-      const { error: attendanceError } = await supabase
-        .from('attendance')
-        .delete()
-        .eq('user_id', userId);
-      
-      if (attendanceError) {
-        console.log('  ⚠️  Warning: Could not delete attendance records:', attendanceError);
-        // Continue anyway - attendance table might not have records
-      } else {
-        console.log('  ✅ Attendance records deleted');
+      console.log('🗑️  [DELETE EMPLOYEE] Starting full deletion for user:', userId);
+      const supabaseAny = supabase as any;
+
+      // Delete all related records in order (child tables first)
+      const tablesToClean: Array<{ table: string; column: string }> = [
+        { table: 'attendance',                   column: 'user_id' },
+        { table: 'employee_requests',            column: 'user_id' },
+        { table: 'employee_leave_balance',       column: 'employee_id' },
+        { table: 'leave_requests',               column: 'employee_id' },
+        { table: 'employee_specific_holidays',   column: 'employee_id' },
+        { table: 'employee_recurring_holidays',  column: 'employee_id' },
+        { table: 'performance_metrics',          column: 'employee_id' },
+        { table: 'performance_alerts',           column: 'employee_id' },
+        { table: 'break_logs',                   column: 'employee_id' },
+        { table: 'face_encodings',               column: 'user_id' },
+        { table: 'face_verification_logs',       column: 'user_id' },
+        { table: 'audit_logs',                   column: 'admin_id' },
+        { table: 'employee_work_applications',   column: 'employee_id' },
+        { table: 'notification_history',         column: 'employee_id' },
+      ];
+
+      for (const { table, column } of tablesToClean) {
+        const { error } = await supabaseAny
+          .from(table)
+          .delete()
+          .eq(column, userId);
+
+        if (error) {
+          // Log but continue — table may not exist or have no records
+          console.warn(`  ⚠️  Could not delete from ${table}:`, error.message);
+        } else {
+          console.log(`  ✅ Cleaned ${table}`);
+        }
       }
-      
-      // Delete employee requests
-      console.log('  📋 Deleting employee requests...');
-      const { error: requestsError } = await supabase
-        .from('employee_requests')
-        .delete()
-        .eq('user_id', userId);
-      
-      if (requestsError) {
-        console.log('  ⚠️  Warning: Could not delete employee requests:', requestsError);
-        // Continue anyway
-      } else {
-        console.log('  ✅ Employee requests deleted');
-      }
-      
-      // Finally, delete the profile
-      console.log('  👤 Deleting profile...');
+
+      // Delete the profile row
       const { error: profileError, data: deletedData } = await supabase
         .from('profiles')
         .delete()
         .eq('id', userId)
         .select();
 
-      console.log('  Delete result:', { error: profileError, data: deletedData });
-
       if (profileError) {
-        console.log('  ❌ Failed to delete profile:', profileError);
         throw new Error(`Failed to delete profile: ${profileError.message}`);
       }
-      
+
       if (!deletedData || deletedData.length === 0) {
-        console.log('  ⚠️  No rows were deleted - user might not exist or RLS policy blocking delete');
-        throw new Error('No rows were deleted. Check RLS policies or user existence.');
+        throw new Error('No profile found to delete. Check RLS policies or user existence.');
       }
-      
-      console.log('  ✅ Employee deleted successfully');
+
+      // Delete the Supabase Auth user so the email can be reused
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+      if (authError) {
+        // Non-critical — profile is already deleted, auth user cleanup is best-effort
+        console.warn('  ⚠️  Could not delete auth user (non-critical):', authError.message);
+      } else {
+        console.log('  ✅ Auth user deleted — email can be reused');
+      }
+
+      console.log('  ✅ Employee fully deleted');
       return { success: true, error: null };
     } catch (err) {
-      console.log('  ❌ Exception during deletion:', err);
+      console.error('  ❌ Exception during deletion:', err);
       return {
         success: false,
         error: err instanceof Error ? err : new Error('Failed to delete employee'),

@@ -13,7 +13,7 @@ import type { EmployeeRequestWithOffice } from "@server";
 
 const AdminPendingApprovalsScreen = () => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const [requests, setRequests] = useState<EmployeeRequestWithOffice[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<EmployeeRequestWithOffice | null>(null);
   const [showDetail, setShowDetail] = useState(false);
@@ -26,6 +26,9 @@ const AdminPendingApprovalsScreen = () => {
   // Fetch pending requests on mount
   useEffect(() => {
     const fetchRequests = async () => {
+      // Wait for auth to finish loading before checking profile
+      if (authLoading) return;
+
       if (!profile) {
         setError("Not authenticated");
         setLoading(false);
@@ -49,7 +52,7 @@ const AdminPendingApprovalsScreen = () => {
     };
 
     fetchRequests();
-  }, [profile]);
+  }, [profile, authLoading]);
 
   const handleApprove = async (requestId: string) => {
     if (!profile) return;

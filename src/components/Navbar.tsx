@@ -87,11 +87,13 @@ const Navbar: React.FC<NavbarProps> = ({ title = 'Dashboard', onMenuClick }) => 
                 className="flex items-center gap-1.5 sm:gap-2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                  {getInitials(profile?.full_name || 'User')}
+                  {profile?.full_name ? getInitials(profile.full_name) : (
+                    <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  )}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-xs font-medium text-gray-900 truncate max-w-[100px]">{profile?.full_name}</p>
-                  <p className="text-xs text-gray-500 capitalize">{profile?.role}</p>
+                  <p className="text-xs font-medium text-gray-900 truncate max-w-[100px]">{profile?.full_name || '...'}</p>
+                  <p className="text-xs text-gray-500 capitalize">{profile?.role || ''}</p>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600" />
               </button>

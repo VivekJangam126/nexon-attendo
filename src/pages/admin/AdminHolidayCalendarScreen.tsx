@@ -408,7 +408,8 @@ const AdminHolidayCalendarScreen = () => {
       setSelectedDateHolidays([]);
     }
 
-    setSelectedEmployees([]);
+    // Auto-select all employees so admin doesn't have to manually click "Select All"
+    setSelectedEmployees(employees.map(e => e.id));
     setHolidayReason("");
     setHolidayType("public_holiday");
     // Don't reset workApplicationsAllowed here - let admin choose each time

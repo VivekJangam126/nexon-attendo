@@ -207,17 +207,38 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: {
-            // Extract html2canvas into its own chunk to reduce main bundle
+            // Core React
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            // Supabase
+            'supabase': ['@supabase/supabase-js'],
+            // TanStack Query
+            'query': ['@tanstack/react-query'],
+            // Radix UI components
+            'radix-ui': [
+              '@radix-ui/react-dialog',
+              '@radix-ui/react-dropdown-menu',
+              '@radix-ui/react-select',
+              '@radix-ui/react-tabs',
+              '@radix-ui/react-tooltip',
+              '@radix-ui/react-popover',
+              '@radix-ui/react-checkbox',
+              '@radix-ui/react-switch',
+              '@radix-ui/react-accordion',
+            ],
+            // Charts
+            'recharts': ['recharts'],
+            // PDF/Excel export
+            'export-libs': ['jspdf', 'jspdf-autotable', 'xlsx'],
+            // HTML canvas
             'html2canvas': ['html2canvas'],
-            // Extract large UI libraries into separate chunks
-            'radix-ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
-            // Extract date/time libraries
+            // Date utilities
             'date-fns': ['date-fns'],
+            // Form handling
+            'forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
           },
         },
       },
-      // Increase chunk size warning limit slightly since we're optimizing
-      chunkSizeWarningLimit: 600,
+      chunkSizeWarningLimit: 800,
     },
     resolve: {
       alias: {

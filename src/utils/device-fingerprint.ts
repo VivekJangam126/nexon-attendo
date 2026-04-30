@@ -22,31 +22,35 @@ interface DeviceFingerprintData {
  * 
  * @returns Device ID string (base64 encoded fingerprint)
  */
+/**
+ * Safe UUID generator — uses crypto.randomUUID() where available,
+ * falls back to a Math.random-based UUID for older browsers (Safari < 15.4, Samsung Internet < 16)
+ */
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export function getDeviceFingerprint(): string {
   try {
-    // Check if device ID already exists in localStorage
     const existingDeviceId = localStorage.getItem('device_id');
     if (existingDeviceId) {
       return existingDeviceId;
     }
-
-    // Generate new fingerprint
     const fingerprint = generateFingerprint();
-    
-    // Encode as base64 for storage
     const deviceId = btoa(JSON.stringify(fingerprint));
-    
-    // Store in localStorage
     localStorage.setItem('device_id', deviceId);
-    
-    console.log('📱 [DEVICE] Generated new device fingerprint');
-    
     return deviceId;
   } catch (error) {
-    console.error('❌ [DEVICE] Error generating fingerprint:', error);
-    // Fallback to random UUID if fingerprinting fails
-    const fallbackId = crypto.randomUUID();
-    localStorage.setItem('device_id', fallbackId);
+    const fallbackId = generateUUID();
+    try { localStorage.setItem('device_id', fallbackId); } catch {}
     return fallbackId;
   }
 }
@@ -68,7 +72,7 @@ function generateFingerprint(): DeviceFingerprintData {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     screenResolution: `${screen.width}x${screen.height}`,
     colorDepth: screen.colorDepth,
-    randomId: crypto.randomUUID(), // Ensures uniqueness per device
+    randomId: generateUUID(),
   };
 }
 

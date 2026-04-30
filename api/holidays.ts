@@ -219,7 +219,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Create holiday records
-      const records = employee_ids.map(employee_id => ({
+      const records = employee_ids.map((employee_id: string) => ({
         employee_id,
         holiday_date,
         holiday_type,
@@ -234,6 +234,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (error) {
         console.error('[Holidays API] Database error creating specific holidays:', error);
         return res.status(400).json({ error: error.message });
+      }
+
+      // Also save to master_public_holidays so future new employees get it automatically
+      // Use service role client for this since master_public_holidays requires admin write
+      if (supabaseServiceKey) {
+        const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey, {
+          auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        await supabaseAdmin
+          .from('master_public_holidays')
+          .upsert({
+            holiday_date,
+            holiday_name: reason,
+            holiday_type: holiday_type === 'public_holiday' ? 'national' : 'festival',
+            description: reason,
+            is_active: true
+          }, { onConflict: 'holiday_date' });
       }
 
       return res.json({ success: true, count: data?.length || 0, message: 'Holidays created' });

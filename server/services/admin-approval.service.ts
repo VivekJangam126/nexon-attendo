@@ -1,4 +1,4 @@
-/**
+ /**
  * Admin Approval Service
  * Handles employee approval/rejection workflows
  * Phase 2: Admin-only operations for managing employee requests
@@ -163,11 +163,11 @@ export const adminApprovalService = {
         };
       }
 
-      const userId = request.user_id;
-      const finalOfficeId = officeId || request.office_id;
+      const userId = (request as any).user_id;
+      const finalOfficeId = officeId || (request as any).office_id;
 
       // Step 1: Update profile status to 'active'
-      const { error: profileError } = await supabase
+      const { error: profileError } = await (supabase as any)
         .from('profiles')
         .update({
           status: 'active',
@@ -183,8 +183,82 @@ export const adminApprovalService = {
         };
       }
 
+      // Step 1.5: Initialize leave balances and holidays for new employee
+      try {
+        const supabaseAny = supabase as any;
+        const currentYear = new Date().getFullYear();
+
+        // A. Fetch all leave types
+        const { data: leaveTypes } = await supabaseAny
+          .from('leave_types')
+          .select('id, max_per_year');
+
+        // B. Create leave balance records for each leave type (insert, skip if already exists)
+        if (leaveTypes && leaveTypes.length > 0) {
+          const balanceRecords = leaveTypes.map((lt: any) => ({
+            employee_id: userId,
+            leave_type_id: lt.id,
+            year: currentYear,
+            total_leaves: lt.max_per_year || 0,
+            used_leaves: 0,
+            remaining_leaves: lt.max_per_year || 0
+          }));
+
+          await supabaseAny
+            .from('employee_leave_balance')
+            .upsert(balanceRecords, { onConflict: 'employee_id,leave_type_id,year', ignoreDuplicates: true });
+        }
+
+        // C. Copy all master public holidays as employee-specific holidays (current year onwards)
+        const { data: publicHolidays } = await supabaseAny
+          .from('master_public_holidays')
+          .select('holiday_date, holiday_name, holiday_type')
+          .eq('is_active', true)
+          .gte('holiday_date', `${currentYear}-01-01`);
+
+        if (publicHolidays && publicHolidays.length > 0) {
+          const holidayRecords = publicHolidays.map((h: any) => ({
+            employee_id: userId,
+            holiday_date: h.holiday_date,
+            holiday_type: 'public_holiday',
+            reason: h.holiday_name,
+            work_applications_allowed: false
+          }));
+
+          // Insert one by one to avoid constraint issues
+          for (const record of holidayRecords) {
+            await supabaseAny
+              .from('employee_specific_holidays')
+              .insert(record)
+              .then(({ error }: any) => {
+                if (error && error.code !== '23505') { // ignore duplicate key errors
+                  console.warn('[Approve] Holiday insert warning:', error.message);
+                }
+              });
+          }
+        }
+
+        // D. Assign default recurring holidays (Sunday=0, Saturday=6) if not already set
+        const { data: existingRecurring } = await supabaseAny
+          .from('employee_recurring_holidays')
+          .select('day_of_week')
+          .eq('employee_id', userId);
+
+        if (!existingRecurring || existingRecurring.length === 0) {
+          await supabaseAny
+            .from('employee_recurring_holidays')
+            .insert([
+              { employee_id: userId, day_of_week: 0, work_applications_allowed: false } // Sunday only
+            ]);
+        }
+
+      } catch (initError) {
+        console.error('[Approve] Employee initialization error:', initError);
+        // Non-critical — employee is already approved
+      }
+
       // Step 2: Update employee_request status
-      const { error: requestError } = await supabase
+      const { error: requestError } = await (supabase as any)
         .from('employee_requests')
         .update({
           status: 'approved',
@@ -249,10 +323,10 @@ export const adminApprovalService = {
         };
       }
 
-      const userId = request.user_id;
+      const userId = (request as any).user_id;
 
       // Step 1: Update profile status to 'rejected'
-      const { error: profileError } = await supabase
+      const { error: profileError } = await (supabase as any)
         .from('profiles')
         .update({
           status: 'rejected',
@@ -268,7 +342,7 @@ export const adminApprovalService = {
       }
 
       // Step 2: Update employee_request with rejection details
-      const { error: requestError } = await supabase
+      const { error: requestError } = await (supabase as any)
         .from('employee_requests')
         .update({
           status: 'rejected',
