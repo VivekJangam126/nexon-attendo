@@ -398,23 +398,24 @@ const AdminEmployeeDetailScreen = () => {
     <AdminLayout>
       <div className="flex flex-col min-h-full pb-20 md:pb-0">
         {/* Header */}
-        <div className="px-3 sm:px-6 lg:px-8 pt-2 pb-2 border-b border-border">
-          <div className="flex items-center justify-between mb-2">
-            <button onClick={() => navigate("/admin/user-management")} className="p-1 hover:bg-muted rounded-lg transition-colors">
-              <ArrowLeft className="w-5 h-5 sm:w-4.5 sm:h-4.5" />
+        <div className="px-3 sm:px-6 lg:px-8 pt-2 pb-3 border-b border-border">
+          <div className="flex items-center justify-between mb-3">
+            <button onClick={() => navigate("/admin/user-management")} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
+              <ArrowLeft className="w-5 h-5" />
             </button>
-            <button onClick={handleOpenEditDialog} className="p-1 hover:bg-muted rounded-lg transition-colors">
-              <Edit className="w-5 h-5 sm:w-4.5 sm:h-4.5" />
+            <button onClick={handleOpenEditDialog} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-100 transition-colors">
+              <Edit className="w-3.5 h-3.5" />
+              Edit
             </button>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 sm:w-11 sm:h-11 bg-amber-100 rounded-full flex-shrink-0 flex items-center justify-center">
-              <span className="text-xs sm:text-base font-semibold text-amber-700">{employee.full_name.split(" ").map((n: string) => n[0]).join("")}</span>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-amber-100 rounded-full flex-shrink-0 flex items-center justify-center">
+              <span className="text-base font-semibold text-amber-700">{employee?.full_name.split(" ").map((n: string) => n[0]).join("")}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-sm sm:text-base font-semibold mb-0.5 line-clamp-1">{employee.full_name}</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">{employee.email}</p>
-              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <h1 className="text-base font-semibold truncate">{employee?.full_name}</h1>
+              <p className="text-xs text-muted-foreground truncate">{employee?.email}</p>
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                 <StatusBadge status={todayStatus} />
                 {!isActive && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-destructive-muted text-destructive">Deactivated</span>}
               </div>
@@ -424,7 +425,7 @@ const AdminEmployeeDetailScreen = () => {
 
         {/* Content */}
         <div className="flex-1 px-3 sm:px-6 lg:px-8 py-2 sm:py-3 overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-2 sm:gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3">
             {/* Left column */}
             <div className="space-y-2 sm:space-y-2.5">
               <div className="animate-fade-in-up">
@@ -495,15 +496,15 @@ const AdminEmployeeDetailScreen = () => {
               {/* Stats */}
               <div className="animate-fade-in-up" style={{ animationDelay: "0.15s" }}>
                 <h2 className="text-overline text-xs sm:text-sm mb-2">Monthly Statistics</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
                     { value: `${stats.attendanceRate}%`, label: "Rate", color: "text-primary" },
                     { value: stats.presentCount, label: "Present", color: "text-success" },
                     { value: stats.lateCount, label: "Late", color: "text-warning" },
                     { value: stats.absentCount, label: "Absent", color: "text-destructive" },
                   ].map((s, i) => (
-                    <div key={i} className="card-elevated p-2 sm:p-2.5 text-center">
-                      <p className={`text-base sm:text-xl font-semibold ${s.color}`}>{s.value}</p>
+                    <div key={i} className="card-elevated p-3 text-center">
+                      <p className={`text-xl font-semibold ${s.color}`}>{s.value}</p>
                       <p className="text-xs text-muted-foreground">{s.label}</p>
                     </div>
                   ))}

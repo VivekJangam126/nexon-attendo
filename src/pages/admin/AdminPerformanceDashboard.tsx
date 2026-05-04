@@ -261,14 +261,14 @@ const AdminPerformanceDashboard = () => {
       <AdminLayout title="Performance Dashboard">
         <div className="space-y-4">
           {/* Header Stats Skeleton */}
-          <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 md:p-4 shadow-sm animate-pulse">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gray-200 rounded-md sm:rounded-lg self-start"></div>
-                  <div className="min-w-0">
-                    <div className="h-3 bg-gray-200 rounded w-16 sm:w-20 mb-1"></div>
-                    <div className="h-4 sm:h-5 md:h-6 bg-gray-200 rounded w-8 sm:w-10 md:w-12"></div>
+              <div key={i} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm animate-pulse">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gray-200 rounded-lg flex-shrink-0"></div>
+                  <div className="min-w-0 flex-1">
+                    <div className="h-3 bg-gray-200 rounded w-16 mb-1.5"></div>
+                    <div className="h-5 bg-gray-200 rounded w-10"></div>
                   </div>
                 </div>
               </div>
@@ -305,77 +305,77 @@ const AdminPerformanceDashboard = () => {
     <AdminLayout title="Performance Dashboard">
       <div className="space-y-4">
         {/* Header Stats */}
-        <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 md:p-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-              <div className="p-1.5 sm:p-2 bg-blue-50 rounded-md sm:rounded-lg self-start">
-                <Users className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-3 md:p-4 shadow-sm">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-2 bg-blue-50 rounded-lg flex-shrink-0">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-gray-600 leading-tight">Total Employees</p>
-                <p className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 leading-none">{statistics.totalEmployees}</p>
+                <p className="text-lg sm:text-xl font-bold text-gray-900 leading-none">{statistics.totalEmployees}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 md:p-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-              <div className="p-1.5 sm:p-2 bg-green-50 rounded-md sm:rounded-lg self-start">
-                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-green-600" />
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-3 md:p-4 shadow-sm">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-2 bg-green-50 rounded-lg flex-shrink-0">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-gray-600 leading-tight">Avg Performance</p>
-                <p className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 leading-none">{statistics.avgScore.toFixed(1)}/100</p>
+                <p className="text-lg sm:text-xl font-bold text-gray-900 leading-none">{statistics.avgScore.toFixed(1)}/100</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 md:p-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-              <div className="p-1.5 sm:p-2 bg-amber-50 rounded-md sm:rounded-lg self-start">
-                <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-amber-600" />
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-3 md:p-4 shadow-sm">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-2 bg-amber-50 rounded-lg flex-shrink-0">
+                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-gray-600 leading-tight">Active Alerts</p>
-                <p className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 leading-none">{statistics.totalAlerts}</p>
+                <p className="text-lg sm:text-xl font-bold text-gray-900 leading-none">{statistics.totalAlerts}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3 md:p-4 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-              <div className="p-1.5 sm:p-2 bg-purple-50 rounded-md sm:rounded-lg self-start">
-                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-purple-600" />
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-3 md:p-4 shadow-sm">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-2 bg-purple-50 rounded-lg flex-shrink-0">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-gray-600 leading-tight">High Performers</p>
-                <p className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 leading-none">{statistics.highPerformers}</p>
+                <p className="text-lg sm:text-xl font-bold text-gray-900 leading-none">{statistics.highPerformers}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Controls */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="flex flex-col sm:flex-row gap-3 flex-1">
-              {/* Search */}
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search employees..."
-                  className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                />
-              </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 shadow-sm">
+          <div className="flex flex-col gap-3">
+            {/* Search */}
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search employees..."
+                className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+              />
+            </div>
 
-              {/* Filters */}
+            {/* Filters row */}
+            <div className="flex gap-2">
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -386,7 +386,7 @@ const AdminPerformanceDashboard = () => {
               <select
                 value={filterAlerts}
                 onChange={(e) => setFilterAlerts(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
               >
                 <option value="all">All Alerts</option>
                 <option value="with_alerts">With Alerts</option>
@@ -399,14 +399,14 @@ const AdminPerformanceDashboard = () => {
               <button
                 onClick={calculateCurrentMonthMetrics}
                 disabled={calculating}
-                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw className={`w-4 h-4 ${calculating ? 'animate-spin' : ''}`} />
-                {calculating ? 'Calculating...' : 'Calculate Metrics'}
+                {calculating ? 'Calculating...' : 'Calculate'}
               </button>
-              <button 
+              <button
                 onClick={handleExportPDF}
-                className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
               >
                 <Download className="w-4 h-4" />
                 Export PDF
