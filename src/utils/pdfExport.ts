@@ -6,6 +6,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { EmployeePerformanceCard } from '@server';
+import { savePDF } from './downloadHelper';
 
 export const exportPerformanceToPDF = (employees: EmployeePerformanceCard[]) => {
   try {
@@ -105,7 +106,7 @@ export const exportPerformanceToPDF = (employees: EmployeePerformanceCard[]) => 
     
     // Save the PDF
     const fileName = `performance-report-${new Date().toISOString().split('T')[0]}.pdf`;
-    doc.save(fileName);
+    savePDF(doc, fileName);
     
     return fileName;
   } catch (error) {

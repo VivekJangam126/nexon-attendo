@@ -11,6 +11,7 @@ import { reportsService, notificationTriggerService } from "@server";
 import type { ReportStats, DailyBreakdown, EmployeeAttendanceRecord } from "@server";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { savePDF } from '@/utils/downloadHelper';
 
 type TimeRange = "today" | "week" | "month";
 
@@ -439,7 +440,7 @@ const AdminReportsScreen = () => {
     });
     
     // Save the PDF
-    doc.save(`attendance-report-${timeRange}-${Date.now()}.pdf`);
+    savePDF(doc, `attendance-report-${timeRange}-${Date.now()}.pdf`);
   };
 
   const handleExport = async () => {

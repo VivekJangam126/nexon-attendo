@@ -10,6 +10,7 @@ import { reportsService } from "@server";
 import type { ReportStats, DailyBreakdown, EmployeeAttendanceRecord } from "@server";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { savePDF } from '@/utils/downloadHelper';
 
 type TimeRange = "today" | "week" | "month" | "custom";
 type ExportFormat = "pdf" | "excel";
@@ -238,7 +239,7 @@ const AdminReportsNewScreen = () => {
       margin: { left: 14, right: 14 },
     });
     
-    doc.save(`attendance-report-${selectedTimeRange}-${Date.now()}.pdf`);
+    savePDF(doc, `attendance-report-${selectedTimeRange}-${Date.now()}.pdf`);
   };
 
   const handleExport = async () => {

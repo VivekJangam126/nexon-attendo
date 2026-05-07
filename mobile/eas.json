@@ -1,28 +1,21 @@
 {
   "cli": {
-    "version": ">= 5.2.0"
+    "version": ">= 5.2.0",
+    "appVersionSource": "local"
   },
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "node": "20.11.1"
-    },
     "preview": {
       "distribution": "internal",
-      "node": "20.11.1",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
       }
     },
     "production": {
-      "node": "20.11.1",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
       }
     }
-  },
-  "submit": {
-    "production": {}
   }
 }

@@ -10,6 +10,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { format } from "date-fns";
+import { savePDF, saveExcel } from '@/utils/downloadHelper';
 
 type ExportFormat = "pdf" | "excel";
 type TimeRange = "today" | "week" | "month" | "custom";
@@ -1069,7 +1070,7 @@ export const ReportsExportTab = () => {
     if (forEmail) {
       return doc;
     } else {
-      doc.save(`attendance-report-${selectedRange}-${Date.now()}.pdf`);
+      savePDF(doc, `attendance-report-${selectedRange}-${Date.now()}.pdf`);
     }
   };
 
@@ -1270,7 +1271,7 @@ export const ReportsExportTab = () => {
     XLSX.utils.book_append_sheet(wb, summarySheet, 'Attendance Report');
 
     // Save file
-    XLSX.writeFile(wb, `attendance-report-${selectedRange}-${Date.now()}.xlsx`);
+    saveExcel(wb, `attendance-report-${selectedRange}-${Date.now()}.xlsx`);
   };
 
   return (

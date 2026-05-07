@@ -79,6 +79,8 @@ const AdminEmployeeDetailScreen = () => {
   const [breakRefreshTrigger, setBreakRefreshTrigger] = useState(0); // Add refresh trigger
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
+  const [showRevertCheckoutDialog, setShowRevertCheckoutDialog] = useState(false);
+  const [isRevertingCheckout, setIsRevertingCheckout] = useState(false);
   const [todayCheckoutTime, setTodayCheckoutTime] = useState<string | null>(null);
   
   // Custom roles and designations
@@ -371,6 +373,40 @@ const AdminEmployeeDetailScreen = () => {
     }
   };
 
+  const handleRevertCheckout = async () => {
+    if (!id) return;
+    setIsRevertingCheckout(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { error } = await (supabase as any)
+        .from('attendance')
+        .update({ check_out_time: null, updated_at: new Date().toISOString() })
+        .eq('user_id', id)
+        .eq('date', today);
+
+      if (error) throw error;
+
+      setTodayCheckoutTime(null);
+      setShowRevertCheckoutDialog(false);
+      toast({
+        title: "Checkout Reverted",
+        description: `${employee?.full_name}'s session is now active again.`,
+      });
+
+      // Refresh attendance history
+      const { attendanceHistory: history } = await employeeService.getEmployeeDetail(id);
+      setAttendanceHistory(history);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to revert checkout. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRevertingCheckout(false);
+    }
+  };
+
   if (loading) {
     return (
       <AdminLayout>
@@ -546,9 +582,18 @@ const AdminEmployeeDetailScreen = () => {
                         Check out employee manually if they left without checking out. Prevents gaming the auto-checkout system.
                       </p>
                       {todayCheckoutTime ? (
-                        <div className="flex items-center gap-2 text-xs text-success">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Already checked out today at {formatCheckInTime(todayCheckoutTime)}</span>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 text-xs text-success">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Checked out today at {formatCheckInTime(todayCheckoutTime)}</span>
+                          </div>
+                          <button
+                            onClick={() => setShowRevertCheckoutDialog(true)}
+                            className="w-full px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                          >
+                            <LogOut className="w-4 h-4 rotate-180" />
+                            Revert Checkout (Session Still Active)
+                          </button>
                         </div>
                       ) : attendanceHistory.find(r => r.date === new Date().toISOString().split('T')[0])?.check_in_time ? (
                         <button
@@ -774,6 +819,35 @@ const AdminEmployeeDetailScreen = () => {
                   </>
                 ) : (
                   'Check Out'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Revert Checkout Confirm */}
+        <AlertDialog open={showRevertCheckoutDialog} onOpenChange={setShowRevertCheckoutDialog}>
+          <AlertDialogContent className="max-w-[340px] rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Revert Checkout</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will remove {employee?.full_name}'s checkout time. Their session will be marked as still active. Use this if they checked out by mistake or were auto-checked out unexpectedly.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-row gap-3">
+              <AlertDialogCancel className="flex-1 mt-0" disabled={isRevertingCheckout}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleRevertCheckout}
+                className="flex-1 bg-orange-500 text-white hover:bg-orange-600"
+                disabled={isRevertingCheckout}
+              >
+                {isRevertingCheckout ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                    Reverting...
+                  </>
+                ) : (
+                  'Revert Checkout'
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>
